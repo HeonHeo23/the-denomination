@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# The Denomination
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A turn-based causal simulation of a fictional Christian denomination. The current repository contains a deliberately small playable scenario that exercises the core model from `GAME_DESIGN.md`; it is not the full game or final game content.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Vite 8 and Oxlint require Node `20.19+` or `22.12+`.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Useful checks:
+
+```sh
+npm run build
+npm run lint
+npm run test:engine
+```
+
+The engine test uses only TypeScript and Node, so it can also run under the older Node 18 runtime currently present in some development containers.
+
+## Architecture
+
+- `src/simulation/domain` defines immutable Scenario content and mutable runtime snapshots.
+- `src/simulation/engine` contains pure initialization, command, turn, Effect, incident, inertia, Situation, and Grudge transitions. It does not import React.
+- `src/scenarios` contains static playable configuration.
+- `src/app` adapts the engine to the browser session.
+- `src/ui/graph` projects canonical simulation state into disposable React Flow nodes and edges.
+
+The MVP uses synchronous snapshot evaluation: each turn calculates every persistent target from the same prior state, its underlying baseline, active Effect contributions, and active Grudges. A Situation that activates during a turn begins exerting outgoing Effects on the following turn. Per-Effect inertia uses a moving average of recent source values, seeded from the scenario's starting state.
+
+`GAME_DESIGN.md` remains authoritative whenever implementation details and game semantics intersect.
