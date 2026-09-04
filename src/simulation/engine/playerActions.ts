@@ -5,7 +5,6 @@ import type {
 import type { SimulationCommand } from "../domain/commands";
 import type { CommandResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
-import { applyConsequences } from "./incidents";
 import { clampValue, indexNodes } from "./shared";
 
 /** Creates a rejected command result that preserves the original snapshot. */
@@ -103,47 +102,6 @@ function changeStance(
   };
 }
 
-/** Applies a selected Dilemma choice and clears the pending Dilemma. */
-function resolveDilemma(
-  scenario: ScenarioDefinition,
-  state: SimulationState,
-  dilemmaId: string,
-  choiceId: string,
-): CommandResult {
-  if (state.pendingDilemma?.dilemmaId !== dilemmaId) {
-    return reject(state, "That Dilemma is not currently pending.");
-  }
-  const dilemma = scenario.dilemmas.find(({ id }) => id === dilemmaId);
-  const choice = dilemma?.choices.find(({ id }) => id === choiceId);
-  if (!dilemma || !choice)
-    return reject(state, "That Dilemma choice is invalid.");
-
-  const resolved = applyConsequences(
-    scenario,
-    state,
-    `${dilemmaId}:${choiceId}`,
-    choice.consequences,
-  );
-  return {
-    accepted: true,
-    message: choice.label,
-    state: {
-      ...resolved,
-      pendingDilemma: undefined,
-      history: [
-        ...resolved.history,
-        {
-          id: `${dilemmaId}:${choiceId}:${state.turn}`,
-          turn: state.turn,
-          kind: "dilemma",
-          title: dilemma.title,
-          detail: choice.label,
-        },
-      ],
-    },
-  };
-}
-
 /**
  * Validates and applies one semantic player command to a runtime snapshot.
  * Rejected commands return the original state unchanged.
@@ -165,12 +123,5 @@ export function executeCommand(
       }
       return changeStance(scenario, state, definition, command.value);
     }
-    case "resolve-dilemma":
-      return resolveDilemma(
-        scenario,
-        state,
-        command.dilemmaId,
-        command.choiceId,
-      );
   }
 }

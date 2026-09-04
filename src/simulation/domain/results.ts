@@ -16,9 +16,8 @@ export interface CommandResult {
   readonly message: string;
 }
 
-/** Outcome of attempting to advance the simulation by one turn. */
+/** Outcome of advancing the simulation by one turn. */
 export interface TurnResult {
-  readonly advanced: boolean;
   readonly state: SimulationState;
   readonly message: string;
   readonly trace: readonly CalculationTrace[];

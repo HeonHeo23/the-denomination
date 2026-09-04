@@ -1,8 +1,6 @@
-import { useMemo } from "react";
 import { useGameSession } from "./app/useGameSession";
 import { exampleScenario } from "./scenarios/example";
 import { SimulationGraph } from "./ui/graph/SimulationGraph";
-import { DilemmaPanel } from "./ui/panels/DilemmaPanel";
 import { StanceControls } from "./ui/panels/StanceControls";
 import "./App.css";
 
@@ -10,15 +8,6 @@ function App() {
   const session = useGameSession(exampleScenario);
   const resource = exampleScenario.nodes.find(
     (node) => node.type === "resource",
-  );
-  const pendingDilemma = useMemo(
-    () =>
-      session.state.pendingDilemma
-        ? exampleScenario.dilemmas.find(
-            ({ id }) => id === session.state.pendingDilemma?.dilemmaId,
-          )
-        : undefined,
-    [session.state.pendingDilemma],
   );
   const situations = exampleScenario.nodes.filter(
     (node) => node.type === "situation",
@@ -129,7 +118,7 @@ function App() {
           {session.state.history.length === 0 ? (
             <div className="empty-chronicle">
               <span>1980</span>
-              <p>No incidents have altered the Fellowship yet.</p>
+              <p>No recorded changes yet.</p>
             </div>
           ) : (
             <ol className="chronicle-list">
@@ -161,15 +150,6 @@ function App() {
           )}
         </aside>
       </main>
-
-      {pendingDilemma && (
-        <DilemmaPanel
-          dilemma={pendingDilemma}
-          onChoose={(choiceId) =>
-            session.resolveDilemma(pendingDilemma.id, choiceId)
-          }
-        />
-      )}
     </div>
   );
 }

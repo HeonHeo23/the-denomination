@@ -470,69 +470,6 @@ main {
   font-family: "DM Mono", monospace;
 }
 
-.dilemma-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(28, 32, 28, 0.72);
-  backdrop-filter: blur(4px);
-}
-.dilemma {
-  width: min(680px, 100%);
-  padding: 34px;
-  border-top: 5px solid var(--gold);
-  background: var(--paper);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
-}
-.dilemma__eyebrow {
-  color: var(--gold);
-  font:
-    500 9px "DM Mono",
-    monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-.dilemma h2 {
-  margin: 8px 0;
-  font:
-    700 30px "Source Serif 4",
-    serif;
-}
-.dilemma > p {
-  margin: 0 0 24px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.dilemma__choices {
-  display: grid;
-  gap: 9px;
-}
-.dilemma__choices button {
-  text-align: left;
-  display: grid;
-  gap: 4px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.35);
-  color: var(--ink);
-}
-.dilemma__choices button:hover {
-  border-color: var(--green);
-  background: var(--green-soft);
-}
-.dilemma__choices strong {
-  font:
-    700 14px "Source Serif 4",
-    serif;
-}
-.dilemma__choices span {
-  color: var(--muted);
-  font-size: 10px;
-}
-
 @media (max-width: 1180px) {
   main {
     grid-template-columns: 300px minmax(480px, 1fr);

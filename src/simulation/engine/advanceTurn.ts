@@ -2,11 +2,6 @@ import type { ScenarioDefinition } from "../domain/definitions";
 import type { TurnResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { evaluatePersistentState } from "./evaluatePersistentState";
-import {
-  defaultRandomSource,
-  evaluateIncidents,
-  type RandomSource,
-} from "./incidents";
 
 const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 
@@ -14,23 +9,12 @@ const GRUDGE_CLEANUP_THRESHOLD = 0.001;
  * Advances a runtime snapshot by one turn.
  *
  * Persistent values are evaluated before Grudges decay, so each Grudge
- * contributes its current magnitude for the turn. Incident evaluation then
- * observes the resulting persistent state.
+ * contributes its current magnitude for the turn.
  */
 export function advanceTurn(
   scenario: ScenarioDefinition,
   state: SimulationState,
-  random: RandomSource = defaultRandomSource,
 ): TurnResult {
-  if (state.pendingDilemma) {
-    return {
-      advanced: false,
-      state,
-      message: "Resolve the pending Dilemma before advancing.",
-      trace: [],
-    };
-  }
-
   const turn = state.turn + 1;
   const year = state.year === undefined ? undefined : state.year + 1;
   const atNextTurn = { ...state, turn, year };
@@ -47,11 +31,8 @@ export function advanceTurn(
         (grudge) => Math.abs(grudge.magnitude) >= GRUDGE_CLEANUP_THRESHOLD,
       ),
   };
-  const afterIncidents = evaluateIncidents(scenario, decayed, random);
-
   return {
-    advanced: true,
-    state: afterIncidents,
+    state: decayed,
     message: `Advanced to turn ${turn}.`,
     trace: evaluated.trace,
   };

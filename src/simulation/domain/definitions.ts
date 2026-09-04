@@ -4,9 +4,6 @@ export type NodeId = string;
 /** Stable identifier for a causal Effect. */
 export type EffectId = string;
 
-/** Stable identifier shared by Events and Dilemmas. */
-export type IncidentId = string;
-
 /** The five persistent object kinds supported by the simulation. */
 export type NodeType =
   "stance" | "indicator" | "faction" | "resource" | "situation";
@@ -145,64 +142,6 @@ export interface EffectDefinition {
   readonly label?: string;
 }
 
-/** One weighted input to an Event or Dilemma trigger score. */
-export interface IncidentInfluence {
-  readonly source: NodeId | "_random_";
-  readonly coefficient: number;
-  readonly intercept?: number;
-}
-
-/** An immediate state change produced by an incident or Dilemma choice. */
-export type ConsequenceDefinition =
-  | {
-      readonly kind: "grudge";
-      readonly target: NodeId;
-      readonly magnitude: number;
-      readonly decay: number;
-      readonly label: string;
-    }
-  | {
-      readonly kind: "resource";
-      readonly target: NodeId;
-      readonly amount: number;
-    }
-  | {
-      readonly kind: "activation";
-      readonly target: NodeId;
-      readonly active: boolean;
-    };
-
-/** Trigger configuration shared by Events and Dilemmas. */
-interface BaseIncidentDefinition {
-  readonly id: IncidentId;
-  readonly title: string;
-  readonly description: string;
-  readonly influences: readonly IncidentInfluence[];
-  readonly threshold: number;
-  readonly cooldownTurns: number;
-  readonly prerequisites?: readonly string[];
-}
-
-/** An incident that resolves automatically when selected. */
-export interface EventDefinition extends BaseIncidentDefinition {
-  readonly kind: "event";
-  readonly consequences: readonly ConsequenceDefinition[];
-}
-
-/** One player-selectable response to a Dilemma. */
-export interface DilemmaChoiceDefinition {
-  readonly id: string;
-  readonly label: string;
-  readonly description: string;
-  readonly consequences: readonly ConsequenceDefinition[];
-}
-
-/** An incident that blocks turn advancement until the player chooses. */
-export interface DilemmaDefinition extends BaseIncidentDefinition {
-  readonly kind: "dilemma";
-  readonly choices: readonly DilemmaChoiceDefinition[];
-}
-
 /** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
   readonly id: string;
@@ -213,6 +152,4 @@ export interface ScenarioDefinition {
   readonly prerequisites: readonly string[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];
-  readonly events: readonly EventDefinition[];
-  readonly dilemmas: readonly DilemmaDefinition[];
 }

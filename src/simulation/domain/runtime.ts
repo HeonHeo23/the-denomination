@@ -1,4 +1,4 @@
-import type { EffectId, IncidentId, NodeId } from "./definitions";
+import type { EffectId, NodeId } from "./definitions";
 
 /** Mutable-in-time values for one persistent node in a snapshot. */
 export interface NodeRuntimeState {
@@ -14,10 +14,9 @@ export interface EffectRuntimeState {
   readonly lastContribution: number;
 }
 
-/** A temporary incident contribution that decays after each applied turn. */
+/** A temporary contribution that decays after each applied turn. */
 export interface GrudgeRuntimeState {
   readonly id: string;
-  readonly sourceIncidentId: IncidentId;
   readonly label: string;
   readonly target: NodeId;
   readonly magnitude: number;
@@ -25,23 +24,11 @@ export interface GrudgeRuntimeState {
   readonly createdTurn: number;
 }
 
-/** Trigger history used to enforce an incident's cooldown. */
-export interface IncidentRuntimeState {
-  readonly lastTriggeredTurn?: number;
-  readonly timesTriggered: number;
-}
-
-/** A selected Dilemma awaiting a player command. */
-export interface PendingDilemmaState {
-  readonly dilemmaId: IncidentId;
-  readonly triggeredTurn: number;
-}
-
 /** Player-visible record of a meaningful simulation occurrence. */
 export interface HistoryEntry {
   readonly id: string;
   readonly turn: number;
-  readonly kind: "event" | "dilemma" | "stance" | "situation";
+  readonly kind: "stance" | "situation";
   readonly title: string;
   readonly detail: string;
 }
@@ -54,7 +41,5 @@ export interface SimulationState {
   readonly nodes: Readonly<Record<NodeId, NodeRuntimeState>>;
   readonly effects: Readonly<Record<EffectId, EffectRuntimeState>>;
   readonly grudges: readonly GrudgeRuntimeState[];
-  readonly incidents: Readonly<Record<IncidentId, IncidentRuntimeState>>;
-  readonly pendingDilemma?: PendingDilemmaState;
   readonly history: readonly HistoryEntry[];
 }

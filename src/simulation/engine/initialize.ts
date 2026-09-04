@@ -1,9 +1,5 @@
 import type { ScenarioDefinition } from "../domain/definitions";
-import type {
-  EffectRuntimeState,
-  IncidentRuntimeState,
-  SimulationState,
-} from "../domain/runtime";
+import type { EffectRuntimeState, SimulationState } from "../domain/runtime";
 import { validateScenario } from "./validateScenario";
 
 /**
@@ -49,12 +45,6 @@ export function initializeScenario(
     };
   }
 
-  const incidents: Record<string, IncidentRuntimeState> = Object.fromEntries(
-    [...scenario.events, ...scenario.dilemmas].map((incident) => [
-      incident.id,
-      { timesTriggered: 0 },
-    ]),
-  );
   return {
     scenarioId: scenario.id,
     turn: scenario.startingTurn,
@@ -62,7 +52,6 @@ export function initializeScenario(
     nodes,
     effects,
     grudges: [],
-    incidents,
     history: [],
   };
 }

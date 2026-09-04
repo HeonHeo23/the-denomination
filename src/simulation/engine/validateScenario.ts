@@ -10,7 +10,6 @@ export function validateScenario(
   const errors: string[] = [];
   const nodeIds = new Set<string>();
   const effectIds = new Set<string>();
-  const incidentIds = new Set<string>();
 
   for (const node of scenario.nodes) {
     if (nodeIds.has(node.id)) errors.push(`Duplicate node id: ${node.id}`);
@@ -61,45 +60,6 @@ export function validateScenario(
       for (const factor of effect.response.factors) {
         if (!nodeIds.has(factor)) {
           errors.push(`${effect.id} references missing factor ${factor}`);
-        }
-      }
-    }
-  }
-
-  for (const incident of [...scenario.events, ...scenario.dilemmas]) {
-    if (incidentIds.has(incident.id)) {
-      errors.push(`Duplicate incident id: ${incident.id}`);
-    }
-    incidentIds.add(incident.id);
-    if (incident.cooldownTurns < 1) {
-      errors.push(`${incident.id} must have a positive cooldown`);
-    }
-    for (const influence of incident.influences) {
-      if (influence.source !== "_random_" && !nodeIds.has(influence.source)) {
-        errors.push(
-          `${incident.id} references missing influence ${influence.source}`,
-        );
-      }
-    }
-    const consequenceGroups =
-      incident.kind === "event"
-        ? [incident.consequences]
-        : incident.choices.map((choice) => choice.consequences);
-    if (incident.kind === "dilemma" && incident.choices.length < 2) {
-      errors.push(`${incident.id} needs at least two choices`);
-    }
-    for (const consequences of consequenceGroups) {
-      for (const consequence of consequences) {
-        if (!nodeIds.has(consequence.target)) {
-          errors.push(
-            `${incident.id} references missing target ${consequence.target}`,
-          );
-        }
-        if (
-          consequence.kind === "grudge" &&
-          (consequence.decay <= 0 || consequence.decay > 1)
-        ) {
-          errors.push(`${incident.id} has a Grudge with invalid decay`);
         }
       }
     }

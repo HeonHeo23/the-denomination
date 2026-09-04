@@ -9,6 +9,5 @@ export type * from "./domain/results";
 export type * from "./domain/runtime";
 export { advanceTurn } from "./engine/advanceTurn";
 export { initializeScenario } from "./engine/initialize";
-export type { RandomSource } from "./engine/incidents";
 export { executeCommand } from "./engine/playerActions";
 export { validateScenario } from "./engine/validateScenario";

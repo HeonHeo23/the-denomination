@@ -4,10 +4,9 @@ import {
   executeCommand,
   initializeScenario,
   validateScenario,
+  type GrudgeRuntimeState,
   type ScenarioDefinition,
 } from '../../src/simulation/index'
-
-const zeroRandom = { next: () => 0 }
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -34,8 +33,8 @@ closeTo(
   'An inactive source must not exert outgoing Effects',
 )
 
-const first = advanceTurn(exampleScenario, initial, zeroRandom).state
-const second = advanceTurn(exampleScenario, first, zeroRandom).state
+const first = advanceTurn(exampleScenario, initial).state
+const second = advanceTurn(exampleScenario, first).state
 closeTo(
   first.nodes['governance-reach'].value,
   second.nodes['governance-reach'].value,
@@ -49,8 +48,8 @@ const reversedScenario: ScenarioDefinition = {
 let normalOrder = initializeScenario(exampleScenario)
 let reverseOrder = initializeScenario(reversedScenario)
 for (let index = 0; index < 3; index += 1) {
-  normalOrder = advanceTurn(exampleScenario, normalOrder, zeroRandom).state
-  reverseOrder = advanceTurn(reversedScenario, reverseOrder, zeroRandom).state
+  normalOrder = advanceTurn(exampleScenario, normalOrder).state
+  reverseOrder = advanceTurn(reversedScenario, reverseOrder).state
 }
 for (const node of exampleScenario.nodes) {
   closeTo(
@@ -66,11 +65,7 @@ const formationChange = executeCommand(exampleScenario, initial, {
   value: 0.4,
 })
 assert(formationChange.accepted, 'A permitted Stance change should succeed')
-const afterFormationChange = advanceTurn(
-  exampleScenario,
-  formationChange.state,
-  zeroRandom,
-).state
+const afterFormationChange = advanceTurn(exampleScenario, formationChange.state).state
 assert(
   afterFormationChange.nodes['clergy-quality'].value < initial.nodes['clergy-quality'].value,
   'Inertia should begin moving the target toward the new contribution',
@@ -90,37 +85,30 @@ for (const value of [0.75, 0.95, 1]) {
   assert(change.accepted, `Centralization change to ${value} should succeed`)
   crisisState = change.state
 }
-for (let index = 0; index < 5 && !crisisState.pendingDilemma; index += 1) {
-  crisisState = advanceTurn(exampleScenario, crisisState, zeroRandom).state
+for (let index = 0; index < 5; index += 1) {
+  crisisState = advanceTurn(exampleScenario, crisisState).state
 }
 assert(
   crisisState.nodes['governance-tension'].isActive,
   'Situation should activate at its start threshold',
 )
-assert(crisisState.pendingDilemma, 'Governance Tension should trigger its Dilemma')
 
-const blockedTurn = advanceTurn(exampleScenario, crisisState, zeroRandom)
-assert(!blockedTurn.advanced, 'A pending Dilemma should pause turn advancement')
-
-const authorityBeforeChoice = crisisState.nodes.authority.value
-const resolution = executeCommand(exampleScenario, crisisState, {
-  type: 'resolve-dilemma',
-  dilemmaId: 'local-resistance',
-  choiceId: 'mediate',
-})
-assert(resolution.accepted, 'A defined Dilemma choice should resolve')
-assert(!resolution.state.pendingDilemma, 'Resolved Dilemma should no longer be pending')
-assert(
-  resolution.state.nodes.authority.value < authorityBeforeChoice,
-  'A Resource consequence should be applied immediately',
-)
-assert(resolution.state.grudges.length === 1, 'The choice should create one Grudge')
-
-const magnitude = resolution.state.grudges[0].magnitude
-const afterDecay = advanceTurn(exampleScenario, resolution.state, zeroRandom).state
+const grudge: GrudgeRuntimeState = {
+  id: 'test-grudge',
+  label: 'Temporary test effect',
+  target: 'leadership-trust',
+  magnitude: -0.12,
+  decay: 0.86,
+  createdTurn: initial.turn,
+}
+const magnitude = grudge.magnitude
+const afterDecay = advanceTurn(exampleScenario, {
+  ...initial,
+  grudges: [grudge],
+}).state
 assert(
   Math.abs(afterDecay.grudges[0].magnitude) < Math.abs(magnitude),
   'A Grudge should decay after contributing to a turn',
 )
 
-console.log('Engine checks passed: 15 assertions across core MVP mechanics.')
+console.log('Engine checks passed across core MVP mechanics.')

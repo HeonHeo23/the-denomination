@@ -8,19 +8,6 @@ import {
   type SimulationState,
 } from "../simulation";
 
-function turnRandom(turn: number) {
-  let seed = (turn + 1) * 0x6d2b79f5;
-  return {
-    next: () => {
-      seed += 0x6d2b79f5;
-      let value = seed;
-      value = Math.imul(value ^ (value >>> 15), value | 1);
-      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-      return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-    },
-  };
-}
-
 /**
  * Owns the active runtime snapshot and coordinates UI intent with the engine.
  *
@@ -51,24 +38,9 @@ export function useGameSession(scenario: ScenarioDefinition) {
     [scenario],
   );
 
-  const resolveDilemma = useCallback(
-    (dilemmaId: string, choiceId: string) => {
-      setState((current) => {
-        const result = executeCommand(scenario, current, {
-          type: "resolve-dilemma",
-          dilemmaId,
-          choiceId,
-        });
-        setMessage(result.message);
-        return result.state;
-      });
-    },
-    [scenario],
-  );
-
   const nextTurn = useCallback(() => {
     setState((current) => {
-      const result = advanceTurn(scenario, current, turnRandom(current.turn));
+      const result = advanceTurn(scenario, current);
       setMessage(result.message);
       setTrace(result.trace);
       return result.state;
@@ -86,7 +58,6 @@ export function useGameSession(scenario: ScenarioDefinition) {
     message,
     trace,
     setStance,
-    resolveDilemma,
     nextTurn,
     reset,
   };
