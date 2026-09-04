@@ -7,6 +7,7 @@ import {
   type GrudgeRuntimeState,
   type ScenarioDefinition,
 } from '../../src/simulation/index'
+import { runNodeEffectProjectionTests } from '../ui/projectNodeEffects.test'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -110,5 +111,7 @@ assert(
   Math.abs(afterDecay.grudges[0].magnitude) < Math.abs(magnitude),
   'A Grudge should decay after contributing to a turn',
 )
+
+runNodeEffectProjectionTests()
 
 console.log('Engine checks passed across core MVP mechanics.')

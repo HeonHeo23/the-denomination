@@ -164,6 +164,7 @@ function App() {
           definition={selectedDefinition}
           runtime={selectedRuntime}
           scenario={exampleScenario}
+          state={session.state}
           message={session.message}
           onApply={session.setStance}
           onClose={() => setSelectedNodeId(undefined)}

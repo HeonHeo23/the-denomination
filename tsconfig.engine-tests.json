@@ -18,7 +18,8 @@
   "include": [
     "src/simulation/**/*.ts",
     "src/scenarios/**/*.ts",
-    "tests/simulation/**/*.ts"
+    "src/ui/panels/projectNodeEffects.ts",
+    "tests/simulation/**/*.ts",
+    "tests/ui/**/*.ts"
   ]
 }
-

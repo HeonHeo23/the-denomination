@@ -8,13 +8,16 @@ import type {
   NodeDefinition,
   NodeRuntimeState,
   ScenarioDefinition,
+  SimulationState,
   StanceDefinition,
 } from "../../simulation";
+import { projectNodeEffects, type NodeEffectView } from "./projectNodeEffects";
 
 interface NodeDetailsModalProps {
   readonly definition: NodeDefinition;
   readonly runtime: NodeRuntimeState;
   readonly scenario: ScenarioDefinition;
+  readonly state: SimulationState;
   readonly message: string;
   readonly onApply: (stanceId: string, value: number) => void;
   readonly onClose: () => void;
@@ -129,16 +132,63 @@ function activationLabel(runtime: NodeRuntimeState): string {
   return runtime.isActive ? "Active" : "Inactive";
 }
 
+interface EffectListProps {
+  readonly title: string;
+  readonly headingId: string;
+  readonly effects: readonly NodeEffectView[];
+  readonly emptyMessage: string;
+}
+
+function EffectList({
+  title,
+  headingId,
+  effects,
+  emptyMessage,
+}: EffectListProps) {
+  return (
+    <section className="node-effects__section" aria-labelledby={headingId}>
+      <div className="node-effects__heading">
+        <h3 id={headingId}>{title}</h3>
+        <span>{effects.length}</span>
+      </div>
+      {effects.length === 0 ? (
+        <p className="node-effects__empty">{emptyMessage}</p>
+      ) : (
+        <ul className="node-effects__list">
+          {effects.map((effect) => (
+            <li key={effect.id}>
+              <div>
+                <strong>{effect.relatedName}</strong>
+                {effect.label && <span>{effect.label}</span>}
+                {effect.inertiaTurns && effect.inertiaTurns > 1 && (
+                  <small>Inertia: {effect.inertiaTurns} turns</small>
+                )}
+              </div>
+              <output
+                className={`node-effects__contribution node-effects__contribution--${effect.contributionTone}`}
+              >
+                {effect.contributionLabel}
+              </output>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function NodeDetailsModal({
   definition,
   runtime,
   scenario,
+  state,
   message,
   onApply,
   onClose,
 }: NodeDetailsModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const effects = projectNodeEffects(definition.id, scenario, state);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -233,6 +283,21 @@ export function NodeDetailsModal({
             </>
           )}
         </dl>
+
+        <div className="node-effects">
+          <EffectList
+            title="Incoming Effects"
+            headingId="incoming-effects-title"
+            effects={effects.incoming}
+            emptyMessage="No incoming Effects."
+          />
+          <EffectList
+            title="Outgoing Effects"
+            headingId="outgoing-effects-title"
+            effects={effects.outgoing}
+            emptyMessage="No outgoing Effects."
+          />
+        </div>
 
         {definition.type === "stance" && (
           <StanceEditor
