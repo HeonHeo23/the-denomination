@@ -21,7 +21,7 @@ assert(validateScenario(exampleScenario).length === 0, 'Example Scenario must va
 
 const initial = initializeScenario(exampleScenario)
 assert(
-  initial.nodes['governance-tension'].activation === 'inactive',
+  !initial.nodes['governance-tension'].isActive,
   'Governance Tension should start inactive',
 )
 assert(
@@ -94,7 +94,7 @@ for (let index = 0; index < 5 && !crisisState.pendingDilemma; index += 1) {
   crisisState = advanceTurn(exampleScenario, crisisState, zeroRandom).state
 }
 assert(
-  crisisState.nodes['governance-tension'].activation === 'active',
+  crisisState.nodes['governance-tension'].isActive,
   'Situation should activate at its start threshold',
 )
 assert(crisisState.pendingDilemma, 'Governance Tension should trigger its Dilemma')

@@ -15,13 +15,13 @@ Grudges or direct Resource changes.
 
 The persistent simulation has exactly five structural node types:
 
-| Type | Meaning | Default control | Default activation |
-|---|---|---|---|
-| Stance | Doctrinal, institutional, governance, or practical position | Primarily player-controlled | Configurable |
-| Indicator | Continuously simulated measurement | Simulated | Forced active |
-| Faction | Constituency, movement, tendency, or interest group represented by one scalar | Simulated | Configurable |
-| Resource | Spendable, accumulable, or constrained capacity | Simulated and changed by explicit transactions | Forced active |
-| Situation | Persistent condition that may start and stop | Simulated | Configurable |
+| Type      | Meaning                                                                       | Default control                                | Default activation |
+| --------- | ----------------------------------------------------------------------------- | ---------------------------------------------- | ------------------ |
+| Stance    | Doctrinal, institutional, governance, or practical position                   | Primarily player-controlled                    | Configurable       |
+| Indicator | Continuously simulated measurement                                            | Simulated                                      | Forced active      |
+| Faction   | Constituency, movement, tendency, or interest group represented by one scalar | Simulated                                      | Configurable       |
+| Resource  | Spendable, accumulable, or constrained capacity                               | Simulated and changed by explicit transactions | Forced active      |
+| Situation | Persistent condition that may start and stop                                  | Simulated                                      | Configurable       |
 
 Effects are relationships, Inertia and Grudges are temporal mechanisms, Events
 and Dilemmas are incidents, and Scenario is configuration. None is an
@@ -323,19 +323,19 @@ Situations, and incidents defined here.
 
 ## Reference Model
 
-The simulation is structurally inspired by the causal simulation model exposed by the *Democracy 4* modding system.
+The simulation is structurally inspired by the causal simulation model exposed by the _Democracy 4_ modding system.
 
 Each relevant section of the reference documentation has one primary
 counterpart in this design:
 
-| Reference model section | Primary counterpart | Correspondence |
-|---|---|---|
-| [Modding basics](https://www.positech.co.uk/democracy4/modding.html) | [Simulation model](#simulation-model) | Data-defined objects connected by causal Effects |
-| [Policies](https://www.positech.co.uk/democracy4/mod_policies.html) | [Stance](#stance) | Player-controlled positions with values, availability, costs, and outputs |
-| [Dilemmas](https://www.positech.co.uk/democracy4/mod_dilemmas.html) | [Dilemma](#dilemma) | Triggered incidents resolved by a player choice |
-| [Events](https://www.positech.co.uk/democracy4/mod_events.html) | [Event](#event) | Triggered incidents that resolve automatically |
-| [Situations](https://www.positech.co.uk/democracy4/mod_situations.html) | [Situation](#situation) | Persistent conditions with inputs, outputs, and separate start/stop thresholds |
-| [Simulation values](https://www.positech.co.uk/democracy4/mod_simulation.html) | [Indicator](#indicator) | Continuously simulated values with causal inputs and outputs |
-| [Countries](https://www.positech.co.uk/democracy4/mod_countries.html) | [Scenario and runtime state](#scenario-and-runtime-state) | Playable starting configuration, active starting positions, prerequisites, and overrides |
+| Reference model section                                                        | Primary counterpart                                       | Correspondence                                                                           |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [Modding basics](https://www.positech.co.uk/democracy4/modding.html)           | [Simulation model](#simulation-model)                     | Data-defined objects connected by causal Effects                                         |
+| [Policies](https://www.positech.co.uk/democracy4/mod_policies.html)            | [Stance](#stance)                                         | Player-controlled positions with values, availability, costs, and outputs                |
+| [Dilemmas](https://www.positech.co.uk/democracy4/mod_dilemmas.html)            | [Dilemma](#dilemma)                                       | Triggered incidents resolved by a player choice                                          |
+| [Events](https://www.positech.co.uk/democracy4/mod_events.html)                | [Event](#event)                                           | Triggered incidents that resolve automatically                                           |
+| [Situations](https://www.positech.co.uk/democracy4/mod_situations.html)        | [Situation](#situation)                                   | Persistent conditions with inputs, outputs, and separate start/stop thresholds           |
+| [Simulation values](https://www.positech.co.uk/democracy4/mod_simulation.html) | [Indicator](#indicator)                                   | Continuously simulated values with causal inputs and outputs                             |
+| [Countries](https://www.positech.co.uk/democracy4/mod_countries.html)          | [Scenario and runtime state](#scenario-and-runtime-state) | Playable starting configuration, active starting positions, prerequisites, and overrides |
 
-This game is not required to reproduce every *Democracy 4* rule, data format, balance constant, UI convention, or political-government mechanic.
+This game is not required to reproduce every _Democracy 4_ rule, data format, balance constant, UI convention, or political-government mechanic.

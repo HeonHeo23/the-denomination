@@ -27,19 +27,19 @@ Scenario is the sole top-level playable content object:
 
 ```ts
 interface ScenarioDefinition {
-  schemaVersion: 1
-  id: string
-  title: string
-  description: string
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  description: string;
   start: {
-    turn: number
-    year?: number
-  }
-  conditions?: string[]
-  nodes: NodeDefinition[]
-  effects: EffectDefinition[]
-  events?: EventDefinition[]
-  dilemmas?: DilemmaDefinition[]
+    turn: number;
+    year?: number;
+  };
+  conditions?: string[];
+  nodes: NodeDefinition[];
+  effects: EffectDefinition[];
+  events?: EventDefinition[];
+  dilemmas?: DilemmaDefinition[];
 }
 ```
 
@@ -55,30 +55,30 @@ runtime state.
 All node definitions share:
 
 ```ts
-type Activation = 'active' | 'inactive' | 'forced-active'
+type Activation = "active" | "inactive" | "forced-active";
 
 interface NumericDomain {
-  min: number
-  max: number
-  clamp: boolean
+  min: number;
+  max: number;
+  clamp: boolean;
 }
 
 interface InitialNodeState {
-  value: number
-  activation: Activation
+  value: number;
+  activation: Activation;
 }
 
 interface BaseNodeDefinition {
-  id: string
-  type: 'stance' | 'indicator' | 'faction' | 'resource' | 'situation'
-  name: string
-  description: string
-  category?: NodeCategory
-  domain: NumericDomain
-  initial: InitialNodeState
-  baseline?: number
-  graphVisible?: boolean
-  requires?: string[]
+  id: string;
+  type: "stance" | "indicator" | "faction" | "resource" | "situation";
+  name: string;
+  description: string;
+  category?: NodeCategory;
+  domain: NumericDomain;
+  initial: InitialNodeState;
+  baseline?: number;
+  graphVisible?: boolean;
+  requires?: string[];
 }
 ```
 
@@ -98,12 +98,12 @@ supported.
 
 ```ts
 type NodeCategory =
-  | 'Governance'
-  | 'Belief and Teaching'
-  | 'Worship and Practice'
-  | 'Finance and Assets'
-  | 'Care and Charity'
-  | 'Mission and Expansion'
+  | "Governance"
+  | "Belief and Teaching"
+  | "Worship and Practice"
+  | "Finance and Assets"
+  | "Care and Charity"
+  | "Mission and Expansion";
 ```
 
 Categories are organizational metadata and have no implicit mechanics.
@@ -112,19 +112,19 @@ Categories are organizational metadata and have no implicit mechanics.
 
 ```ts
 interface StanceDefinition extends BaseNodeDefinition {
-  type: 'stance'
+  type: "stance";
   control:
-    | { kind: 'continuous'; step?: number }
+    | { kind: "continuous"; step?: number }
     | {
-        kind: 'discrete'
-        states: Array<{ value: number; label: string }>
-      }
+        kind: "discrete";
+        states: Array<{ value: number; label: string }>;
+      };
   cost?: {
-    resourceId: string
-    base: number
-    perPoint: number
-    maxChange?: number
-  }
+    resourceId: string;
+    base: number;
+    perPoint: number;
+    maxChange?: number;
+  };
 }
 ```
 
@@ -139,8 +139,8 @@ their deferred mechanics are specified.
 
 ```ts
 interface IndicatorDefinition extends BaseNodeDefinition {
-  type: 'indicator'
-  initial: InitialNodeState & { activation: 'forced-active' }
+  type: "indicator";
+  initial: InitialNodeState & { activation: "forced-active" };
 }
 ```
 
@@ -148,8 +148,8 @@ interface IndicatorDefinition extends BaseNodeDefinition {
 
 ```ts
 interface FactionDefinition extends BaseNodeDefinition {
-  type: 'faction'
-  valueMeaning: string
+  type: "faction";
+  valueMeaning: string;
 }
 ```
 
@@ -159,8 +159,8 @@ interface FactionDefinition extends BaseNodeDefinition {
 
 ```ts
 interface ResourceDefinition extends BaseNodeDefinition {
-  type: 'resource'
-  initial: InitialNodeState & { activation: 'forced-active' }
+  type: "resource";
+  initial: InitialNodeState & { activation: "forced-active" };
 }
 ```
 
@@ -171,9 +171,9 @@ references as other nodes.
 
 ```ts
 interface SituationDefinition extends BaseNodeDefinition {
-  type: 'situation'
-  startThreshold: number
-  stopThreshold: number
+  type: "situation";
+  startThreshold: number;
+  stopThreshold: number;
 }
 ```
 
@@ -183,15 +183,15 @@ not exceed `startThreshold`.
 ## Effects
 
 ```ts
-type EffectSource = string | '_default_'
+type EffectSource = string | "_default_";
 
 interface EffectDefinition {
-  id: string
-  source: EffectSource
-  target: string
-  response: ResponseDefinition
-  inertiaTurns?: number
-  label?: string
+  id: string;
+  source: EffectSource;
+  target: string;
+  response: ResponseDefinition;
+  inertiaTurns?: number;
+  label?: string;
 }
 ```
 
@@ -203,20 +203,20 @@ The current canonical response shapes are:
 
 ```ts
 type ResponseDefinition =
-  | { kind: 'constant'; value: number }
-  | { kind: 'linear'; coefficient: number; intercept?: number }
+  | { kind: "constant"; value: number }
+  | { kind: "linear"; coefficient: number; intercept?: number }
   | {
-      kind: 'power'
-      coefficient: number
-      exponent: number
-      intercept?: number
+      kind: "power";
+      coefficient: number;
+      exponent: number;
+      intercept?: number;
     }
   | {
-      kind: 'product'
-      coefficient: number
-      factors: string[]
-      intercept?: number
-    }
+      kind: "product";
+      coefficient: number;
+      factors: string[];
+      intercept?: number;
+    };
 ```
 
 These tagged objects keep content inspectable and validateable. Their complete
@@ -231,19 +231,19 @@ Events and Dilemmas share trigger fields:
 
 ```ts
 interface IncidentInfluence {
-  source: string | '_random_'
-  coefficient: number
-  intercept?: number
+  source: string | "_random_";
+  coefficient: number;
+  intercept?: number;
 }
 
 interface BaseIncidentDefinition {
-  id: string
-  title: string
-  description: string
-  influences: IncidentInfluence[]
-  threshold: number
-  cooldownTurns: number
-  requires?: string[]
+  id: string;
+  title: string;
+  description: string;
+  influences: IncidentInfluence[];
+  threshold: number;
+  cooldownTurns: number;
+  requires?: string[];
 }
 ```
 
@@ -258,8 +258,8 @@ still-TBD policy for selecting one incident when multiple candidates qualify.
 
 ```ts
 interface EventDefinition extends BaseIncidentDefinition {
-  kind: 'event'
-  consequences: ConsequenceDefinition[]
+  kind: "event";
+  consequences: ConsequenceDefinition[];
 }
 ```
 
@@ -267,13 +267,13 @@ interface EventDefinition extends BaseIncidentDefinition {
 
 ```ts
 interface DilemmaDefinition extends BaseIncidentDefinition {
-  kind: 'dilemma'
+  kind: "dilemma";
   choices: Array<{
-    id: string
-    label: string
-    description: string
-    consequences: ConsequenceDefinition[]
-  }>
+    id: string;
+    label: string;
+    description: string;
+    consequences: ConsequenceDefinition[];
+  }>;
 }
 ```
 
@@ -284,22 +284,22 @@ Choice IDs are unique within their Dilemma. A Dilemma has at least two choices.
 ```ts
 type ConsequenceDefinition =
   | {
-      kind: 'grudge'
-      target: string
-      magnitude: number
-      decay: number
-      label: string
+      kind: "grudge";
+      target: string;
+      magnitude: number;
+      decay: number;
+      label: string;
     }
   | {
-      kind: 'resource'
-      target: string
-      amount: number
+      kind: "resource";
+      target: string;
+      amount: number;
     }
   | {
-      kind: 'activation'
-      target: string
-      active: boolean
-    }
+      kind: "activation";
+      target: string;
+      active: boolean;
+    };
 ```
 
 Rules:
@@ -319,14 +319,14 @@ require game-design approval.
 Static definition data describes what may happen and the authoritative starting
 conditions. Runtime state records what has happened:
 
-| Static content | Runtime state |
-|---|---|
-| Node domain, metadata, baseline, initial state | Current value and activation |
-| Effect source, target, response, Inertia window | Source-value history and last contribution |
-| Grudge consequence template | Created Grudge identity, current magnitude, creation metadata |
-| Incident influences, threshold, cooldown | Last trigger turn and trigger count |
-| Dilemma choices | Pending Dilemma |
-| Scenario start | Current turn and year |
+| Static content                                  | Runtime state                                                 |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| Node domain, metadata, baseline, initial state  | Current value and activation                                  |
+| Effect source, target, response, Inertia window | Source-value history and last contribution                    |
+| Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
+| Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
+| Dilemma choices                                 | Pending Dilemma                                               |
+| Scenario start                                  | Current turn and year                                         |
 
 A runtime snapshot is not Scenario content and must not be merged back into its
 definition. A save format may reuse runtime structures but requires its own
@@ -406,15 +406,15 @@ does not replace runtime validation for parsed content.
 The MVP representation is close to the intended contract, but migration is
 required:
 
-| MVP | Intended format |
-|---|---|
-| no schema version | `schemaVersion: 1` |
-| `startingTurn`, `startingYear` | `start.turn`, `start.year` |
-| `initialValue`, `activation` | `initial.value`, `initial.activation` |
-| `baselineValue` | `baseline` |
-| Scenario `prerequisites` | Scenario `conditions` |
-| content `prerequisites` | content `requires` |
-| required empty event/dilemma arrays | optional arrays normalized to empty |
+| MVP                                     | Intended format                                                |
+| --------------------------------------- | -------------------------------------------------------------- |
+| no schema version                       | `schemaVersion: 1`                                             |
+| `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
+| `initialValue`, `activation`            | `initial.value`, `initial.activation`                          |
+| `baselineValue`                         | `baseline`                                                     |
+| Scenario `prerequisites`                | Scenario `conditions`                                          |
+| content `prerequisites`                 | content `requires`                                             |
+| required empty event/dilemma arrays     | optional arrays normalized to empty                            |
 | prerequisites only on Stances/incidents | `requires` available to eligible content, including Situations |
 
 The MVP's node, Effect, response, incident, and consequence discriminators are

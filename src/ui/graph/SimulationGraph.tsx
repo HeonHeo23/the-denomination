@@ -1,28 +1,28 @@
-import { useMemo } from 'react'
+import { useMemo } from "react";
 import {
   Background,
   BackgroundVariant,
   Controls,
   ReactFlow,
   type NodeTypes,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
-import type { ScenarioDefinition, SimulationState } from '../../simulation'
-import { projectToReactFlow } from './projectToReactFlow'
-import { SimulationNode } from './SimulationNode'
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import type { ScenarioDefinition, SimulationState } from "../../simulation";
+import { projectToReactFlow } from "./projectToReactFlow";
+import { SimulationNode } from "./SimulationNode";
 
-const nodeTypes: NodeTypes = { simulation: SimulationNode }
+const nodeTypes: NodeTypes = { simulation: SimulationNode };
 
 interface SimulationGraphProps {
-  readonly scenario: ScenarioDefinition
-  readonly state: SimulationState
+  readonly scenario: ScenarioDefinition;
+  readonly state: SimulationState;
 }
 
 export function SimulationGraph({ scenario, state }: SimulationGraphProps) {
   const graph = useMemo(
     () => projectToReactFlow(scenario, state),
     [scenario, state],
-  )
+  );
 
   return (
     <ReactFlow
@@ -41,6 +41,5 @@ export function SimulationGraph({ scenario, state }: SimulationGraphProps) {
       <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
       <Controls showInteractive={false} />
     </ReactFlow>
-  )
+  );
 }
-

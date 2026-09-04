@@ -1,11 +1,11 @@
-import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
-import type { SimulationNodeData } from './projectToReactFlow'
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import type { SimulationNodeData } from "./projectToReactFlow";
 
 export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
-  const percent = Math.round(data.value * 100)
+  const percent = Math.round(data.value * 100);
   return (
     <div
-      className={`simulation-node simulation-node--${data.nodeType}${data.active ? '' : ' is-inactive'}`}
+      className={`simulation-node simulation-node--${data.nodeType}${data.active ? "" : " is-inactive"}`}
       title={data.description}
     >
       <Handle type="target" position={Position.Left} />
@@ -20,6 +20,5 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
       <output>{percent}%</output>
       <Handle type="source" position={Position.Right} />
     </div>
-  )
+  );
 }
-

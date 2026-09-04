@@ -1,194 +1,218 @@
-export type NodeId = string
-export type EffectId = string
-export type IncidentId = string
+/** Stable identifier for a persistent node. */
+export type NodeId = string;
 
+/** Stable identifier for a causal Effect. */
+export type EffectId = string;
+
+/** Stable identifier shared by Events and Dilemmas. */
+export type IncidentId = string;
+
+/** The five persistent object kinds supported by the simulation. */
 export type NodeType =
-  | 'stance'
-  | 'indicator'
-  | 'faction'
-  | 'resource'
-  | 'situation'
+  "stance" | "indicator" | "faction" | "resource" | "situation";
 
+/** Non-mechanical metadata used to organize nodes in the interface. */
 export type NodeCategory =
-  | 'Governance'
-  | 'Belief and Teaching'
-  | 'Worship and Practice'
-  | 'Finance and Assets'
-  | 'Care and Charity'
-  | 'Mission and Expansion'
+  | "Governance"
+  | "Belief and Teaching"
+  | "Worship and Practice"
+  | "Finance and Assets"
+  | "Care and Charity"
+  | "Mission and Expansion";
 
+/** Numeric bounds for a node and whether engine writes are clamped to them. */
 export interface NumericDomain {
-  readonly min: number
-  readonly max: number
-  readonly clamp: boolean
+  readonly min: number;
+  readonly max: number;
+  readonly clamp: boolean;
 }
 
+/** Fields shared by every authored node definition. */
 interface BaseNodeDefinition {
-  readonly id: NodeId
-  readonly type: NodeType
-  readonly name: string
-  readonly description: string
-  readonly category?: NodeCategory
-  readonly domain: NumericDomain
-  readonly initialValue: number
-  readonly baselineValue?: number
-  readonly isActive: boolean
-  readonly isVisible?: boolean
-  readonly isForced?: boolean
+  readonly id: NodeId;
+  readonly type: NodeType;
+  readonly name: string;
+  readonly description: string;
+  readonly category?: NodeCategory;
+  readonly domain: NumericDomain;
+  readonly initialValue: number;
+  readonly baselineValue?: number;
+  readonly isActive: boolean;
+  readonly isVisible?: boolean;
+  readonly isForced?: boolean;
 }
 
+/** Configuration for a continuously adjustable Stance. */
 export interface ContinuousStanceControl {
-  readonly kind: 'continuous'
-  readonly step?: number
+  readonly kind: "continuous";
+  readonly step?: number;
 }
 
+/** Configuration for a Stance restricted to named numeric states. */
 export interface DiscreteStanceControl {
-  readonly kind: 'discrete'
+  readonly kind: "discrete";
   readonly states: readonly {
-    readonly value: number
-    readonly label: string
-  }[]
+    readonly value: number;
+    readonly label: string;
+  }[];
 }
 
+/** Resource cost applied when a player changes a Stance. */
 export interface StanceCostDefinition {
-  readonly resourceId: NodeId
-  readonly base: number
-  readonly perPoint: number
-  readonly maxChange?: number
+  readonly resourceId: NodeId;
+  readonly base: number;
+  readonly perPoint: number;
+  readonly maxChange?: number;
 }
 
+/** A persistent position controlled primarily by the player. */
 export interface StanceDefinition extends BaseNodeDefinition {
-  readonly type: 'stance'
-  readonly control: ContinuousStanceControl | DiscreteStanceControl
-  readonly cost?: StanceCostDefinition
-  readonly prerequisites?: readonly string[]
+  readonly type: "stance";
+  readonly control: ContinuousStanceControl | DiscreteStanceControl;
+  readonly cost?: StanceCostDefinition;
+  readonly prerequisites?: readonly string[];
 }
 
+/** A continuously calculated measure that cannot be deactivated. */
 export interface IndicatorDefinition extends BaseNodeDefinition {
-  readonly type: 'indicator'
-  readonly isActive: true
-  readonly isForced: true
+  readonly type: "indicator";
+  readonly isActive: true;
+  readonly isForced: true;
 }
 
+/** A constituency or tendency represented by one scenario-defined scalar. */
 export interface FactionDefinition extends BaseNodeDefinition {
-  readonly type: 'faction'
-  readonly valueMeaning: string
+  readonly type: "faction";
+  readonly valueMeaning: string;
 }
 
+/** A spendable or accumulable capacity represented as a node. */
 export interface ResourceDefinition extends BaseNodeDefinition {
-  readonly type: 'resource'
-  readonly isActive: true
-  readonly isForced: true
+  readonly type: "resource";
+  readonly isActive: true;
+  readonly isForced: true;
 }
 
+/** A persistent condition governed by hysteresis thresholds. */
 export interface SituationDefinition extends BaseNodeDefinition {
-  readonly type: 'situation'
-  readonly startThreshold: number
-  readonly stopThreshold: number
+  readonly type: "situation";
+  readonly startThreshold: number;
+  readonly stopThreshold: number;
 }
 
+/** Any authored persistent node definition. */
 export type NodeDefinition =
   | StanceDefinition
   | IndicatorDefinition
   | FactionDefinition
   | ResourceDefinition
-  | SituationDefinition
+  | SituationDefinition;
 
-export type EffectSource = NodeId | '_default_'
+/** A node source, or the unit-valued pseudo-source for constant effects. */
+export type EffectSource = NodeId | "_default_";
 
+/** Declarative function used to map an Effect source to its contribution. */
 export type ResponseDefinition =
   | {
-      readonly kind: 'constant'
-      readonly value: number
+      readonly kind: "constant";
+      readonly value: number;
     }
   | {
-      readonly kind: 'linear'
-      readonly coefficient: number
-      readonly intercept?: number
+      readonly kind: "linear";
+      readonly coefficient: number;
+      readonly intercept?: number;
     }
   | {
-      readonly kind: 'power'
-      readonly coefficient: number
-      readonly exponent: number
-      readonly intercept?: number
+      readonly kind: "power";
+      readonly coefficient: number;
+      readonly exponent: number;
+      readonly intercept?: number;
     }
   | {
-      readonly kind: 'product'
-      readonly coefficient: number
-      readonly factors: readonly NodeId[]
-      readonly intercept?: number
-    }
+      readonly kind: "product";
+      readonly coefficient: number;
+      readonly factors: readonly NodeId[];
+      readonly intercept?: number;
+    };
 
+/** A persistent directed causal relationship between simulation nodes. */
 export interface EffectDefinition {
-  readonly id: EffectId
-  readonly source: EffectSource
-  readonly target: NodeId
-  readonly response: ResponseDefinition
-  readonly inertiaTurns?: number
-  readonly label?: string
+  readonly id: EffectId;
+  readonly source: EffectSource;
+  readonly target: NodeId;
+  readonly response: ResponseDefinition;
+  readonly inertiaTurns?: number;
+  readonly label?: string;
 }
 
+/** One weighted input to an Event or Dilemma trigger score. */
 export interface IncidentInfluence {
-  readonly source: NodeId | '_random_'
-  readonly coefficient: number
-  readonly intercept?: number
+  readonly source: NodeId | "_random_";
+  readonly coefficient: number;
+  readonly intercept?: number;
 }
 
+/** An immediate state change produced by an incident or Dilemma choice. */
 export type ConsequenceDefinition =
   | {
-      readonly kind: 'grudge'
-      readonly target: NodeId
-      readonly magnitude: number
-      readonly decay: number
-      readonly label: string
+      readonly kind: "grudge";
+      readonly target: NodeId;
+      readonly magnitude: number;
+      readonly decay: number;
+      readonly label: string;
     }
   | {
-      readonly kind: 'resource'
-      readonly target: NodeId
-      readonly amount: number
+      readonly kind: "resource";
+      readonly target: NodeId;
+      readonly amount: number;
     }
   | {
-      readonly kind: 'activation'
-      readonly target: NodeId
-      readonly active: boolean
-    }
+      readonly kind: "activation";
+      readonly target: NodeId;
+      readonly active: boolean;
+    };
 
+/** Trigger configuration shared by Events and Dilemmas. */
 interface BaseIncidentDefinition {
-  readonly id: IncidentId
-  readonly title: string
-  readonly description: string
-  readonly influences: readonly IncidentInfluence[]
-  readonly threshold: number
-  readonly cooldownTurns: number
-  readonly prerequisites?: readonly string[]
+  readonly id: IncidentId;
+  readonly title: string;
+  readonly description: string;
+  readonly influences: readonly IncidentInfluence[];
+  readonly threshold: number;
+  readonly cooldownTurns: number;
+  readonly prerequisites?: readonly string[];
 }
 
+/** An incident that resolves automatically when selected. */
 export interface EventDefinition extends BaseIncidentDefinition {
-  readonly kind: 'event'
-  readonly consequences: readonly ConsequenceDefinition[]
+  readonly kind: "event";
+  readonly consequences: readonly ConsequenceDefinition[];
 }
 
+/** One player-selectable response to a Dilemma. */
 export interface DilemmaChoiceDefinition {
-  readonly id: string
-  readonly label: string
-  readonly description: string
-  readonly consequences: readonly ConsequenceDefinition[]
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly consequences: readonly ConsequenceDefinition[];
 }
 
+/** An incident that blocks turn advancement until the player chooses. */
 export interface DilemmaDefinition extends BaseIncidentDefinition {
-  readonly kind: 'dilemma'
-  readonly choices: readonly DilemmaChoiceDefinition[]
+  readonly kind: "dilemma";
+  readonly choices: readonly DilemmaChoiceDefinition[];
 }
 
+/** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
-  readonly id: string
-  readonly title: string
-  readonly description: string
-  readonly startingTurn: number
-  readonly startingYear?: number
-  readonly prerequisites: readonly string[]
-  readonly nodes: readonly NodeDefinition[]
-  readonly effects: readonly EffectDefinition[]
-  readonly events: readonly EventDefinition[]
-  readonly dilemmas: readonly DilemmaDefinition[]
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly startingTurn: number;
+  readonly startingYear?: number;
+  readonly prerequisites: readonly string[];
+  readonly nodes: readonly NodeDefinition[];
+  readonly effects: readonly EffectDefinition[];
+  readonly events: readonly EventDefinition[];
+  readonly dilemmas: readonly DilemmaDefinition[];
 }

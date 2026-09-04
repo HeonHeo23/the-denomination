@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "check": "npm run format:check && npm run lint && npm run build",
     "test:engine": "tsc -p tsconfig.engine-tests.json && node --experimental-specifier-resolution=node .test-dist/tests/simulation/engine.test.js",
     "preview": "vite preview"
   },
@@ -21,6 +25,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "prettier": "^3.9.6",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   }

@@ -33,17 +33,17 @@ abstractions without a demonstrated need.
 
 ## Modules
 
-| Module | Current path | Responsibility |
-|---|---|---|
-| Domain contracts | `src/simulation/domain` | Static definition types, runtime-state types, commands, and engine result types |
-| Content loading and validation | Initially within `src/simulation`; extract a dedicated folder when multiple loaders warrant it | Parse or accept Scenario data, validate it, and produce trusted static definitions |
-| Simulation engine | `src/simulation/engine` | Initialize runtime state and execute commands and turns as pure state transitions |
-| Simulation public API | `src/simulation/index.ts` | Stable exports used outside the simulation package |
-| Scenario content | `src/scenarios` | Authored static Scenario definitions; no runtime state or React code |
-| Application/session | `src/app` | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
-| UI projections | `src/ui` | Derive presentation-ready data from definitions and runtime state |
-| React composition | `src/App.tsx` and UI components | Render state and dispatch semantic commands |
-| Persistence adapter | Not yet implemented | Serialize and restore versioned session data without changing engine semantics |
+| Module                         | Current path                                                                                   | Responsibility                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Domain contracts               | `src/simulation/domain`                                                                        | Static definition types, runtime-state types, commands, and engine result types                       |
+| Content loading and validation | Initially within `src/simulation`; extract a dedicated folder when multiple loaders warrant it | Parse or accept Scenario data, validate it, and produce trusted static definitions                    |
+| Simulation engine              | `src/simulation/engine`                                                                        | Initialize runtime state and execute commands and turns as pure state transitions                     |
+| Simulation public API          | `src/simulation/index.ts`                                                                      | Stable exports used outside the simulation package                                                    |
+| Scenario content               | `src/scenarios`                                                                                | Authored static Scenario definitions; no runtime state or React code                                  |
+| Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
+| UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                     |
+| React composition              | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
+| Persistence adapter            | Not yet implemented                                                                            | Serialize and restore versioned session data without changing engine semantics                        |
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
