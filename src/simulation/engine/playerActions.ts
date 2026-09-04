@@ -68,8 +68,8 @@ function changeStance(
     ...runtime,
     value,
     baseValue: value,
-    activation:
-      runtime.activation === 'inactive' ? 'active' : runtime.activation,
+    isActive:
+      runtime.isActive? true : runtime.isActive,
   }
 
   return {

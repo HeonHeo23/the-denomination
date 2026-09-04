@@ -14,8 +14,3 @@ export function clampValue(value: number, node: NodeDefinition): number {
   if (!node.domain.clamp) return value
   return Math.min(node.domain.max, Math.max(node.domain.min, value))
 }
-
-export function isActive(activation: string): boolean {
-  return activation === 'active' || activation === 'forced-active'
-}
-

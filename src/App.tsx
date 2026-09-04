@@ -72,10 +72,10 @@ function App() {
               {situations.map((situation) => {
                 const runtime = session.state.nodes[situation.id]
                 return (
-                  <div key={situation.id} className={runtime.activation === 'active' ? 'is-active' : ''}>
+                  <div key={situation.id} className={runtime.isActive ? 'is-active' : ''}>
                     <span>{situation.name}</span>
                     <strong>{Math.round(runtime.value * 100)}%</strong>
-                    <small>{runtime.activation}</small>
+                    <small>{runtime.isActive}</small>
                   </div>
                 )
               })}

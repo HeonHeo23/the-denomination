@@ -29,7 +29,7 @@ export function projectToReactFlow(
   }
   const visible = new Set(
     scenario.nodes
-      .filter((definition) => definition.graphVisible !== false)
+      .filter((definition) => definition.isVisible !== false)
       .map(({ id }) => id),
   )
 
@@ -48,8 +48,8 @@ export function projectToReactFlow(
           description: definition.description,
           nodeType: definition.type,
           value: runtime.value,
-          active: runtime.activation !== 'inactive',
-          forced: runtime.activation === 'forced-active',
+          active: runtime.isActive,
+          forced: runtime.isForced,
         },
       }
     })
@@ -71,7 +71,7 @@ export function projectToReactFlow(
         label: effect.label,
         type: 'smoothstep',
         animated:
-          state.nodes[effect.source].activation !== 'inactive' &&
+          state.nodes[effect.source].isActive &&
           Math.abs(contribution) > 0.001,
         style: {
           stroke: positive ? '#4f8f74' : '#b85c4f',

@@ -4,7 +4,6 @@ import type {
   IncidentRuntimeState,
   SimulationState,
 } from '../domain/runtime'
-import { evaluatePersistentState } from './evaluatePersistentState'
 import { validateScenario } from './validateScenario'
 
 export function initializeScenario(
@@ -21,7 +20,8 @@ export function initializeScenario(
       {
         value: node.initialValue,
         baseValue: node.baselineValue ?? node.initialValue,
-        activation: node.activation,
+        isActive: node.isActive,
+        isForced: node.isForced ?? false,
       },
     ]),
   )
@@ -45,7 +45,7 @@ export function initializeScenario(
       { timesTriggered: 0 },
     ]),
   )
-  const initial: SimulationState = {
+  return {
     scenarioId: scenario.id,
     turn: scenario.startingTurn,
     year: scenario.startingYear,
@@ -55,6 +55,4 @@ export function initializeScenario(
     incidents,
     history: [],
   }
-
-  return evaluatePersistentState(scenario, initial).state
 }

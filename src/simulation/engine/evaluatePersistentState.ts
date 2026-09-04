@@ -9,7 +9,7 @@ import type {
   HistoryEntry,
   SimulationState,
 } from '../domain/runtime'
-import { clampValue, indexNodes, isActive } from './shared'
+import { clampValue, indexNodes } from './shared'
 
 interface EvaluationResult {
   readonly state: SimulationState
@@ -49,7 +49,7 @@ function sampleEffect(
   state: SimulationState,
 ): { runtime: EffectRuntimeState; effectiveSource: number } {
   const sourceParticipates =
-    effect.source === '_default_' || isActive(state.nodes[effect.source].activation)
+    effect.source === '_default_' || state.nodes[effect.source].isActive
   const sourceValue =
     effect.source === '_default_'
       ? 1
@@ -83,7 +83,7 @@ export function evaluatePersistentState(
     const targetDefinition = definitions[effect.target]
     const targetRuntime = state.nodes[effect.target]
     const targetCanReceive =
-      targetDefinition.type === 'situation' || isActive(targetRuntime.activation)
+      targetDefinition.type === 'situation' || targetRuntime.isActive
     const sampled = sampleEffect(effect, state)
     effects[effect.id] = sampled.runtime
 
@@ -100,7 +100,7 @@ export function evaluatePersistentState(
     const runtime = state.nodes[definition.id]
     if (definition.type === 'stance') continue
     const canReceive =
-      definition.type === 'situation' || isActive(runtime.activation)
+      definition.type === 'situation' || runtime.isActive
     if (!canReceive) continue
 
     const effectTotal = totals[definition.id] ?? 0
@@ -111,11 +111,11 @@ export function evaluatePersistentState(
       runtime.baseValue + effectTotal + grudgeTotal,
       definition,
     )
-    let activation = runtime.activation
+    let activation = runtime.isActive
 
     if (definition.type === 'situation') {
-      if (activation === 'inactive' && value >= definition.startThreshold) {
-        activation = 'active'
+      if (!activation && value >= definition.startThreshold) {
+        activation = true
         history.push({
           id: `${definition.id}:start:${state.turn}`,
           turn: state.turn,
@@ -124,10 +124,10 @@ export function evaluatePersistentState(
           detail: `Pressure reached ${Math.round(value * 100)}%.`,
         })
       } else if (
-        activation === 'active' &&
+        activation &&
         value <= definition.stopThreshold
       ) {
-        activation = 'inactive'
+        activation = false
         history.push({
           id: `${definition.id}:stop:${state.turn}`,
           turn: state.turn,
@@ -138,7 +138,7 @@ export function evaluatePersistentState(
       }
     }
 
-    nodes[definition.id] = { ...runtime, value, activation }
+    nodes[definition.id] = { ...runtime, value, isActive: activation }
     trace.push({
       targetId: definition.id,
       baseline: runtime.baseValue,

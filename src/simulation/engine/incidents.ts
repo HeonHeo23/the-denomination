@@ -91,10 +91,10 @@ export function applyConsequences(
         break
       }
       case 'activation':
-        if (runtime.activation === 'forced-active') break
+        if (runtime.isForced === true) break
         nodes[consequence.target] = {
           ...runtime,
-          activation: consequence.active ? 'active' : 'inactive',
+          isActive: consequence.active,
         }
         break
     }

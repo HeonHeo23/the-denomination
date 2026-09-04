@@ -17,8 +17,6 @@ export type NodeCategory =
   | 'Care and Charity'
   | 'Mission and Expansion'
 
-export type Activation = 'active' | 'inactive' | 'forced-active'
-
 export interface NumericDomain {
   readonly min: number
   readonly max: number
@@ -34,8 +32,9 @@ interface BaseNodeDefinition {
   readonly domain: NumericDomain
   readonly initialValue: number
   readonly baselineValue?: number
-  readonly activation: Activation
-  readonly graphVisible?: boolean
+  readonly isActive: boolean
+  readonly isVisible?: boolean
+  readonly isForced?: boolean
 }
 
 export interface ContinuousStanceControl {
@@ -67,7 +66,8 @@ export interface StanceDefinition extends BaseNodeDefinition {
 
 export interface IndicatorDefinition extends BaseNodeDefinition {
   readonly type: 'indicator'
-  readonly activation: 'forced-active'
+  readonly isActive: true
+  readonly isForced: true
 }
 
 export interface FactionDefinition extends BaseNodeDefinition {
@@ -77,7 +77,8 @@ export interface FactionDefinition extends BaseNodeDefinition {
 
 export interface ResourceDefinition extends BaseNodeDefinition {
   readonly type: 'resource'
-  readonly activation: 'forced-active'
+  readonly isActive: true
+  readonly isForced: true
 }
 
 export interface SituationDefinition extends BaseNodeDefinition {

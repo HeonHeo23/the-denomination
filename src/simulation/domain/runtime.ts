@@ -1,9 +1,10 @@
-import type { Activation, EffectId, IncidentId, NodeId } from './definitions'
+import type { EffectId, IncidentId, NodeId } from './definitions'
 
 export interface NodeRuntimeState {
   readonly value: number
   readonly baseValue: number
-  readonly activation: Activation
+  readonly isActive: boolean
+  readonly isForced: boolean
 }
 
 export interface EffectRuntimeState {
