@@ -135,7 +135,6 @@ main {
   letter-spacing: -0.02em;
 }
 .scenario-intro p,
-.stance-control p,
 .empty-chronicle p,
 .chronicle-list p {
   margin: 0;
@@ -158,66 +157,6 @@ main {
 .control-panel section + section {
   margin-top: 28px;
 }
-.stance-list {
-  display: grid;
-  gap: 13px;
-}
-.stance-control {
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.38);
-  padding: 15px;
-}
-.stance-control__heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-.stance-control__heading span {
-  color: var(--green);
-  font:
-    500 8px "DM Mono",
-    monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-.stance-control h3 {
-  margin: 3px 0 0;
-  font:
-    700 15px "Source Serif 4",
-    serif;
-}
-.stance-control output {
-  font:
-    600 17px "DM Mono",
-    monospace;
-  color: var(--green);
-}
-.stance-control p {
-  min-height: 35px;
-  margin-top: 7px;
-}
-.stance-control input[type="range"] {
-  width: 100%;
-  accent-color: var(--green);
-  margin: 13px 0 7px;
-}
-.stance-control select {
-  width: 100%;
-  margin: 13px 0 7px;
-}
-.stance-control__footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-.stance-control__footer small {
-  color: var(--muted);
-  font:
-    8px "DM Mono",
-    monospace;
-}
-.stance-control__footer button,
 .statusbar button {
   border: 1px solid var(--green);
   background: transparent;
@@ -225,10 +164,6 @@ main {
   padding: 6px 10px;
   font-size: 10px;
   font-weight: 700;
-}
-.stance-control__footer button:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 .situation-list {
   display: grid;
@@ -283,6 +218,11 @@ main {
     700 23px "Source Serif 4",
     serif;
 }
+.graph-instruction {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
 .legend {
   display: flex;
   gap: 14px;
@@ -304,6 +244,9 @@ main {
 }
 .legend i.negative {
   background: var(--red);
+}
+.legend i.neutral {
+  background: #777166;
 }
 .legend i.inactive {
   height: 8px;
@@ -341,6 +284,19 @@ main {
   border-top: 4px solid var(--green);
   background: rgba(248, 245, 237, 0.96);
   box-shadow: 0 8px 24px rgba(50, 45, 37, 0.09);
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s,
+    transform 0.16s;
+}
+.simulation-node:hover {
+  box-shadow: 0 11px 30px rgba(50, 45, 37, 0.18);
+  transform: translateY(-1px);
+}
+.react-flow__node:focus-visible .simulation-node {
+  outline: 3px solid rgba(49, 94, 76, 0.25);
+  outline-offset: 3px;
 }
 .simulation-node--stance {
   border-top-color: var(--gold);
@@ -406,6 +362,169 @@ main {
 .react-flow__controls-button {
   background: var(--paper);
   border-bottom-color: var(--line);
+}
+.react-flow__edge-path,
+.react-flow__edge-text {
+  transition:
+    opacity 0.14s,
+    stroke-width 0.14s;
+}
+
+.node-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  margin: auto;
+  padding: 0;
+  color: var(--ink);
+  border: 1px solid #aaa294;
+  border-top: 5px solid var(--green);
+  background: var(--paper);
+  box-shadow: 0 24px 80px rgba(39, 45, 39, 0.28);
+  overflow: auto;
+}
+.node-modal::backdrop {
+  background: rgba(39, 45, 39, 0.52);
+  backdrop-filter: blur(2px);
+}
+.node-modal__surface {
+  padding: 28px 30px 30px;
+}
+.node-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 24px;
+}
+.node-modal__header span,
+.stance-editor__heading span {
+  color: var(--muted);
+  font:
+    500 9px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+.node-modal__header h2 {
+  margin: 5px 0 0;
+  font:
+    700 28px "Source Serif 4",
+    serif;
+}
+.node-modal__close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  padding: 0 0 3px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+}
+.node-modal__close:hover {
+  color: var(--ink);
+  border-color: #aaa294;
+}
+.node-modal__description {
+  margin: 15px 0 22px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.node-modal__details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.node-modal__details > div {
+  min-width: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.node-modal__details dt {
+  color: var(--muted);
+  font:
+    500 8px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.node-modal__details dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 600;
+}
+.stance-editor {
+  margin-top: 25px;
+  padding: 20px;
+  border: 1px solid #c7b998;
+  background: #f1ead9;
+}
+.stance-editor__heading,
+.stance-editor__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.stance-editor__heading h3 {
+  margin: 3px 0 0;
+  font:
+    700 18px "Source Serif 4",
+    serif;
+}
+.stance-editor__heading output {
+  color: var(--green);
+  font:
+    600 20px "DM Mono",
+    monospace;
+}
+.stance-editor input[type="range"],
+.stance-editor select {
+  width: 100%;
+  margin: 22px 0 18px;
+  accent-color: var(--green);
+}
+.stance-editor select {
+  padding: 8px 10px;
+  border: 1px solid #b9ad92;
+  color: var(--ink);
+  background: var(--paper);
+}
+.stance-editor__footer > div {
+  display: grid;
+  gap: 3px;
+}
+.stance-editor__footer span,
+.stance-editor__footer small {
+  color: var(--muted);
+  font:
+    9px "DM Mono",
+    monospace;
+}
+.stance-editor__footer button {
+  min-width: 92px;
+  padding: 8px 14px;
+  border: 1px solid var(--green);
+  color: var(--paper);
+  background: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+.stance-editor__footer button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stance-editor__feedback {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  color: var(--green);
+  border-top: 1px solid rgba(184, 139, 69, 0.35);
+  font-size: 11px;
 }
 
 .empty-chronicle {
@@ -509,5 +628,21 @@ main {
   }
   .legend {
     display: none;
+  }
+}
+@media (max-width: 560px) {
+  .node-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+  .node-modal__surface {
+    padding: 22px 18px 24px;
+  }
+  .node-modal__details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stance-editor__footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

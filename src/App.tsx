@@ -1,17 +1,25 @@
+import { useState } from "react";
 import { useGameSession } from "./app/useGameSession";
 import { exampleScenario } from "./scenarios/example";
 import { SimulationGraph } from "./ui/graph/SimulationGraph";
-import { StanceControls } from "./ui/panels/StanceControls";
+import { NodeDetailsModal } from "./ui/panels/NodeDetailsModal";
 import "./App.css";
 
 function App() {
   const session = useGameSession(exampleScenario);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const resource = exampleScenario.nodes.find(
     (node) => node.type === "resource",
   );
   const situations = exampleScenario.nodes.filter(
     (node) => node.type === "situation",
   );
+  const selectedDefinition = exampleScenario.nodes.find(
+    ({ id }) => id === selectedNodeId,
+  );
+  const selectedRuntime = selectedDefinition
+    ? session.state.nodes[selectedDefinition.id]
+    : undefined;
 
   return (
     <div className="app-shell">
@@ -49,17 +57,6 @@ function App() {
           </div>
           <section>
             <div className="section-heading">
-              <h2>Stances</h2>
-              <span>Direct control</span>
-            </div>
-            <StanceControls
-              scenario={exampleScenario}
-              state={session.state}
-              onApply={session.setStance}
-            />
-          </section>
-          <section>
-            <div className="section-heading">
               <h2>Situations</h2>
               <span>Threshold driven</span>
             </div>
@@ -86,6 +83,9 @@ function App() {
             <div>
               <span>Live causal model</span>
               <h2>Institutional landscape</h2>
+              <p className="graph-instruction">
+                Click a node for details. Hover to trace its Effects.
+              </p>
             </div>
             <div className="legend" aria-label="Graph legend">
               <span>
@@ -95,12 +95,19 @@ function App() {
                 <i className="negative" /> Negative
               </span>
               <span>
+                <i className="neutral" /> Neutral
+              </span>
+              <span>
                 <i className="inactive" /> Inactive
               </span>
             </div>
           </div>
           <div className="graph-frame">
-            <SimulationGraph scenario={exampleScenario} state={session.state} />
+            <SimulationGraph
+              scenario={exampleScenario}
+              state={session.state}
+              onNodeSelect={setSelectedNodeId}
+            />
           </div>
           <footer className="statusbar">
             <p aria-live="polite">{session.message}</p>
@@ -150,6 +157,18 @@ function App() {
           )}
         </aside>
       </main>
+
+      {selectedDefinition && selectedRuntime && (
+        <NodeDetailsModal
+          key={selectedDefinition.id}
+          definition={selectedDefinition}
+          runtime={selectedRuntime}
+          scenario={exampleScenario}
+          message={session.message}
+          onApply={session.setStance}
+          onClose={() => setSelectedNodeId(undefined)}
+        />
+      )}
     </div>
   );
 }
