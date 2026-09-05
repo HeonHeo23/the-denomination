@@ -7,6 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "check": "npm run format:check && npm run lint && npm run build",
+    "test:engine": "tsc -p tsconfig.engine-tests.json --noEmit && rolldown tests/simulation/engine.test.ts --platform node --format esm --file .test-dist/engine.test.mjs && node .test-dist/engine.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -20,6 +25,8 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "prettier": "^3.9.6",
+    "rolldown": "^1.2.6",
     "typescript": "~6.0.2",
     "vite": "^8.2.2"
   }

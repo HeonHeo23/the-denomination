@@ -1,122 +1,177 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from "react";
+import { useGameSession } from "./app/useGameSession";
+import { exampleScenario } from "./scenarios/example";
+import { SimulationGraph } from "./ui/graph/SimulationGraph";
+import { NodeDetailsModal } from "./ui/panels/NodeDetailsModal";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const session = useGameSession(exampleScenario);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const resource = exampleScenario.nodes.find(
+    (node) => node.type === "resource",
+  );
+  const situations = exampleScenario.nodes.filter(
+    (node) => node.type === "situation",
+  );
+  const selectedDefinition = exampleScenario.nodes.find(
+    ({ id }) => id === selectedNodeId,
+  );
+  const selectedRuntime = selectedDefinition
+    ? session.state.nodes[selectedDefinition.id]
+    : undefined;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="wordmark">
+          <span>The</span>
+          <strong>Denomination</strong>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+        <div className="turn-display">
+          <span>Year</span>
+          <strong>{session.state.year}</strong>
+          <small>Turn {session.state.turn}</small>
         </div>
+        {resource && (
+          <div className="resource-display">
+            <span>{resource.name}</span>
+            <strong>{session.state.nodes[resource.id].value.toFixed(1)}</strong>
+          </div>
+        )}
         <button
+          className="advance-button"
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          onClick={session.nextTurn}
         >
-          Count is {count}
+          Advance year <span aria-hidden="true">→</span>
         </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      <main>
+        <aside className="control-panel">
+          <div className="scenario-intro">
+            <span>Scenario · 1980</span>
+            <h1>{exampleScenario.title}</h1>
+            <p>{exampleScenario.description}</p>
+          </div>
+          <section>
+            <div className="section-heading">
+              <h2>Situations</h2>
+              <span>Threshold driven</span>
+            </div>
+            <div className="situation-list">
+              {situations.map((situation) => {
+                const runtime = session.state.nodes[situation.id];
+                return (
+                  <div
+                    key={situation.id}
+                    className={runtime.isActive ? "is-active" : ""}
+                  >
+                    <span>{situation.name}</span>
+                    <strong>{Math.round(runtime.value * 100)}%</strong>
+                    <small>{runtime.isActive}</small>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </aside>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <section className="simulation-workspace">
+          <div className="workspace-heading">
+            <div>
+              <span>Live causal model</span>
+              <h2>Institutional landscape</h2>
+              <p className="graph-instruction">
+                Click a node for details. Hover to trace its Effects.
+              </p>
+            </div>
+            <div className="legend" aria-label="Graph legend">
+              <span>
+                <i className="positive" /> Positive
+              </span>
+              <span>
+                <i className="negative" /> Negative
+              </span>
+              <span>
+                <i className="neutral" /> Neutral
+              </span>
+              <span>
+                <i className="inactive" /> Inactive
+              </span>
+            </div>
+          </div>
+          <div className="graph-frame">
+            <SimulationGraph
+              scenario={exampleScenario}
+              state={session.state}
+              onNodeSelect={setSelectedNodeId}
+            />
+          </div>
+          <footer className="statusbar">
+            <p aria-live="polite">{session.message}</p>
+            <button type="button" onClick={session.reset}>
+              Reset scenario
+            </button>
+          </footer>
+        </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <aside className="chronicle-panel">
+          <div className="section-heading">
+            <h2>Chronicle</h2>
+            <span>{session.state.grudges.length} active effects</span>
+          </div>
+          {session.state.history.length === 0 ? (
+            <div className="empty-chronicle">
+              <span>1980</span>
+              <p>No recorded changes yet.</p>
+            </div>
+          ) : (
+            <ol className="chronicle-list">
+              {[...session.state.history]
+                .reverse()
+                .slice(0, 8)
+                .map((entry) => (
+                  <li key={entry.id}>
+                    <span>{entry.turn === 0 ? 1980 : 1980 + entry.turn}</span>
+                    <strong>{entry.title}</strong>
+                    <p>{entry.detail}</p>
+                  </li>
+                ))}
+            </ol>
+          )}
+          {session.state.grudges.length > 0 && (
+            <div className="active-grudges">
+              <h3>Temporary effects</h3>
+              {session.state.grudges.map((grudge) => (
+                <div key={grudge.id}>
+                  <span>{grudge.label}</span>
+                  <strong>
+                    {grudge.magnitude > 0 ? "+" : ""}
+                    {grudge.magnitude.toFixed(3)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </aside>
+      </main>
+
+      {selectedDefinition && selectedRuntime && (
+        <NodeDetailsModal
+          key={selectedDefinition.id}
+          definition={selectedDefinition}
+          runtime={selectedRuntime}
+          scenario={exampleScenario}
+          state={session.state}
+          message={session.message}
+          onApply={session.setStance}
+          onClose={() => setSelectedNodeId(undefined)}
+        />
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
