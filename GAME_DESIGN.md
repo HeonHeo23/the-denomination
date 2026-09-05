@@ -146,6 +146,13 @@ referenced contextual node values. Positive and negative contributions have no
 universal moral meaning. The expression representation belongs to
 `DATA_FORMAT.md`.
 
+| Response kind | Contribution equation (`intercept` defaults to `0`)          |
+| ------------- | ------------------------------------------------------------ |
+| `constant`    | `value`                                                      |
+| `linear`      | `intercept + coefficient * source`                           |
+| `power`       | `intercept + coefficient * source ** exponent`               |
+| `product`     | `intercept + coefficient * source * factor1 * ... * factorN` |
+
 The graph may connect any active node types where content defines a meaningful
 relationship. Stances SHOULD NOT normally be targets because their values are
 player-controlled. Effect declaration order MUST NOT change the semantic

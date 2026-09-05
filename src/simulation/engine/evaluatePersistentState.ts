@@ -112,21 +112,35 @@ export function evaluatePersistentState(
   const trace: CalculationTrace[] = [];
   const history: HistoryEntry[] = [...state.history];
 
+  /**
+   * 1. Resolve each non-stance node's value.
+   * 2. Update Situation activation and history.
+   * 3. Store the node state and calculation trace.
+   */
   for (const definition of scenario.nodes) {
+    // Read the current node state.
     const runtime = state.nodes[definition.id];
+
+    // Skip player-controlled Stances.
     if (definition.type === "stance") continue;
 
+    // Sum persistent modifiers.
     const effectTotal = effectTotalByTarget[definition.id] ?? 0;
     const grudgeTotal = state.grudges
       .filter((grudge) => grudge.target === definition.id)
       .reduce((total, grudge) => total + grudge.magnitude, 0);
+
+    // Clamp the next value to node bounds.
     const value = clampValue(
       runtime.baseValue + effectTotal + grudgeTotal,
       definition,
     );
+
+    // Carry forward the current activation.
     let activation = runtime.isActive;
 
     if (definition.type === "situation") {
+      // Update Situation activation.
       if (!activation && value >= definition.startThreshold) {
         activation = true;
         history.push({
@@ -148,7 +162,10 @@ export function evaluatePersistentState(
       }
     }
 
+    // Store the resolved node state.
     nodes[definition.id] = { ...runtime, value, isActive: activation };
+
+    // Record the calculation breakdown.
     trace.push({
       targetId: definition.id,
       baseline: runtime.baseValue,

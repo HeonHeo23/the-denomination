@@ -70,6 +70,14 @@ Do not redefine game semantics in architecture or data-format code. If implement
 - Add or update tests when behavior changes.
 - Run relevant validation before finishing.
 
+## Code Comments
+
+When asked to add comments to a selected code area:
+
+- Add comprehensive but concise structural comments for its logical phases.
+- Keep comments within the selected area unless instructed otherwise.
+- Do not change behavior.
+
 ## Scope Discipline
 
 Implement only what the current task requires.

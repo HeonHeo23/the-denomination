@@ -6,24 +6,45 @@ responsibilities, and dependency boundaries. Game behavior belongs to
 
 ## Architectural shape
 
-```text
-Scenario source
-    |
-    v
-load -> validate -> normalized static definitions
-                          |
-                          v
-commands + prior state -> simulation engine -> next state + results
-                                                   |
-                                                   v
-                                      application session owner
-                                                   |
-                                +------------------+------------------+
-                                v                                     v
-                      UI selectors/view models              persistence adapter
-                                |
-                                v
-                         React / React Flow
+```mermaid
+flowchart TB
+  PLAYER(["Player"]):::person
+
+  subgraph PRESENTATION["Presentation"]
+    direction TB
+    UI["React UI<br/>Renders state and dispatches intent<br/>src/App.tsx, src/ui"]:::component
+    PROJECTION["UI projection<br/>Builds disposable graph data<br/>src/ui/graph/projectToReactFlow.ts"]:::component
+  end
+
+  subgraph APPLICATION["Application"]
+    SESSION["Application session<br/>Owns the active snapshot<br/>src/app"]:::component
+  end
+
+  subgraph AUTHORED_CONTENT["Authored content"]
+    CONTENT["Scenario content<br/>Provides static definitions<br/>src/scenarios"]:::component
+  end
+
+  subgraph SIMULATION["Framework-independent simulation"]
+    direction TB
+    API["Simulation API<br/>Provides the cross-layer boundary<br/>src/simulation/index.ts"]:::component
+    ENGINE["Simulation engine<br/>Executes pure state transitions<br/>src/simulation/engine"]:::component
+    DOMAIN["Domain<br/>Defines content and runtime types<br/>src/simulation/domain"]:::component
+  end
+
+  PLAYER -->|"changes Stances and advances turns"| UI
+  UI -->|"selects bundled Scenario"| CONTENT
+  UI -->|"dispatches intent and reads state"| SESSION
+  UI -->|"consumes simulation types"| API
+  UI -->|"requests graph projection"| PROJECTION
+  PROJECTION -->|"consumes simulation types"| API
+  SESSION -->|"executes commands and turns"| API
+  CONTENT -->|"imports ScenarioDefinition"| API
+  API -->|"exports operations"| ENGINE
+  API -->|"exports contracts"| DOMAIN
+  ENGINE -->|"uses contracts"| DOMAIN
+
+  classDef person fill:#f8fafc,stroke:#475569,color:#0f172a,stroke-width:2px
+  classDef component fill:#f8fafc,stroke:#334155,color:#0f172a,stroke-width:2px
 ```
 
 The project is a client-side application with a deterministic, framework-free
@@ -35,33 +56,60 @@ abstractions without a demonstrated need.
 
 | Module                         | Current path                                                                                   | Responsibility                                                                                        |
 | ------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Domain contracts               | `src/simulation/domain`                                                                        | Static definition types, runtime-state types, commands, and engine result types                       |
+| Domain                         | `src/simulation/domain`                                                                        | Static definition types, runtime-state types, commands, and engine result types                       |
 | Content loading and validation | Initially within `src/simulation`; extract a dedicated folder when multiple loaders warrant it | Parse or accept Scenario data, validate it, and produce trusted static definitions                    |
 | Simulation engine              | `src/simulation/engine`                                                                        | Initialize runtime state and execute commands and turns as pure state transitions                     |
 | Simulation public API          | `src/simulation/index.ts`                                                                      | Stable exports used outside the simulation package                                                    |
 | Scenario content               | `src/scenarios`                                                                                | Authored static Scenario definitions; no runtime state or React code                                  |
 | Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
 | UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                     |
-| React composition              | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
+| React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
 | Persistence adapter            | Not yet implemented                                                                            | Serialize and restore versioned session data without changing engine semantics                        |
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
 
-## Dependency direction
+## Dependency
 
 Allowed dependencies:
 
-```text
-domain contracts <- content validation
-domain contracts <- simulation engine
-domain contracts <- Scenario content
+```mermaid
+flowchart TB
+  KEY["Arrow direction<br/>A → B means A depends on B"]:::key
 
-simulation public API <- application/session
-application/session <- React composition
-simulation public API <- UI projections
-UI projections <- React components
-React Flow <- graph adapter/components only
+  BOOT["Browser entry poin<br/>src/main.tsx"]:::custom
+  UI["React UI<br/>State rendering & Intent Dispatch<br/>src/App.tsx, src/ui"]:::custom
+  SESSION["Application session<br/>Owns active simulation snapshot<br/>src/app"]:::custom
+  CONTENT["Scenario content<br/>Authored definitions<br/>src/scenarios"]:::custom
+  API["Simulation API<br/>Cross-layer entry point<br/>src/simulation/index.ts"]:::custom
+  ENGINE["Simulation engine<br/>Executes pure state transitions<br/>src/simulation/engine"]:::custom
+  DOMAIN["Domain<br/>Define types<br/>src/simulation/domain"]:::custom
+
+  REACT["React<br/>react"]:::ootb
+  REACT_DOM["React DOM<br/>react-dom"]:::ootb
+  REACT_FLOW["React Flow<br/>@xyflow/react"]:::ootb
+
+  BOOT --> UI
+  BOOT --> REACT
+  BOOT --> REACT_DOM
+
+  UI --> SESSION
+  UI --> CONTENT
+  UI --> API
+  UI --> REACT
+  UI --> REACT_FLOW
+
+  SESSION --> API
+  SESSION --> REACT
+  CONTENT --> API
+
+  API --> ENGINE
+  API --> DOMAIN
+  ENGINE --> DOMAIN
+
+  classDef ootb fill:#dbeafe,stroke:#1d4ed8,color:#172554,stroke-width:2px
+  classDef custom fill:#ffedd5,stroke:#c2410c,color:#431407,stroke-width:2px,stroke-dasharray:5 4
+  classDef key fill:#f8fafc,stroke:#64748b,color:#0f172a,stroke-width:1px
 ```
 
 Rules:
@@ -163,6 +211,30 @@ content ownership.
 Incident candidate calculation and incident selection should be separable
 engine steps. This is required because the selection policy is still a design
 TBD, not because it warrants a general rules framework.
+
+### Engine functions
+
+This is an implementation reference for `src/simulation/engine`, including
+private helpers. It describes current code rather than adding game semantics;
+`GAME_DESIGN.md` remains authoritative.
+
+| Function                                                  | Visibility      | Current flow                                                                                                                                       |
+| --------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `advanceTurn`<br>`advanceTurn.ts`                         | Public          | 1. Increment turn/year. <br>2. Evaluate persistence. <br>3. Decay and clean up Grudges. <br>4. Return state, message, and trace.                   |
+| `responseValue`<br>`evaluatePersistentState.ts`           | Private         | 1. Select response kind. <br>2. Calculate its contribution.                                                                                        |
+| `evaluateEffect`<br>`evaluatePersistentState.ts`          | Private         | 1. Read source. <br>2. Update inertia history. <br>3. Average and evaluate response.                                                               |
+| `evaluatePersistentState`<br>`evaluatePersistentState.ts` | Engine-internal | 1. Evaluate Effects from one snapshot. <br>2. Recalculate non-Stances. <br>3. Clamp and apply Situation hysteresis. <br>4. Return state and trace. |
+| `initializeScenario`<br>`initialize.ts`                   | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                            |
+| `validateScenario`<br>`validateScenario.ts`               | Public          | 1. Collect diagnostics. <br>2. Check IDs, domains, values, thresholds, references, and costs. <br>3. Return all errors.                            |
+| `reject`<br>`playerActions.ts`                            | Private         | 1. Create a rejected result. <br>2. Preserve the original state. <br>3. Include the message.                                                       |
+| `changeStance`<br>`playerActions.ts`                      | Private         | 1. Validate value and prerequisites. <br>2. Check/debit cost. <br>3. Set value and baseline. <br>4. Add history and accept.                        |
+| `executeCommand`<br>`playerActions.ts`                    | Public          | 1. Verify Scenario ownership. <br>2. Dispatch and type-check the Stance. <br>3. Delegate to `changeStance`.                                        |
+| `indexNodes`<br>`shared.ts`                               | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                     |
+| `clampValue`<br>`shared.ts`                               | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                      |
+
+`src/simulation/index.ts` declares no functions. It re-exports the public
+operations `advanceTurn`, `initializeScenario`, `executeCommand`, and
+`validateScenario`, along with domain contracts.
 
 ## React and React Flow
 
