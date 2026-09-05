@@ -106,12 +106,12 @@ function StanceEditor({
               ? `Change cost: ${cost.toFixed(1)} ${resource?.name ?? "Resource"}`
               : "No Resource cost"}
           </span>
-          {definition.cost?.maxChange !== undefined && (
+          {/* {definition.cost?.maxChange !== undefined && (
             <small>
               Maximum per action:{" "}
               {formatValue(definition.cost.maxChange, definition)}
             </small>
-          )}
+          )} */}
         </div>
         <button type="button" disabled={draft === value} onClick={apply}>
           Apply

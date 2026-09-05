@@ -19,6 +19,7 @@ function changeStance(
   stance: StanceDefinition,
   value: number,
 ): CommandResult {
+  // Input verifications
   const runtime = state.nodes[stance.id];
   if (!Number.isFinite(value)) return reject(state, "Choose a valid value.");
   if (value < stance.domain.min || value > stance.domain.max) {
@@ -38,18 +39,19 @@ function changeStance(
     return reject(state, `The prerequisites for ${stance.name} are not met.`);
   }
 
+  // MaxChange
   const amountChanged = Math.abs(value - runtime.value);
   if (amountChanged === 0)
     return reject(state, "That Stance is already selected.");
-  if (
-    stance.cost?.maxChange !== undefined &&
-    amountChanged > stance.cost.maxChange
-  ) {
-    return reject(
-      state,
-      `${stance.name} can change by at most ${stance.cost.maxChange} per action.`,
-    );
-  }
+  // if (
+  //   stance.cost?.maxChange !== undefined &&
+  //   amountChanged > stance.cost.maxChange
+  // ) {
+  //   return reject(
+  //     state,
+  //     `${stance.name} can change by at most ${stance.cost.maxChange} per action.`,
+  //   );
+  // }
 
   const nodes = { ...state.nodes };
   let cost = 0;

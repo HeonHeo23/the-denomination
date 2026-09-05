@@ -59,7 +59,7 @@ export interface StanceCostDefinition {
   readonly resourceId: NodeId;
   readonly base: number;
   readonly perPoint: number;
-  readonly maxChange?: number;
+  // readonly maxChange?: number;
 }
 
 /** A persistent position controlled primarily by the player. */

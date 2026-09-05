@@ -27,7 +27,7 @@ export const exampleScenario = {
         resourceId: "authority",
         base: 0.5,
         perPoint: 12,
-        maxChange: 0.2,
+        // maxChange: 0.2,
       },
     },
     {
@@ -47,7 +47,7 @@ export const exampleScenario = {
         resourceId: "authority",
         base: 0.5,
         perPoint: 10,
-        maxChange: 0.2,
+        // maxChange: 0.2,
       },
     },
     {

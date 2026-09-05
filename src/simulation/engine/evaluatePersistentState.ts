@@ -9,7 +9,7 @@ import type {
   HistoryEntry,
   SimulationState,
 } from "../domain/runtime";
-import { clampValue, indexNodes } from "./shared";
+import { clampValue } from "./shared";
 
 interface EvaluationResult {
   readonly state: SimulationState;
@@ -93,21 +93,15 @@ export function evaluatePersistentState(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): EvaluationResult {
-  const definitions = indexNodes(scenario);
   const effects = { ...state.effects };
   // Maps each target node ID string to its summed Effect contributions number
   const effectTotalByTarget: Record<string, number> = {};
 
   // Sample every Effect and total contributions for eligible targets
   for (const effect of scenario.effects) {
-    const targetDefinition = definitions[effect.target];
-    const targetRuntime = state.nodes[effect.target];
-    const targetCanReceive =
-      targetDefinition.type === "situation" || targetRuntime.isActive;
     const effectResult = evaluateEffect(effect, state);
     effects[effect.id] = effectResult.runtime;
 
-    if (targetDefinition.type === "stance" || !targetCanReceive) continue;
     effectTotalByTarget[effect.target] =
       (effectTotalByTarget[effect.target] ?? 0) +
       effectResult.runtime.lastContribution;
@@ -121,8 +115,6 @@ export function evaluatePersistentState(
   for (const definition of scenario.nodes) {
     const runtime = state.nodes[definition.id];
     if (definition.type === "stance") continue;
-    const canReceive = definition.type === "situation" || runtime.isActive;
-    if (!canReceive) continue;
 
     const effectTotal = effectTotalByTarget[definition.id] ?? 0;
     const grudgeTotal = state.grudges
