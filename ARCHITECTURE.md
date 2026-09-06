@@ -154,6 +154,13 @@ Scenario is the only top-level playable configuration. A loading boundary must:
 3. reject invalid content with actionable diagnostics;
 4. return a trusted definition to initialization.
 
+The current loading path is:
+
+```text
+untrusted content -> validateScenario -> structured clone and normalize
+                   -> freeze trusted Scenario -> initialize turn-zero state
+```
+
 The current compiled TypeScript Scenario may continue as a source while there
 is only local bundled content. Adding runtime files or remote content should add
 a parser at this boundary, not change the engine to accept unvalidated data.
@@ -244,7 +251,7 @@ may memoize projections but must not become an alternate simulation store.
 The graph adapter maps visible simulation nodes and Effects to React Flow data:
 
 - definition data supplies labels and visibility;
-- runtime data supplies values, activation, and current contributions;
+- runtime data supplies values, isActive, isForced, and current contributions;
 - layout and styling remain presentation concerns;
 - hidden nodes and edges continue participating in simulation;
 - dragging or selecting a graph element does not mutate game state unless

@@ -13,6 +13,7 @@ Use repository documentation according to the following ownership:
 - `ARCHITECTURE.md` — authoritative for intended software structure, module responsibilities, and dependency boundaries.
 - `DATA_FORMAT.md` — authoritative for intended Scenario and game-content representation.
 - `AGENTS.md` — authoritative for repository-level agent instructions.
+- `IMPLEMENTATION_STATUS.md` — non-authoritative inventory of current implementation status and known gaps.
 
 Before design-sensitive or architecture-sensitive work, read the relevant source-of-truth documents.
 
@@ -24,6 +25,11 @@ If documents conflict:
 4. Existing code represents the current implementation, but does not override explicit documented semantics.
 
 Report meaningful inconsistencies rather than silently reconciling them.
+
+`IMPLEMENTATION_STATUS.md` records implementation reality but MUST NOT override
+the authoritative design, architecture, or data-format documents. It may mark
+intended behavior as partial, deferred, or unsupported; it MUST NOT authorize
+new mechanics or promote provisional behavior into intended design.
 
 ## Normative Language
 
@@ -69,6 +75,8 @@ Do not redefine game semantics in architecture or data-format code. If implement
 - Do not duplicate concepts already owned by another documented subsystem.
 - Add or update tests when behavior changes.
 - Run relevant validation before finishing.
+- Update `IMPLEMENTATION_STATUS.md` when a change materially alters an
+  implementation boundary, supported capability, or known gap.
 
 ## Code Comments
 

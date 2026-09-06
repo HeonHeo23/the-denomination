@@ -24,6 +24,12 @@ export interface NumericDomain {
   readonly clamp: boolean;
 }
 
+export interface InitialNodeState {
+  readonly value: number;
+  readonly isActive: boolean;
+  readonly isForced: boolean;
+}
+
 /** Fields shared by every authored node definition. */
 interface BaseNodeDefinition {
   readonly id: NodeId;
@@ -32,11 +38,10 @@ interface BaseNodeDefinition {
   readonly description: string;
   readonly category?: NodeCategory;
   readonly domain: NumericDomain;
-  readonly initialValue: number;
-  readonly baselineValue?: number;
-  readonly isActive: boolean;
-  readonly isVisible?: boolean;
-  readonly isForced?: boolean;
+  readonly initial: InitialNodeState;
+  readonly baseline?: number;
+  readonly graphVisible?: boolean;
+  readonly requires?: readonly string[];
 }
 
 /** Configuration for a continuously adjustable Stance. */
@@ -59,7 +64,7 @@ export interface StanceCostDefinition {
   readonly resourceId: NodeId;
   readonly base: number;
   readonly perPoint: number;
-  // readonly maxChange?: number;
+  readonly maxChange?: number;
 }
 
 /** A persistent position controlled primarily by the player. */
@@ -67,14 +72,15 @@ export interface StanceDefinition extends BaseNodeDefinition {
   readonly type: "stance";
   readonly control: ContinuousStanceControl | DiscreteStanceControl;
   readonly cost?: StanceCostDefinition;
-  readonly prerequisites?: readonly string[];
 }
 
 /** A continuously calculated measure that cannot be deactivated. */
 export interface IndicatorDefinition extends BaseNodeDefinition {
   readonly type: "indicator";
-  readonly isActive: true;
-  readonly isForced: true;
+  readonly initial: InitialNodeState & {
+    readonly isActive: true;
+    readonly isForced: true;
+  };
 }
 
 /** A constituency or tendency represented by one scenario-defined scalar. */
@@ -86,8 +92,10 @@ export interface FactionDefinition extends BaseNodeDefinition {
 /** A spendable or accumulable capacity represented as a node. */
 export interface ResourceDefinition extends BaseNodeDefinition {
   readonly type: "resource";
-  readonly isActive: true;
-  readonly isForced: true;
+  readonly initial: InitialNodeState & {
+    readonly isActive: true;
+    readonly isForced: true;
+  };
 }
 
 /** A persistent condition governed by hysteresis thresholds. */
@@ -147,9 +155,12 @@ export interface ScenarioDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
-  readonly startingTurn: number;
-  readonly startingYear?: number;
-  readonly prerequisites: readonly string[];
+  readonly schemaVersion: 1;
+  readonly start: { readonly turn: number; readonly year?: number };
+  readonly conditions?: readonly string[];
+  /** Incidents are not supported by this implementation yet. */
+  readonly events?: readonly never[];
+  readonly dilemmas?: readonly never[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];
 }

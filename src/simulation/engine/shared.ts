@@ -16,3 +16,13 @@ export function clampValue(value: number, node: NodeDefinition): number {
   if (!node.domain.clamp) return value;
   return Math.min(node.domain.max, Math.max(node.domain.min, value));
 }
+
+/** Static requirements gate eligibility without changing simulation values. */
+export function conditionsMet(
+  scenario: ScenarioDefinition,
+  requires: readonly string[] = [],
+): boolean {
+  return requires.every((condition) =>
+    (scenario.conditions ?? []).includes(condition),
+  );
+}

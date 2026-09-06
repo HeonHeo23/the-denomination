@@ -38,7 +38,22 @@ The activation states are:
 
 - `active`: participates normally;
 - `inactive`: does not exert normal outgoing Effects;
-- `forced-active`: participates and cannot normally be deactivated.
+- forced active: participates and cannot normally be deactivated.
+
+Authored activation is represented as one of these three states, but runtime
+state keeps two separate facts: `isActive` records whether the node currently
+participates, while `isForced` records whether ordinary deactivation is
+forbidden. The valid runtime combinations are:
+
+| Runtime flags | Meaning |
+| --- | --- |
+| `isActive: true`, `isForced: false` | Normally active and participating. |
+| `isActive: false`, `isForced: false` | Normally inactive and not participating in outgoing Effects. |
+| `isActive: true`, `isForced: true` | Forced active and participating; normal deactivation cannot turn it off. |
+
+Forced activation is therefore a constraint on deactivation, not a replacement
+for the active-state flag. A node can be active without being forced, and
+activation participation and graph visibility remain independent concerns.
 
 Ordinary inactive targets do not receive normal persistent Effect
 contributions. An inactive node retains its stored runtime state for possible
@@ -75,7 +90,7 @@ cost = base cost + cost per point * absolute value change
 A cost may also cap the change made by one action. The player may make unlimited
 Stance-change actions during a turn while each action is legal and sufficient
 Resources remain. An inactive Stance may become active when legally enacted. A
-forced-active Stance cannot normally be cancelled.
+A forced-active Stance cannot normally be cancelled.
 
 Mutually incompatible Stances and any conflict-resolution behavior require
 explicit content support; there is no universal implicit rule.

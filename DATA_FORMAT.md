@@ -55,8 +55,6 @@ runtime state.
 All node definitions share:
 
 ```ts
-type Activation = "active" | "inactive" | "forced-active";
-
 interface NumericDomain {
   min: number;
   max: number;
@@ -65,7 +63,8 @@ interface NumericDomain {
 
 interface InitialNodeState {
   value: number;
-  activation: Activation;
+  isActive: boolean;
+  isForced: boolean;
 }
 
 interface BaseNodeDefinition {
@@ -87,6 +86,8 @@ the underlying term used by persistent-state calculation after initialization;
 it is not an alternate initial value. If omitted, it defaults to
 `initial.value`. Resource baseline behavior beyond the current MVP is still a
 design TBD.
+
+`isActive` controls participation; `isForced` prevents normal deactivation.
 
 `graphVisible` defaults to `true` and affects only presentation. A hidden node
 remains a normal simulation participant.
@@ -140,7 +141,7 @@ their deferred mechanics are specified.
 ```ts
 interface IndicatorDefinition extends BaseNodeDefinition {
   type: "indicator";
-  initial: InitialNodeState & { activation: "forced-active" };
+  initial: InitialNodeState & { isActive: true; isForced: true };
 }
 ```
 
@@ -160,7 +161,7 @@ interface FactionDefinition extends BaseNodeDefinition {
 ```ts
 interface ResourceDefinition extends BaseNodeDefinition {
   type: "resource";
-  initial: InitialNodeState & { activation: "forced-active" };
+  initial: InitialNodeState & { isActive: true; isForced: true };
 }
 ```
 
@@ -307,7 +308,7 @@ Rules:
 - every target references an existing node;
 - a `resource` consequence targets a Resource;
 - a Grudge decay factor is greater than `0` and at most `1`;
-- `activation` cannot deactivate a forced-active node;
+- `activation` cannot deactivate a node whose initial or runtime state is forced;
 - the definition creates a Grudge; generated identity, creation turn, and
   current magnitude belong to runtime state.
 
@@ -348,7 +349,7 @@ A Scenario is accepted only if:
 - IDs are unique in their applicable namespaces;
 - all references resolve to compatible definitions;
 - initial values and baselines lie within their domains;
-- forced-active requirements are respected;
+- separate activation and forced-state requirements are respected;
 - Situation thresholds and discrete Stance states are valid;
 - Inertia and cooldown values are positive integers;
 - condition and `requires` tags are valid identifiers;
@@ -375,7 +376,7 @@ does not replace runtime validation for parsed content.
       name: 'Clergy Formation',
       description: 'Required rigor and investment.',
       domain: { min: 0, max: 1, clamp: true },
-      initial: { value: 0.6, activation: 'forced-active' },
+      initial: { value: 0.6, isActive: true, isForced: true },
       control: { kind: 'continuous', step: 0.05 },
       requires: ['has-seminary']
     },
@@ -385,7 +386,7 @@ does not replace runtime validation for parsed content.
       name: 'Clergy Quality',
       description: 'Preparation and effectiveness.',
       domain: { min: 0, max: 1, clamp: true },
-      initial: { value: 0.57, activation: 'forced-active' },
+      initial: { value: 0.57, isActive: true, isForced: true },
       baseline: 0.18
     }
   ],
@@ -410,7 +411,7 @@ required:
 | --------------------------------------- | -------------------------------------------------------------- |
 | no schema version                       | `schemaVersion: 1`                                             |
 | `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
-| `initialValue`, `activation`            | `initial.value`, `initial.activation`                          |
+| `initialValue`, activation state        | `initial.value`, `initial.isActive`, `initial.isForced`        |
 | `baselineValue`                         | `baseline`                                                     |
 | Scenario `prerequisites`                | Scenario `conditions`                                          |
 | content `prerequisites`                 | content `requires`                                             |

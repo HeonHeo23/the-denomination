@@ -1,11 +1,16 @@
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
-import type { ScenarioDefinition, SimulationState } from "../../simulation";
+import type {
+  NumericDomain,
+  ScenarioDefinition,
+  SimulationState,
+} from "../../simulation";
 
 export interface SimulationNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly description: string;
   readonly nodeType: string;
   readonly value: number;
+  readonly domain: NumericDomain;
   readonly active: boolean;
   readonly forced: boolean;
 }
@@ -40,7 +45,7 @@ export function projectEffectsToReactFlow(
 ): Edge[] {
   const visible = new Set(
     scenario.nodes
-      .filter((definition) => definition.isVisible !== false)
+      .filter((definition) => definition.graphVisible !== false)
       .map(({ id }) => id),
   );
 
@@ -111,7 +116,7 @@ export function projectToReactFlow(
   };
   const visible = new Set(
     scenario.nodes
-      .filter((definition) => definition.isVisible !== false)
+      .filter((definition) => definition.graphVisible !== false)
       .map(({ id }) => id),
   );
 
@@ -131,6 +136,7 @@ export function projectToReactFlow(
           description: definition.description,
           nodeType: definition.type,
           value: runtime.value,
+          domain: definition.domain,
           active: runtime.isActive,
           forced: runtime.isForced,
         },

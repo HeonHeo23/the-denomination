@@ -1,6 +1,7 @@
 import type { ScenarioDefinition } from "../domain/definitions";
 import type { EffectRuntimeState, SimulationState } from "../domain/runtime";
-import { validateScenario } from "./validateScenario";
+import { loadScenario } from "./loadScenario";
+import { responseValue } from "./responseValue";
 
 /**
  * Validates a Scenario and creates its authoritative turn-zero snapshot.
@@ -11,22 +12,20 @@ import { validateScenario } from "./validateScenario";
  *
  * @throws {Error} When the Scenario contains invalid definitions or references.
  */
-export function initializeScenario(
-  scenario: ScenarioDefinition,
-): SimulationState {
-  const errors = validateScenario(scenario);
-  if (errors.length > 0) {
-    throw new Error(`Invalid scenario:\n${errors.join("\n")}`);
-  }
+export function initializeScenario(input: ScenarioDefinition): SimulationState {
+  const loaded = loadScenario(input);
+  if (!loaded.ok)
+    throw new Error(`Invalid scenario:\n${loaded.diagnostics.join("\n")}`);
+  const scenario = loaded.scenario;
 
   const nodes = Object.fromEntries(
     scenario.nodes.map((node) => [
       node.id,
       {
-        value: node.initialValue,
-        baseValue: node.baselineValue ?? node.initialValue,
-        isActive: node.isActive,
-        isForced: node.isForced ?? false,
+        value: node.initial.value,
+        baseValue: node.baseline ?? node.initial.value,
+        isActive: node.initial.isActive,
+        isForced: node.initial.isForced,
       },
     ]),
   );
@@ -45,13 +44,28 @@ export function initializeScenario(
     };
   }
 
-  return {
+  const state: SimulationState = {
     scenarioId: scenario.id,
-    turn: scenario.startingTurn,
-    year: scenario.startingYear,
+    turn: scenario.start.turn,
+    year: scenario.start.year,
     nodes,
     effects,
     grudges: [],
     history: [],
   };
+  for (const effect of scenario.effects) {
+    const participates =
+      effect.source === "_default_" || nodes[effect.source].isActive;
+    effects[effect.id] = {
+      ...effects[effect.id],
+      lastContribution: participates
+        ? responseValue(
+            effect.response,
+            effects[effect.id].sourceHistory[0],
+            state,
+          )
+        : 0,
+    };
+  }
+  return state;
 }

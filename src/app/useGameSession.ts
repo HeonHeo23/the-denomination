@@ -1,64 +1,18 @@
-import { useCallback, useState } from "react";
-import {
-  advanceTurn,
-  executeCommand,
-  initializeScenario,
-  type CalculationTrace,
-  type ScenarioDefinition,
-  type SimulationState,
-} from "../simulation";
+import { useReducer } from "react";
+import { createGameSession, reduceGameSession } from "./gameSession";
 
-/**
- * Owns the active runtime snapshot and coordinates UI intent with the engine.
- *
- * The hook stores presentation feedback and calculation traces alongside the
- * canonical simulation state, but delegates all game transitions to simulation
- * commands and turn advancement.
- */
-export function useGameSession(scenario: ScenarioDefinition) {
-  const [state, setState] = useState<SimulationState>(() =>
-    initializeScenario(scenario),
+/** Content is loaded once for this session; reset uses its owned definition. */
+export function useGameSession(content: unknown) {
+  const [session, dispatch] = useReducer(
+    reduceGameSession,
+    content,
+    createGameSession,
   );
-  const [message, setMessage] = useState("The Fellowship is ready.");
-  const [trace, setTrace] = useState<readonly CalculationTrace[]>([]);
-
-  const setStance = useCallback(
-    (stanceId: string, value: number) => {
-      // Functional updates ensure commands always receive the latest snapshot.
-      setState((current) => {
-        const result = executeCommand(scenario, current, {
-          type: "set-stance",
-          stanceId,
-          value,
-        });
-        setMessage(result.message);
-        return result.state;
-      });
-    },
-    [scenario],
-  );
-
-  const nextTurn = useCallback(() => {
-    setState((current) => {
-      const result = advanceTurn(scenario, current);
-      setMessage(result.message);
-      setTrace(result.trace);
-      return result.state;
-    });
-  }, [scenario]);
-
-  const reset = useCallback(() => {
-    setState(initializeScenario(scenario));
-    setMessage("The Scenario was reset.");
-    setTrace([]);
-  }, [scenario]);
-
   return {
-    state,
-    message,
-    trace,
-    setStance,
-    nextTurn,
-    reset,
+    ...session,
+    setStance: (stanceId: string, value: number) =>
+      dispatch({ type: "set-stance", stanceId, value }),
+    nextTurn: () => dispatch({ type: "advance" }),
+    reset: () => dispatch({ type: "reset" }),
   };
 }

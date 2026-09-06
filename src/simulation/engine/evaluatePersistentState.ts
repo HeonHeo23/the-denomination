@@ -1,6 +1,5 @@
 import type {
   EffectDefinition,
-  ResponseDefinition,
   ScenarioDefinition,
 } from "../domain/definitions";
 import type { CalculationTrace } from "../domain/results";
@@ -9,40 +8,12 @@ import type {
   HistoryEntry,
   SimulationState,
 } from "../domain/runtime";
-import { clampValue } from "./shared";
+import { responseValue } from "./responseValue";
+import { conditionsMet, clampValue } from "./shared";
 
 interface EvaluationResult {
   readonly state: SimulationState;
   readonly trace: readonly CalculationTrace[];
-}
-
-/** Evaluates one declarative response function for an effective source value. */
-function responseValue(
-  response: ResponseDefinition,
-  sourceValue: number,
-  state: SimulationState,
-): number {
-  switch (response.kind) {
-    case "constant":
-      return response.value;
-    case "linear":
-      return (response.intercept ?? 0) + response.coefficient * sourceValue;
-    case "power":
-      return (
-        (response.intercept ?? 0) +
-        response.coefficient * sourceValue ** response.exponent
-      );
-    case "product":
-      return (
-        (response.intercept ?? 0) +
-        response.coefficient *
-          sourceValue *
-          response.factors.reduce(
-            (product, nodeId) => product * state.nodes[nodeId].value,
-            1,
-          )
-      );
-  }
 }
 
 /**
@@ -95,7 +66,7 @@ export function evaluatePersistentState(
 ): EvaluationResult {
   const effects = { ...state.effects };
   // Maps each target node ID string to its summed Effect contributions number
-  const effectTotalByTarget: Record<string, number> = {};
+  const effectTotalByTarget: Record<string, number> = Object.create(null);
 
   // Sample every Effect and total contributions for eligible targets
   for (const effect of scenario.effects) {
@@ -121,8 +92,12 @@ export function evaluatePersistentState(
     // Read the current node state.
     const runtime = state.nodes[definition.id];
 
-    // Skip player-controlled Stances.
-    if (definition.type === "stance") continue;
+    // Preserve player-controlled Stances and stored state of inactive ordinary targets.
+    if (
+      definition.type === "stance" ||
+      (!runtime.isActive && definition.type !== "situation")
+    )
+      continue;
 
     // Sum persistent modifiers.
     const effectTotal = effectTotalByTarget[definition.id] ?? 0;
@@ -141,23 +116,31 @@ export function evaluatePersistentState(
 
     if (definition.type === "situation") {
       // Update Situation activation.
-      if (!activation && value >= definition.startThreshold) {
+      if (
+        !activation &&
+        value >= definition.startThreshold &&
+        conditionsMet(scenario, definition.requires)
+      ) {
         activation = true;
         history.push({
           id: `${definition.id}:start:${state.turn}`,
           turn: state.turn,
           kind: "situation",
           title: `${definition.name} began`,
-          detail: `Pressure reached ${Math.round(value * 100)}%.`,
+          detail: `Pressure reached ${value}.`,
         });
-      } else if (activation && value <= definition.stopThreshold) {
+      } else if (
+        activation &&
+        !runtime.isForced &&
+        value <= definition.stopThreshold
+      ) {
         activation = false;
         history.push({
           id: `${definition.id}:stop:${state.turn}`,
           turn: state.turn,
           kind: "situation",
           title: `${definition.name} ended`,
-          detail: `Pressure fell to ${Math.round(value * 100)}%.`,
+          detail: `Pressure fell to ${value}.`,
         });
       }
     }

@@ -11,6 +11,8 @@ import type {
   SimulationState,
   StanceDefinition,
 } from "../../simulation";
+import { assessStanceChange } from "../../simulation";
+import { formatValue } from "../formatValue";
 import { projectNodeEffects, type NodeEffectView } from "./projectNodeEffects";
 
 interface NodeDetailsModalProps {
@@ -23,12 +25,8 @@ interface NodeDetailsModalProps {
   readonly onClose: () => void;
 }
 
-function formatValue(value: number, definition: NodeDefinition): string {
-  const isProportion = definition.domain.min >= 0 && definition.domain.max <= 1;
-  return isProportion ? `${Math.round(value * 100)}%` : value.toFixed(1);
-}
-
 interface StanceEditorProps {
+  readonly state: SimulationState;
   readonly definition: StanceDefinition;
   readonly value: number;
   readonly scenario: ScenarioDefinition;
@@ -37,6 +35,7 @@ interface StanceEditorProps {
 }
 
 function StanceEditor({
+  state,
   definition,
   value,
   scenario,
@@ -45,14 +44,11 @@ function StanceEditor({
 }: StanceEditorProps) {
   const [draft, setDraft] = useState(value);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const amountChanged = Math.abs(draft - value);
+  const assessment = assessStanceChange(scenario, state, definition.id, draft);
   const resource = definition.cost
     ? scenario.nodes.find(({ id }) => id === definition.cost?.resourceId)
     : undefined;
-  const cost =
-    definition.cost && amountChanged > 0
-      ? definition.cost.base + definition.cost.perPoint * amountChanged
-      : 0;
+  const cost = assessment.cost;
 
   const apply = () => {
     onApply(draft);
@@ -66,7 +62,7 @@ function StanceEditor({
           <span>Player control</span>
           <h3 id="stance-editor-title">Adjust Stance</h3>
         </div>
-        <output>{formatValue(draft, definition)}</output>
+        <output>{formatValue(draft, definition.domain)}</output>
       </div>
 
       {definition.control.kind === "continuous" ? (
@@ -106,18 +102,21 @@ function StanceEditor({
               ? `Change cost: ${cost.toFixed(1)} ${resource?.name ?? "Resource"}`
               : "No Resource cost"}
           </span>
-          {/* {definition.cost?.maxChange !== undefined && (
+          {definition.cost?.maxChange !== undefined && (
             <small>
               Maximum per action:{" "}
-              {formatValue(definition.cost.maxChange, definition)}
+              {formatValue(definition.cost.maxChange, definition.domain)}
             </small>
-          )} */}
+          )}
         </div>
-        <button type="button" disabled={draft === value} onClick={apply}>
+        <button type="button" disabled={!assessment.legal} onClick={apply}>
           Apply
         </button>
       </div>
 
+      {!assessment.legal && draft !== value && (
+        <p className="stance-editor__feedback">{assessment.message}</p>
+      )}
       {hasSubmitted && (
         <p className="stance-editor__feedback" aria-live="polite">
           {message}
@@ -245,7 +244,7 @@ export function NodeDetailsModal({
           </div>
           <div>
             <dt>Current value</dt>
-            <dd>{formatValue(runtime.value, definition)}</dd>
+            <dd>{formatValue(runtime.value, definition.domain)}</dd>
           </div>
           <div>
             <dt>Status</dt>
@@ -254,14 +253,14 @@ export function NodeDetailsModal({
           <div>
             <dt>Domain</dt>
             <dd>
-              {formatValue(definition.domain.min, definition)}–
-              {formatValue(definition.domain.max, definition)}
+              {formatValue(definition.domain.min, definition.domain)}–
+              {formatValue(definition.domain.max, definition.domain)}
             </dd>
           </div>
-          {definition.baselineValue !== undefined && (
+          {definition.baseline !== undefined && (
             <div>
               <dt>Baseline</dt>
-              <dd>{formatValue(definition.baselineValue, definition)}</dd>
+              <dd>{formatValue(definition.baseline, definition.domain)}</dd>
             </div>
           )}
           {definition.type === "faction" && (
@@ -274,11 +273,15 @@ export function NodeDetailsModal({
             <>
               <div>
                 <dt>Starts at</dt>
-                <dd>{formatValue(definition.startThreshold, definition)}</dd>
+                <dd>
+                  {formatValue(definition.startThreshold, definition.domain)}
+                </dd>
               </div>
               <div>
                 <dt>Stops at</dt>
-                <dd>{formatValue(definition.stopThreshold, definition)}</dd>
+                <dd>
+                  {formatValue(definition.stopThreshold, definition.domain)}
+                </dd>
               </div>
             </>
           )}
@@ -301,6 +304,7 @@ export function NodeDetailsModal({
 
         {definition.type === "stance" && (
           <StanceEditor
+            state={state}
             definition={definition}
             value={runtime.value}
             scenario={scenario}

@@ -1,20 +1,28 @@
 import { useState } from "react";
 import { useGameSession } from "./app/useGameSession";
-import { exampleScenario } from "./scenarios/example";
+import { formatValue } from "./ui/formatValue";
 import { SimulationGraph } from "./ui/graph/SimulationGraph";
 import { NodeDetailsModal } from "./ui/panels/NodeDetailsModal";
 import "./App.css";
 
-function App() {
-  const session = useGameSession(exampleScenario);
+function App({ content }: { readonly content: unknown }) {
+  const session = useGameSession(content);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
-  const resource = exampleScenario.nodes.find(
-    (node) => node.type === "resource",
-  );
-  const situations = exampleScenario.nodes.filter(
-    (node) => node.type === "situation",
-  );
-  const selectedDefinition = exampleScenario.nodes.find(
+  if (!session.ok)
+    return (
+      <main>
+        <h1>Unable to load Scenario</h1>
+        <ul>
+          {session.diagnostics.map((diagnostic, index) => (
+            <li key={index}>{diagnostic}</li>
+          ))}
+        </ul>
+      </main>
+    );
+  const scenario = session.scenario;
+  const resources = scenario.nodes.filter((node) => node.type === "resource");
+  const situations = scenario.nodes.filter((node) => node.type === "situation");
+  const selectedDefinition = scenario.nodes.find(
     ({ id }) => id === selectedNodeId,
   );
   const selectedRuntime = selectedDefinition
@@ -29,31 +37,36 @@ function App() {
           <strong>Denomination</strong>
         </div>
         <div className="turn-display">
-          <span>Year</span>
-          <strong>{session.state.year}</strong>
+          <span>{session.state.year === undefined ? "Turn" : "Year"}</span>
+          <strong>{session.state.year ?? session.state.turn}</strong>
           <small>Turn {session.state.turn}</small>
         </div>
-        {resource && (
-          <div className="resource-display">
+        {resources.map((resource) => (
+          <div className="resource-display" key={resource.id}>
             <span>{resource.name}</span>
             <strong>{session.state.nodes[resource.id].value.toFixed(1)}</strong>
           </div>
-        )}
+        ))}
         <button
           className="advance-button"
           type="button"
           onClick={session.nextTurn}
         >
-          Advance year <span aria-hidden="true">→</span>
+          Advance turn <span aria-hidden="true">→</span>
         </button>
       </header>
 
       <main>
         <aside className="control-panel">
           <div className="scenario-intro">
-            <span>Scenario · 1980</span>
-            <h1>{exampleScenario.title}</h1>
-            <p>{exampleScenario.description}</p>
+            <span>
+              Scenario ·{" "}
+              {scenario.start.year === undefined
+                ? `Turn ${scenario.start.turn}`
+                : scenario.start.year}
+            </span>
+            <h1>{scenario.title}</h1>
+            <p>{scenario.description}</p>
           </div>
           <section>
             <div className="section-heading">
@@ -69,8 +82,10 @@ function App() {
                     className={runtime.isActive ? "is-active" : ""}
                   >
                     <span>{situation.name}</span>
-                    <strong>{Math.round(runtime.value * 100)}%</strong>
-                    <small>{runtime.isActive}</small>
+                    <strong>
+                      {formatValue(runtime.value, situation.domain)}
+                    </strong>
+                    <small>{runtime.isActive ? "Active" : "Inactive"}</small>
                   </div>
                 );
               })}
@@ -104,7 +119,7 @@ function App() {
           </div>
           <div className="graph-frame">
             <SimulationGraph
-              scenario={exampleScenario}
+              scenario={scenario}
               state={session.state}
               onNodeSelect={setSelectedNodeId}
             />
@@ -124,7 +139,7 @@ function App() {
           </div>
           {session.state.history.length === 0 ? (
             <div className="empty-chronicle">
-              <span>1980</span>
+              <span>Turn {scenario.start.turn}</span>
               <p>No recorded changes yet.</p>
             </div>
           ) : (
@@ -134,7 +149,7 @@ function App() {
                 .slice(0, 8)
                 .map((entry) => (
                   <li key={entry.id}>
-                    <span>{entry.turn === 0 ? 1980 : 1980 + entry.turn}</span>
+                    <span>Turn {entry.turn}</span>
                     <strong>{entry.title}</strong>
                     <p>{entry.detail}</p>
                   </li>
@@ -163,7 +178,7 @@ function App() {
           key={selectedDefinition.id}
           definition={selectedDefinition}
           runtime={selectedRuntime}
-          scenario={exampleScenario}
+          scenario={scenario}
           state={session.state}
           message={session.message}
           onApply={session.setStance}
