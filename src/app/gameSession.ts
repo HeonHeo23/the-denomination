@@ -26,14 +26,24 @@ export type SessionAction =
   | { readonly type: "advance" }
   | { readonly type: "reset" };
 
-export function createGameSession(content: unknown): GameSession {
+export function createGameSession(
+  content: unknown,
+  restoredState?: SimulationState,
+): GameSession {
   const loaded = loadScenario(content);
   if (!loaded.ok) return loaded;
+  if (restoredState && restoredState.scenarioId !== loaded.scenario.id)
+    return {
+      ok: false,
+      diagnostics: ["Saved state belongs to a different Scenario."],
+    };
   return {
     ok: true,
     scenario: loaded.scenario,
-    state: initializeScenario(loaded.scenario),
-    message: `${loaded.scenario.title} is ready.`,
+    state: restoredState ?? initializeScenario(loaded.scenario),
+    message: restoredState
+      ? `${loaded.scenario.title} was restored.`
+      : `${loaded.scenario.title} is ready.`,
     trace: [],
   };
 }

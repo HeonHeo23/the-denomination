@@ -64,7 +64,7 @@ abstractions without a demonstrated need.
 | Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
 | UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                     |
 | React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
-| Persistence adapter            | Not yet implemented                                                                            | Serialize and restore versioned session data without changing engine semantics                        |
+| Persistence adapter            | `src/app/persistence.ts`                                                                        | Validate, serialize, restore, and clear versioned browser saves without changing engine semantics      |
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
@@ -181,7 +181,7 @@ The session layer owns:
 - command and turn orchestration;
 - injection of RNG and other explicit runtime dependencies;
 - transient user feedback;
-- future save/load coordination.
+- save/load coordination.
 
 It does not calculate Effects, apply costs, resolve incidents, or otherwise
 duplicate mechanics.
@@ -260,20 +260,31 @@ The graph adapter maps visible simulation nodes and Effects to React Flow data:
 Scenario-specific assumptions such as a fixed year, one Resource, or one
 particular Scenario do not belong in reusable UI components.
 
-## Persistence boundary
+## Scenario catalog and persistence boundary
 
-Persistence is not required for the current MVP. When introduced, it belongs
-behind the application/session layer and stores:
+The application presents playable content through a Scenario catalog. Each
+catalog entry contains untrusted Scenario content plus a positive integer
+`contentVersion`. The loading boundary validates the content before the
+launcher displays it. The catalog version belongs to application compatibility
+and MUST NOT change Scenario mechanics or the canonical content shape.
+
+Browser persistence belongs behind the application/session layer and stores:
 
 - a format version;
 - Scenario identity and compatible content version;
 - canonical runtime state;
+- player and denomination display identity;
 - deterministic replay data only if replay is supported.
 
 Do not persist React state, React Flow objects, cached projections, or function
 references. Loading must validate and, when necessary, explicitly migrate saved
 data before passing it to the engine. The engine itself remains independent of
 storage technology.
+
+The current browser adapter owns one versioned local save slot. It validates
+the save format, identity limits, Scenario and catalog-version compatibility,
+and the complete canonical runtime snapshot before offering restoration.
+Invalid or incompatible saves are never passed to the session or engine.
 
 ## Architectural invariants
 
@@ -308,13 +319,10 @@ Improve as relevant work reaches these areas:
 - incident evaluation currently fires every eligible Event and then the first
   eligible Dilemma, conflicting with the one-incident rule and unresolved
   selection policy;
-- the compiled example is wired directly into `App.tsx` rather than selected
-  through a Scenario-loading/session boundary;
 - deterministic RNG construction is embedded in a React hook rather than
   supplied by an application runtime dependency;
 - reusable UI contains Scenario-specific assumptions about year and Resource
   count;
-- no persistence or content/save version boundary exists;
 - the public simulation barrel exposes internal runtime and definition details
   broadly; keep exports intentional as the codebase grows;
 - engine tests compile but their emitted extensionless ESM imports do not

@@ -10,8 +10,10 @@
     "lint:fix": "oxlint --fix",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "check": "npm run format:check && npm run lint && npm run build",
+    "check": "npm run format:check && npm run lint && npm run build && npm test",
+    "test": "npm run test:engine && npm run test:app",
     "test:engine": "tsc -p tsconfig.engine-tests.json --noEmit && rolldown tests/simulation/engine.test.ts --platform node --format esm --file .test-dist/engine.test.mjs && node .test-dist/engine.test.mjs",
+    "test:app": "tsc -p tsconfig.app-tests.json --noEmit && rolldown tests/app/persistence.test.ts --platform node --format esm --file .test-dist/app.test.mjs && node .test-dist/app.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

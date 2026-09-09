@@ -1,3 +1,401 @@
+.application-root {
+  min-height: 100vh;
+  background: var(--paper);
+}
+.landing-page {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: clamp(28px, 4vh, 44px);
+  padding: clamp(36px, 5vw, 72px);
+  overflow: auto;
+  background:
+    linear-gradient(90deg, rgba(213, 206, 192, 0.22) 1px, transparent 1px),
+    linear-gradient(rgba(213, 206, 192, 0.22) 1px, transparent 1px),
+    radial-gradient(circle at 23% 27%, #fffdf7 0, transparent 42%), var(--paper);
+  background-size:
+    88px 88px,
+    88px 88px,
+    auto,
+    auto;
+}
+.landing-page--exiting {
+  pointer-events: none;
+  animation: landing-exit 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.landing-page--exiting .landing-brand-anchor,
+.app-shell--entering .wordmark__identity strong {
+  visibility: hidden;
+}
+.landing-atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.landing-atmosphere i {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+}
+.landing-atmosphere i::before,
+.landing-atmosphere i::after {
+  content: "";
+  position: absolute;
+  background: var(--gold);
+  opacity: 0.45;
+}
+.landing-atmosphere i::before {
+  width: 80px;
+  height: 1px;
+  top: 5px;
+  left: 11px;
+}
+.landing-atmosphere i::after {
+  width: 1px;
+  height: 80px;
+  top: 11px;
+  left: 5px;
+}
+.landing-atmosphere i:nth-child(1) {
+  left: 8%;
+  top: 13%;
+}
+.landing-atmosphere i:nth-child(2) {
+  right: 11%;
+  bottom: 17%;
+  transform: rotate(180deg);
+}
+.landing-atmosphere i:nth-child(3) {
+  left: 47%;
+  bottom: 8%;
+  transform: rotate(90deg) scale(0.7);
+}
+.landing-intro,
+.landing-actions {
+  position: relative;
+  z-index: 1;
+}
+.landing-intro {
+  width: min(920px, 100%);
+  justify-self: center;
+  text-align: center;
+}
+.landing-product-mark,
+.landing-eyebrow,
+.setup-card__heading > span,
+.saved-game-card > div:first-child > span,
+.scenario-preview > span {
+  color: var(--muted);
+  font:
+    500 9px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.landing-product-mark {
+  display: inline-block;
+  padding: 8px 12px;
+  color: var(--green);
+  border: 1px solid var(--green);
+  font-weight: 700;
+}
+.landing-eyebrow {
+  margin: clamp(24px, 4vh, 42px) 0 14px;
+}
+.landing-brand-anchor {
+  max-width: 80vw;
+  margin: 0 auto;
+  overflow: hidden;
+  color: var(--ink);
+  font:
+    700 clamp(45px, 6.1vw, 88px) / 0.93 "Source Serif 4",
+    serif;
+  letter-spacing: -0.055em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.landing-lede {
+  max-width: 530px;
+  margin: 24px auto 0;
+  color: var(--muted);
+  font-size: clamp(12px, 1.1vw, 15px);
+  line-height: 1.8;
+}
+.landing-actions {
+  width: 100%;
+  max-width: 700px;
+  justify-self: center;
+  display: grid;
+  gap: 14px;
+}
+.landing-notice {
+  padding: 12px 15px;
+  color: #6a4c19;
+  border: 1px solid rgba(184, 139, 69, 0.55);
+  background: #f4ead1;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.saved-game-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid #aaa294;
+  border-left: 5px solid var(--gold);
+  background: rgba(255, 253, 247, 0.9);
+  box-shadow: 0 12px 38px rgba(50, 45, 37, 0.08);
+}
+.saved-game-card > div:first-child {
+  min-width: 0;
+  padding: 17px 19px;
+}
+.saved-game-card h2 {
+  margin: 5px 0 3px;
+  overflow: hidden;
+  font:
+    700 21px "Source Serif 4",
+    serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-game-card p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-game-card__progress {
+  min-width: 96px;
+  padding: 13px 17px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  border-left: 1px solid var(--line);
+}
+.saved-game-card__progress span,
+.saved-game-card__progress small {
+  color: var(--muted);
+  font:
+    8px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.saved-game-card__progress strong {
+  margin: 2px 0;
+  font:
+    700 21px "Source Serif 4",
+    serif;
+}
+.saved-game-card > button,
+.start-button {
+  border: 0;
+  color: var(--paper);
+  background: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  transition:
+    background 0.18s,
+    transform 0.18s;
+}
+.saved-game-card > button {
+  min-width: 118px;
+  padding: 0 17px;
+}
+.saved-game-card > button:hover,
+.start-button:hover {
+  background: #244d3d;
+}
+.saved-game-card > button:active,
+.start-button:active {
+  transform: translateY(1px);
+}
+.setup-card {
+  padding: clamp(24px, 3vw, 38px);
+  border: 1px solid #aaa294;
+  border-top: 5px solid var(--green);
+  background: rgba(247, 243, 233, 0.95);
+  box-shadow: 0 22px 70px rgba(50, 45, 37, 0.14);
+}
+.setup-card__heading {
+  padding-bottom: 21px;
+  border-bottom: 1px solid var(--line);
+}
+.setup-card__heading h2 {
+  margin: 5px 0 0;
+  font:
+    700 29px "Source Serif 4",
+    serif;
+}
+.setup-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin-top: 19px;
+}
+.setup-field > span {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.setup-field input,
+.setup-field select {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 13px;
+  color: var(--ink);
+  border: 1px solid #b9b0a1;
+  border-radius: 0;
+  background: #fffdf7;
+  font-size: 12px;
+}
+.setup-field input::placeholder {
+  color: #9b958b;
+}
+.setup-field input[aria-invalid="true"],
+.setup-field select[aria-invalid="true"] {
+  border-color: var(--red);
+}
+.setup-field__error {
+  color: var(--red);
+  font-size: 10px;
+}
+.scenario-preview {
+  margin-top: 11px;
+  padding: 13px 15px;
+  border-left: 3px solid var(--gold);
+  background: var(--paper-deep);
+}
+.scenario-preview p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.setup-fields-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.start-button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 24px;
+}
+.start-button span,
+.saved-game-card > button span {
+  margin-left: 9px;
+  font-size: 17px;
+}
+.start-button:disabled,
+.saved-game-card > button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.game-layer--entering {
+  position: fixed;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+}
+.app-shell--entering {
+  animation: game-enter 620ms ease-out both;
+}
+.shared-brand-flight {
+  position: fixed;
+  z-index: 4;
+  overflow: hidden;
+  transform-origin: left top;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  will-change: transform;
+}
+.confirmation-dialog {
+  width: min(470px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+  color: var(--ink);
+  border: 1px solid #aaa294;
+  border-top: 5px solid var(--red);
+  background: var(--paper);
+  box-shadow: 0 24px 80px rgba(39, 45, 39, 0.3);
+}
+.confirmation-dialog::backdrop {
+  background: rgba(39, 45, 39, 0.58);
+  backdrop-filter: blur(2px);
+}
+.confirmation-dialog form {
+  padding: 28px;
+}
+.confirmation-dialog form > span {
+  color: var(--red);
+  font:
+    500 9px "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.confirmation-dialog h2 {
+  margin: 6px 0 12px;
+  font:
+    700 28px "Source Serif 4",
+    serif;
+}
+.confirmation-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.confirmation-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 24px;
+}
+.confirmation-dialog__actions button {
+  padding: 9px 13px;
+  color: var(--green);
+  border: 1px solid var(--green);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+}
+.confirmation-dialog__actions .is-destructive {
+  color: var(--paper);
+  border-color: var(--red);
+  background: var(--red);
+}
+.load-error {
+  min-height: 100vh;
+  padding: 48px;
+  color: var(--ink);
+  background: var(--paper);
+}
+@keyframes landing-exit {
+  to {
+    opacity: 0;
+    transform: translateX(-8vw);
+  }
+}
+@keyframes game-enter {
+  from {
+    opacity: 0.2;
+    transform: translateX(2vw);
+  }
+}
+
 .app-shell {
   min-height: 100vh;
   background:
@@ -11,7 +409,7 @@
 .topbar {
   height: 76px;
   display: grid;
-  grid-template-columns: minmax(250px, 330px) 1fr auto auto;
+  grid-template-columns: minmax(300px, 360px) 1fr auto auto;
   align-items: stretch;
   border-bottom: 1px solid var(--line);
   background: rgba(247, 243, 233, 0.94);
@@ -26,18 +424,49 @@
   align-items: center;
 }
 .wordmark {
-  gap: 7px;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 14px;
+}
+.wordmark__identity {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 1px;
+}
+.wordmark__identity span {
+  color: var(--muted);
+  font:
+    500 8px "DM Mono",
+    monospace;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
-.wordmark span {
-  color: var(--muted);
-  font-size: 11px;
+.wordmark__identity strong,
+.wordmark__identity small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.wordmark strong {
-  font-family: "Source Serif 4", serif;
-  font-size: 20px;
-  letter-spacing: 0.03em;
+.wordmark__identity strong {
+  font:
+    700 20px "Source Serif 4",
+    serif;
+  letter-spacing: -0.01em;
+}
+.wordmark__identity small {
+  color: var(--muted);
+  font-size: 8px;
+}
+.change-setup-button {
+  flex: 0 0 auto;
+  padding: 5px 7px;
+  color: var(--green);
+  border: 1px solid var(--green);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 700;
 }
 .turn-display {
   justify-content: center;
@@ -96,7 +525,7 @@
   font-size: 20px;
 }
 
-main {
+.app-shell > main {
   display: grid;
   grid-template-columns: 330px minmax(500px, 1fr) 285px;
   min-height: calc(100vh - 76px);
@@ -673,17 +1102,34 @@ main {
 }
 
 @media (max-width: 1180px) {
-  main {
+  .app-shell > main {
     grid-template-columns: 300px minmax(480px, 1fr);
   }
   .chronicle-panel {
     display: none;
   }
   .topbar {
-    grid-template-columns: 300px 1fr auto auto;
+    grid-template-columns: 320px 1fr auto auto;
   }
 }
 @media (max-width: 820px) {
+  .landing-page {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 42px;
+    padding: 42px clamp(24px, 7vw, 62px) 64px;
+    overflow: auto;
+  }
+  .landing-intro {
+    max-width: none;
+  }
+  .landing-eyebrow {
+    margin-top: 52px;
+  }
+  .landing-actions {
+    max-width: none;
+    justify-self: stretch;
+  }
   .topbar {
     height: auto;
     grid-template-columns: 1fr 1fr;
@@ -700,7 +1146,7 @@ main {
   .advance-button {
     min-width: 0;
   }
-  main {
+  .app-shell > main {
     display: block;
   }
   .control-panel {
@@ -714,6 +1160,52 @@ main {
   }
 }
 @media (max-width: 560px) {
+  .landing-page {
+    gap: 32px;
+    padding: 28px 18px 48px;
+    background-size:
+      64px 64px,
+      64px 64px,
+      auto,
+      auto;
+  }
+  .landing-eyebrow {
+    margin-top: 40px;
+  }
+  .landing-brand-anchor {
+    font-size: 39px;
+  }
+  .landing-lede {
+    margin-top: 19px;
+  }
+  .setup-fields-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .saved-game-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .saved-game-card__progress {
+    border-bottom: 1px solid var(--line);
+  }
+  .saved-game-card > button {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+  .wordmark {
+    padding: 0 15px;
+  }
+  .wordmark__identity strong {
+    max-width: 45vw;
+    font-size: 17px;
+  }
+  .change-setup-button {
+    font-size: 7px;
+  }
+  .confirmation-dialog__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .node-modal {
     width: calc(100vw - 20px);
     max-height: calc(100vh - 20px);
@@ -730,5 +1222,12 @@ main {
   .stance-editor__footer {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-page--exiting,
+  .app-shell--entering {
+    animation: none;
   }
 }

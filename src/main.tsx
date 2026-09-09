@@ -4,8 +4,12 @@ import "./index.css";
 import App from "./App.tsx";
 import { exampleScenario } from "./scenarios/example";
 
+const scenarioCatalog = [
+  { contentVersion: 1, content: exampleScenario },
+] as const;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App content={exampleScenario} />
+    <App catalog={scenarioCatalog} />
   </StrictMode>,
 );

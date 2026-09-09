@@ -32,8 +32,9 @@ Statuses used here are:
 | Persistent Effects and inertia | Implemented | `src/simulation/engine/evaluatePersistentState.ts` | Uses the synchronous snapshot model and per-Effect history; newly activated Situation outputs begin on the following turn. |
 | Static conditions and requirements | Implemented | `src/simulation/engine/shared.ts`, `playerActions.ts`, `evaluatePersistentState.ts` | Scenario `conditions` are matched against node `requires` for supported eligibility checks. |
 | Stance assessment and execution | Implemented | `src/simulation/engine/playerActions.ts` | Shared assessment covers range, discrete states, requirements, no-op changes, costs, available Resources, and `maxChange`; execution reassesses before applying the immutable transaction. |
-| Application session ownership | Implemented | `src/app/gameSession.ts`, `useGameSession.ts` | A reducer owns the active validated Scenario, runtime snapshot, messages, traces, reset, commands, and turn advancement. |
-| Bundled Scenario bootstrap | Implemented | `src/main.tsx`, `src/scenarios/example` | The browser entry point injects the bundled example Scenario. Broader selection and runtime content loading remain application-boundary work. |
+| Application session ownership | Implemented | `src/app/gameSession.ts`, `useGameSession.ts` | A reducer owns the active validated Scenario, runtime snapshot, messages, traces, reset, commands, turn advancement, and validated snapshot restoration. |
+| Scenario catalog and launcher | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/main.tsx` | The browser validates catalog entries, presents Scenario and identity setup, and launches or continues the selected session. The catalog currently contains one bundled Scenario. |
+| Browser persistence | Implemented | `src/app/persistence.ts` | One versioned local save stores display identity, Scenario/content identity, and canonical runtime state. Restoration validates the complete record against current content before use. |
 | Domain-aware UI projection | Implemented | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/panels` | UI formatting and meters use node domains rather than assuming every value is a percentage. |
 | Events and Dilemmas | Unsupported | `src/simulation/engine/validateScenario.ts`, `loadScenario.ts` | The format and design define incident shapes, but nonempty `events` or `dilemmas` content is currently rejected and no incident execution exists. |
 
@@ -46,9 +47,9 @@ implemented by this status file:
 - dynamic or state-derived prerequisites;
 - complete within-turn phase ordering;
 - full Resource accumulation and baseline semantics;
-- persistence and save/load migration;
+- migrations for future save-format or Scenario-content versions;
 - injected or seedable runtime dependencies for deterministic replay;
-- Scenario selection beyond the bundled browser content;
+- additional Scenario content beyond the bundled example;
 - additional response-function and contextual-input semantics;
 - incompatible-Stance resolution and specialized governance procedures.
 
