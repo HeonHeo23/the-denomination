@@ -9,6 +9,7 @@ import {
   type ScenarioDefinition,
 } from "../../src/simulation/index";
 import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
+import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -25,6 +26,35 @@ assert(
   validateScenario(exampleScenario).length === 0,
   "Example Scenario must validate",
 );
+assert(
+  exampleScenario.nodes.length === 24,
+  "Expanded Scenario should contain the original and expanded ministry nodes",
+);
+assert(
+  exampleScenario.effects.length >= 40,
+  "Expanded Scenario should contain the original and ministry Effects",
+);
+assert(
+  new Set(exampleScenario.nodes.map((node) => node.id)).size ===
+    exampleScenario.nodes.length,
+  "Scenario node identifiers must be unique",
+);
+assert(
+  new Set(exampleScenario.effects.map((effect) => effect.id)).size ===
+    exampleScenario.effects.length,
+  "Scenario Effect identifiers must be unique",
+);
+const scenarioNodeIds = new Set(exampleScenario.nodes.map((node) => node.id));
+for (const effect of exampleScenario.effects) {
+  assert(
+    effect.source === "_default_" || scenarioNodeIds.has(effect.source),
+    `Effect source ${effect.source} must reference a node`,
+  );
+  assert(
+    scenarioNodeIds.has(effect.target),
+    `Effect target ${effect.target} must reference a node`,
+  );
+}
 
 const initial = initializeScenario(exampleScenario);
 assert(
@@ -35,6 +65,14 @@ assert(
   initial.nodes["governance-tension"].value > 0,
   "An inactive Situation must still evaluate incoming Effects",
 );
+assert(
+  initial.effects["worship-to-participation"].lastContribution > 0,
+  "New Worship Effect should contribute at initialization",
+);
+assert(
+  initial.effects["outreach-to-reach"].lastContribution > 0,
+  "New Mission Effect should contribute at initialization",
+);
 closeTo(
   initial.effects["tension-to-trust"].lastContribution,
   0,
@@ -43,6 +81,14 @@ closeTo(
 
 const first = advanceTurn(exampleScenario, initial).state;
 const second = advanceTurn(exampleScenario, first).state;
+assert(
+  first.nodes["membership-decline"].value > 0,
+  "Membership Decline should evaluate incoming pressure while inactive",
+);
+assert(
+  first.nodes["financial-strain"].value > 0,
+  "Financial Strain should evaluate incoming pressure while inactive",
+);
 closeTo(
   first.nodes["governance-reach"].value,
   second.nodes["governance-reach"].value,
@@ -104,6 +150,40 @@ assert(
   crisisState.nodes["governance-tension"].isActive,
   "Situation should activate at its start threshold",
 );
+const pressuredState = {
+  ...initial,
+  effects: {
+    ...initial.effects,
+    "retention-to-membership-decline": {
+      ...initial.effects["retention-to-membership-decline"],
+      sourceHistory: [0, 0],
+    },
+    "stability-to-financial-strain": {
+      ...initial.effects["stability-to-financial-strain"],
+      sourceHistory: [0, 0],
+    },
+  },
+  nodes: {
+    ...initial.nodes,
+    "member-retention": {
+      ...initial.nodes["member-retention"],
+      value: 0,
+    },
+    "financial-stability": {
+      ...initial.nodes["financial-stability"],
+      value: 0,
+    },
+  },
+};
+const pressuredTurn = advanceTurn(exampleScenario, pressuredState).state;
+assert(
+  pressuredTurn.nodes["membership-decline"].isActive,
+  "Membership Decline should activate when retention pressure crosses its threshold",
+);
+assert(
+  pressuredTurn.nodes["financial-strain"].isActive,
+  "Financial Strain should activate when stability pressure crosses its threshold",
+);
 
 const grudge: GrudgeRuntimeState = {
   id: "test-grudge",
@@ -125,5 +205,6 @@ assert(
 
 runComplianceTests();
 runNodeEffectProjectionTests();
+runTurnReportProjectionTests();
 
 console.log("Engine checks passed across core MVP mechanics.");

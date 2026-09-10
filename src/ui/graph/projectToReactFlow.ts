@@ -9,18 +9,25 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly description: string;
   readonly nodeType: string;
+  readonly category: string;
   readonly value: number;
   readonly domain: NumericDomain;
   readonly active: boolean;
   readonly forced: boolean;
 }
 
-const columns: Record<string, number> = {
-  stance: 0,
-  indicator: 360,
-  faction: 360,
-  situation: 720,
-};
+const nodeTypeOrder = [
+  "stance",
+  "indicator",
+  "faction",
+  "situation",
+  "resource",
+];
+const clusterWidth = 530;
+const clusterGap = 70;
+const clusterMinimumHeight = 180;
+const nodeColumnGap = 188;
+const nodeRowGap = 96;
 
 const positiveEffectColor = "#39735a";
 const negativeEffectColor = "#a94338";
@@ -64,9 +71,11 @@ export function projectEffectsToReactFlow(
       const isTracing = hoveredNodeId !== undefined;
       const baseStrokeWidth = Math.min(3, 1.2 + Math.abs(contribution) * 3);
       const contributionLabel = formatContribution(contribution);
-      const label = effect.label
-        ? `${effect.label} · ${contributionLabel}`
-        : contributionLabel;
+      const label = isConnected
+        ? effect.label
+          ? `${effect.label} · ${contributionLabel}`
+          : contributionLabel
+        : undefined;
 
       return {
         id: effect.id,
@@ -75,9 +84,11 @@ export function projectEffectsToReactFlow(
         label,
         type: "smoothstep",
         animated:
-          state.nodes[effect.source].isActive && Math.abs(contribution) > 0.001,
+          isConnected &&
+          state.nodes[effect.source].isActive &&
+          Math.abs(contribution) > 0.001,
         style: {
-          opacity: isTracing ? (isConnected ? 1 : 0.12) : 0.88,
+          opacity: isTracing ? (isConnected ? 1 : 0.1) : 0.28,
           stroke: color,
           strokeWidth:
             isTracing && isConnected
@@ -88,7 +99,7 @@ export function projectEffectsToReactFlow(
           fill: color,
           fontSize: 10,
           fontWeight: 700,
-          opacity: isTracing ? (isConnected ? 1 : 0.12) : 1,
+          opacity: isConnected ? 1 : 0,
         },
         labelBgStyle: {
           fill: "#f5f0e5",
@@ -98,7 +109,7 @@ export function projectEffectsToReactFlow(
           type: MarkerType.ArrowClosed,
           color,
         },
-        zIndex: isTracing && isConnected ? 10 : 0,
+        zIndex: isConnected ? 10 : 0,
       };
     });
 }
@@ -108,40 +119,76 @@ export function projectToReactFlow(
   state: SimulationState,
   hoveredNodeId?: string,
 ): { nodes: Node<SimulationNodeData>[]; edges: Edge[] } {
-  const rows: Record<string, number> = {
-    stance: 0,
-    indicator: 0,
-    faction: 0,
-    situation: 0,
-  };
-  const visible = new Set(
-    scenario.nodes
-      .filter((definition) => definition.graphVisible !== false)
-      .map(({ id }) => id),
+  const groupedNodes = new Map<string, typeof scenario.nodes>();
+  for (const definition of scenario.nodes) {
+    if (definition.graphVisible === false) continue;
+    const category = definition.category ?? "Other concerns";
+    const group = groupedNodes.get(category) ?? [];
+    groupedNodes.set(category, [...group, definition]);
+  }
+  const groups = [...groupedNodes.entries()];
+  const clusterColumns = Math.max(1, Math.ceil(Math.sqrt(groups.length)));
+  const clusterRowHeights = groups.reduce<number[]>(
+    (heights, [, nodes], index) => {
+      const row = Math.floor(index / clusterColumns);
+      const nodeRows = Math.ceil(nodes.length / 2);
+      const height = Math.max(clusterMinimumHeight, nodeRows * nodeRowGap + 16);
+      heights[row] = Math.max(heights[row] ?? 0, height);
+      return heights;
+    },
+    [],
+  );
+  const clusterRowOffsets = clusterRowHeights.reduce<number[]>(
+    (offsets, _height, index) => {
+      offsets[index] =
+        index === 0
+          ? 0
+          : offsets[index - 1] + clusterRowHeights[index - 1] + clusterGap;
+      return offsets;
+    },
+    [],
   );
 
-  const nodes = scenario.nodes
-    .filter(({ id }) => visible.has(id))
-    .map((definition): Node<SimulationNodeData> => {
-      const runtime = state.nodes[definition.id];
-      const row = rows[definition.type] ?? 0;
-      rows[definition.type] = row + 1;
-      return {
-        id: definition.id,
-        type: "simulation",
-        position: { x: columns[definition.type] ?? 0, y: row * 152 },
-        ariaLabel: `${definition.name}, ${definition.type}. Click for details.`,
-        data: {
-          label: definition.name,
-          description: definition.description,
-          nodeType: definition.type,
-          value: runtime.value,
-          domain: definition.domain,
-          active: runtime.isActive,
-          forced: runtime.isForced,
-        },
-      };
+  const nodes = groups.flatMap(([category, definitions], clusterIndex) => {
+    const clusterX =
+      (clusterIndex % clusterColumns) * (clusterWidth + clusterGap);
+    const clusterY =
+      clusterRowOffsets[Math.floor(clusterIndex / clusterColumns)];
+    const orderedDefinitions = [...definitions].sort((left, right) => {
+      const typeDifference =
+        nodeTypeOrder.indexOf(left.type) - nodeTypeOrder.indexOf(right.type);
+      return typeDifference === 0
+        ? left.name.localeCompare(right.name)
+        : typeDifference;
     });
+
+    return orderedDefinitions.map(
+      (definition, nodeIndex): Node<SimulationNodeData> => {
+        const runtime = state.nodes[definition.id];
+        const column = nodeIndex % 2;
+        const row = Math.floor(nodeIndex / 2);
+        return {
+          id: definition.id,
+          type: "simulation",
+          position: {
+            x: clusterX + column * nodeColumnGap,
+            y: clusterY + row * nodeRowGap,
+          },
+          ariaLabel: `${definition.name}, ${definition.type}. Click for details.`,
+          data: {
+            label: definition.name,
+            description: definition.description,
+            nodeType: definition.type,
+            category,
+            value: runtime.value,
+            domain: definition.domain,
+            active: runtime.isActive,
+            forced: runtime.isForced,
+          },
+        };
+      },
+    );
+  });
 
   const edges = projectEffectsToReactFlow(scenario, state, hoveredNodeId);
 

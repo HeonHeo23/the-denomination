@@ -14,7 +14,10 @@ import {
   createGameSession,
   reduceGameSession,
 } from "../../src/app/gameSession";
-import { projectToReactFlow } from "../../src/ui/graph/projectToReactFlow";
+import {
+  projectEffectsToReactFlow,
+  projectToReactFlow,
+} from "../../src/ui/graph/projectToReactFlow";
 import { formatValue, meterPercent } from "../../src/ui/formatValue";
 
 const close = (actual: number, expected: number) =>
@@ -106,7 +109,11 @@ export function runComplianceTests() {
           i === 0
             ? {
                 ...n,
-                initial: { value: n.initial.value, isActive: false, isForced: true },
+                initial: {
+                  value: n.initial.value,
+                  isActive: false,
+                  isForced: true,
+                },
               }
             : n,
         ),
@@ -509,6 +516,45 @@ export function runComplianceTests() {
   const graph = projectToReactFlow(exampleScenario, initial);
   assert.ok(!graph.nodes.some((n) => n.id === "authority"));
   assert.deepEqual(graph.nodes[0].data.domain, exampleScenario.nodes[0].domain);
+  assert.deepEqual(
+    graph.nodes.map(({ id, position }) => ({ id, position })),
+    projectToReactFlow(exampleScenario, initial).nodes.map(
+      ({ id, position }) => ({ id, position }),
+    ),
+    "Graph layout should be stable for the same Scenario",
+  );
+  assert.ok(
+    new Set(graph.nodes.map((node) => node.position.x)).size > 3,
+    "Category clusters should use more than the legacy type columns",
+  );
+  assert.ok(
+    graph.nodes.some((node) => node.data.category === "Governance"),
+    "Authored categories should be retained by the graph projection",
+  );
+  assert.ok(
+    graph.edges.every((edge) => edge.label === undefined),
+    "Unfocused Effects should not display labels",
+  );
+  const tracedEdges = projectEffectsToReactFlow(
+    exampleScenario,
+    initial,
+    "centralization",
+  );
+  assert.ok(
+    tracedEdges.some(
+      (edge) => edge.source === "centralization" && edge.label !== undefined,
+    ),
+    "Hovering a node should reveal its connected Effect labels",
+  );
+  assert.ok(
+    tracedEdges.some(
+      (edge) =>
+        edge.source !== "centralization" &&
+        edge.target !== "centralization" &&
+        edge.style?.opacity === 0.1,
+    ),
+    "Hovering a node should fade unrelated Effects",
+  );
   assert.ok(
     normalTurn.nodes.authority.value !== initial.nodes.authority.baseValue,
   );

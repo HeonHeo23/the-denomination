@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useGameSession } from "./app/useGameSession";
@@ -26,6 +27,11 @@ import type { SimulationState } from "./simulation";
 import { formatValue } from "./ui/formatValue";
 import { SimulationGraph } from "./ui/graph/SimulationGraph";
 import { NodeDetailsModal } from "./ui/panels/NodeDetailsModal";
+import { TurnReportModal } from "./ui/panels/TurnReportModal";
+import {
+  projectTurnReport,
+  type TurnReport,
+} from "./ui/panels/projectTurnReport";
 import "./App.css";
 
 type ViewPhase = "landing" | "entering" | "game";
@@ -102,7 +108,7 @@ function LandingPage({
   onPlayerNameChange,
   onDenominationNameChange,
   onSubmit,
-  onContinue,
+  onLoad,
 }: {
   readonly entries: readonly LoadedScenarioCatalogEntry[];
   readonly savedGame?: SavedGame;
@@ -121,7 +127,7 @@ function LandingPage({
   readonly onPlayerNameChange: (name: string) => void;
   readonly onDenominationNameChange: (name: string) => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  readonly onContinue: () => void;
+  readonly onLoad: () => void;
 }) {
   const selected = entries.find(
     ({ scenario }) => scenario.id === selectedScenarioId,
@@ -154,10 +160,6 @@ function LandingPage({
         >
           {denominationName.trim() || "Name your denomination"}
         </h1>
-        <p className="landing-lede">
-          Set the institution in motion. Every position sends consequences
-          through the network, and every turn becomes part of its history.
-        </p>
       </section>
 
       <section className="landing-actions" aria-label="Begin a game">
@@ -185,8 +187,8 @@ function LandingPage({
                 <small>Turn {savedGame.state.turn}</small>
               )}
             </div>
-            <button type="button" onClick={onContinue} disabled={isExiting}>
-              Continue <span aria-hidden="true">→</span>
+            <button type="button" onClick={onLoad} disabled={isExiting}>
+              Load saved game <span aria-hidden="true">→</span>
             </button>
           </article>
         )}
@@ -342,28 +344,96 @@ function ConfirmationDialog({
   );
 }
 
+function DashboardDrawer({
+  title,
+  subtitle,
+  open,
+  onClose,
+  children,
+}: {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  return (
+    <dialog
+      className="dashboard-drawer"
+      ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="dashboard-drawer__surface">
+        <header className="dashboard-drawer__heading">
+          <div>
+            <span>{subtitle}</span>
+            <h2>{title}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label={`Close ${title}`}>
+            ×
+          </button>
+        </header>
+        {children}
+      </div>
+    </dialog>
+  );
+}
+
 function GameView({
   game,
   phase,
   notice,
   headerBrandRef,
-  onPersist,
+  savedGame,
+  onSave,
+  onLoad,
   onChangeSetup,
 }: {
   readonly game: ActiveGame;
   readonly phase: ViewPhase;
   readonly notice?: string;
   readonly headerBrandRef: RefObject<HTMLElement | null>;
-  readonly onPersist: (state: SimulationState) => void;
+  readonly savedGame?: SavedGame;
+  readonly onSave: (state: SimulationState) => void;
+  readonly onLoad: () => void;
   readonly onChangeSetup: () => void;
 }) {
   const session = useGameSession(game.entry.scenario, game.restoredState);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
-  const stateToPersist = session.ok ? session.state : undefined;
+  const [turnReport, setTurnReport] = useState<TurnReport>();
+  const previousState = useRef<SimulationState | undefined>(undefined);
+  const [activeDrawer, setActiveDrawer] = useState<
+    "situations" | "chronicle"
+  >();
 
   useEffect(() => {
-    if (stateToPersist) onPersist(stateToPersist);
-  }, [onPersist, stateToPersist]);
+    if (!session.ok) {
+      previousState.current = undefined;
+      return;
+    }
+    const before = previousState.current;
+    if (before && session.state.turn > before.turn)
+      setTurnReport(projectTurnReport(session.scenario, before, session.state));
+    else if (before && session.state.turn !== before.turn)
+      setTurnReport(undefined);
+    previousState.current = session.state;
+  }, [session]);
 
   if (!session.ok)
     return (
@@ -408,6 +478,11 @@ function GameView({
             Change setup
           </button>
         </div>
+        <div className="scenario-header">
+          <span>Active scenario</span>
+          <strong>{scenario.title}</strong>
+          <p>{scenario.description}</p>
+        </div>
         <div className="turn-display">
           <span>{session.state.year === undefined ? "Turn" : "Year"}</span>
           <strong>{session.state.year ?? session.state.turn}</strong>
@@ -429,64 +504,41 @@ function GameView({
       </header>
 
       <main>
-        <aside className="control-panel">
-          <div className="scenario-intro">
-            <span>
-              Scenario ·{" "}
-              {scenario.start.year === undefined
-                ? `Turn ${scenario.start.turn}`
-                : scenario.start.year}
-            </span>
-            <h1>{scenario.title}</h1>
-            <p>{scenario.description}</p>
-          </div>
-          <section>
-            <div className="section-heading">
-              <h2>Situations</h2>
-              <span>Threshold driven</span>
-            </div>
-            <div className="situation-list">
-              {situations.map((situation) => {
-                const runtime = session.state.nodes[situation.id];
-                return (
-                  <div
-                    key={situation.id}
-                    className={runtime.isActive ? "is-active" : ""}
-                  >
-                    <span>{situation.name}</span>
-                    <strong>
-                      {formatValue(runtime.value, situation.domain)}
-                    </strong>
-                    <small>{runtime.isActive ? "Active" : "Inactive"}</small>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </aside>
-
         <section className="simulation-workspace">
-          <div className="workspace-heading">
-            <div>
-              <span>Live causal model</span>
-              <h2>Institutional landscape</h2>
-              <p className="graph-instruction">
-                Click a node for details. Hover to trace its Effects.
-              </p>
-            </div>
-            <div className="legend" aria-label="Graph legend">
-              <span>
-                <i className="positive" /> Positive
-              </span>
-              <span>
-                <i className="negative" /> Negative
-              </span>
-              <span>
-                <i className="neutral" /> Neutral
-              </span>
-              <span>
-                <i className="inactive" /> Inactive
-              </span>
+          <div className="graph-toolbar">
+            <p className="graph-instruction">
+              Click a node for details. Hover to trace its Effects.
+            </p>
+            <div className="graph-toolbar__actions">
+              <div className="legend" aria-label="Graph legend">
+                <span>
+                  <i className="positive" /> Positive
+                </span>
+                <span>
+                  <i className="negative" /> Negative
+                </span>
+                <span>
+                  <i className="inactive" /> Inactive
+                </span>
+              </div>
+              <div className="workspace-drawer-actions">
+                <button
+                  type="button"
+                  aria-expanded={activeDrawer === "situations"}
+                  aria-controls="situations-drawer"
+                  onClick={() => setActiveDrawer("situations")}
+                >
+                  Situations
+                </button>
+                <button
+                  type="button"
+                  aria-expanded={activeDrawer === "chronicle"}
+                  aria-controls="chronicle-drawer"
+                  onClick={() => setActiveDrawer("chronicle")}
+                >
+                  Chronicle
+                </button>
+              </div>
             </div>
           </div>
           <div className="graph-frame">
@@ -498,51 +550,96 @@ function GameView({
           </div>
           <footer className="statusbar">
             <p aria-live="polite">{notice ?? session.message}</p>
-            <button type="button" onClick={session.reset}>
-              Reset scenario
-            </button>
+            <div className="statusbar-actions" aria-label="Game actions">
+              <button
+                className="persistence-button"
+                type="button"
+                onClick={() => onSave(session.state)}
+              >
+                Save game
+              </button>
+              <button
+                className="persistence-button"
+                type="button"
+                onClick={onLoad}
+                disabled={!savedGame}
+              >
+                Load game
+              </button>
+              <button type="button" onClick={session.reset}>
+                Reset scenario
+              </button>
+            </div>
           </footer>
         </section>
 
-        <aside className="chronicle-panel">
-          <div className="section-heading">
-            <h2>Chronicle</h2>
-            <span>{session.state.grudges.length} active effects</span>
-          </div>
-          {session.state.history.length === 0 ? (
-            <div className="empty-chronicle">
-              <span>Turn {scenario.start.turn}</span>
-              <p>No recorded changes yet.</p>
-            </div>
-          ) : (
-            <ol className="chronicle-list">
-              {[...session.state.history]
-                .reverse()
-                .slice(0, 8)
-                .map((entry) => (
-                  <li key={entry.id}>
-                    <span>Turn {entry.turn}</span>
-                    <strong>{entry.title}</strong>
-                    <p>{entry.detail}</p>
-                  </li>
-                ))}
-            </ol>
-          )}
-          {session.state.grudges.length > 0 && (
-            <div className="active-grudges">
-              <h3>Temporary effects</h3>
-              {session.state.grudges.map((grudge) => (
-                <div key={grudge.id}>
-                  <span>{grudge.label}</span>
+        <DashboardDrawer
+          title="Situations"
+          subtitle="Threshold driven"
+          open={activeDrawer === "situations"}
+          onClose={() => setActiveDrawer(undefined)}
+        >
+          <div className="situation-list" id="situations-drawer">
+            {situations.map((situation) => {
+              const runtime = session.state.nodes[situation.id];
+              return (
+                <div
+                  key={situation.id}
+                  className={runtime.isActive ? "is-active" : ""}
+                >
+                  <span>{situation.name}</span>
                   <strong>
-                    {grudge.magnitude > 0 ? "+" : ""}
-                    {grudge.magnitude.toFixed(3)}
+                    {formatValue(runtime.value, situation.domain)}
                   </strong>
+                  <small>{runtime.isActive ? "Active" : "Inactive"}</small>
                 </div>
-              ))}
-            </div>
-          )}
-        </aside>
+              );
+            })}
+          </div>
+        </DashboardDrawer>
+
+        <DashboardDrawer
+          title="Chronicle"
+          subtitle={`${session.state.grudges.length} active effects`}
+          open={activeDrawer === "chronicle"}
+          onClose={() => setActiveDrawer(undefined)}
+        >
+          <div id="chronicle-drawer">
+            {session.state.history.length === 0 ? (
+              <div className="empty-chronicle">
+                <span>Turn {scenario.start.turn}</span>
+                <p>No recorded changes yet.</p>
+              </div>
+            ) : (
+              <ol className="chronicle-list">
+                {[...session.state.history]
+                  .reverse()
+                  .slice(0, 8)
+                  .map((entry) => (
+                    <li key={entry.id}>
+                      <span>Turn {entry.turn}</span>
+                      <strong>{entry.title}</strong>
+                      <p>{entry.detail}</p>
+                    </li>
+                  ))}
+              </ol>
+            )}
+            {session.state.grudges.length > 0 && (
+              <div className="active-grudges">
+                <h3>Temporary effects</h3>
+                {session.state.grudges.map((grudge) => (
+                  <div key={grudge.id}>
+                    <span>{grudge.label}</span>
+                    <strong>
+                      {grudge.magnitude > 0 ? "+" : ""}
+                      {grudge.magnitude.toFixed(3)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DashboardDrawer>
       </main>
 
       {selectedDefinition && selectedRuntime && (
@@ -555,6 +652,12 @@ function GameView({
           message={session.message}
           onApply={session.setStance}
           onClose={() => setSelectedNodeId(undefined)}
+        />
+      )}
+      {turnReport && (
+        <TurnReportModal
+          report={turnReport}
+          onClose={() => setTurnReport(undefined)}
         />
       )}
     </div>
@@ -718,7 +821,7 @@ function Application({
     });
   };
 
-  const persistActiveState = useCallback(
+  const saveActiveState = useCallback(
     (state: SimulationState) => {
       if (!activeGame) return;
       const save: SavedGame = {
@@ -730,12 +833,52 @@ function Application({
         state,
       };
       const warning = storeSavedGame(storage, save);
+      if (warning) {
+        setNotice(warning);
+        return;
+      }
       setSavedGame(save);
-      if (warning) setNotice(warning);
-      else setNotice(undefined);
+      setNotice("Progress saved.");
     },
     [activeGame, storage],
   );
+
+  const loadActiveGame = useCallback(() => {
+    const result = loadSavedGame(storage, entries);
+    if (result.status !== "ready") {
+      setNotice(
+        result.status === "unavailable"
+          ? result.message
+          : "No saved game is available to load.",
+      );
+      return;
+    }
+    const entry = entries.find(
+      ({ scenario, contentVersion }) =>
+        scenario.id === result.save.scenarioId &&
+        contentVersion === result.save.scenarioContentVersion,
+    );
+    if (!entry) {
+      setNotice(
+        "The saved game is no longer compatible with this Scenario catalog.",
+      );
+      return;
+    }
+    setSavedGame(result.save);
+    setPlayerName(result.save.playerName);
+    setDenominationName(result.save.denominationName);
+    setSelectedScenarioId(result.save.scenarioId);
+    runKey.current += 1;
+    setActiveGame({
+      key: runKey.current,
+      entry,
+      playerName: result.save.playerName,
+      denominationName: result.save.denominationName,
+      restoredState: result.save.state,
+    });
+    setNotice("Saved game loaded.");
+    setPhase("game");
+  }, [entries, storage]);
 
   const confirmAction = () => {
     if (!confirmation) return;
@@ -780,7 +923,7 @@ function Application({
             }));
           }}
           onSubmit={handleSubmit}
-          onContinue={handleContinue}
+          onLoad={handleContinue}
         />
       )}
 
@@ -792,7 +935,9 @@ function Application({
             phase={phase}
             notice={notice}
             headerBrandRef={headerBrandRef}
-            onPersist={persistActiveState}
+            savedGame={savedGame}
+            onSave={saveActiveState}
+            onLoad={loadActiveGame}
             onChangeSetup={() => setConfirmation({ kind: "change-setup" })}
           />
         </div>

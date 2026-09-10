@@ -42,13 +42,14 @@ export function SimulationGraph({
 
   return (
     <ReactFlow
+      key={scenario.id}
       nodes={graph.nodes}
       edges={edges}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.16 }}
-      minZoom={0.35}
-      maxZoom={1.5}
+      fitViewOptions={{ padding: 0.12, maxZoom: 1.05 }}
+      minZoom={0.28}
+      maxZoom={1.65}
       nodesDraggable
       nodesConnectable={false}
       elementsSelectable

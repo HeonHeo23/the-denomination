@@ -15,6 +15,7 @@ import {
 import { loadScenarioCatalog } from "../../src/app/scenarioCatalog";
 import { exampleScenario } from "../../src/scenarios/example";
 import { advanceTurn, initializeScenario } from "../../src/simulation";
+import { projectTurnReport } from "../../src/ui/panels/projectTurnReport";
 
 class MemoryStorage implements SaveStorage {
   readonly values = new Map<string, string>();
@@ -74,6 +75,18 @@ if (loaded.status === "ready") {
   assert.ok(session.ok);
   assert.equal(session.state.turn, state.turn);
   assert.match(session.message, /restored/);
+  const advancedSession = reduceGameSession(session, { type: "advance" });
+  assert.ok(advancedSession.ok);
+  const report = projectTurnReport(
+    advancedSession.scenario,
+    session.state,
+    advancedSession.state,
+  );
+  assert.equal(
+    report.turn,
+    advancedSession.state.turn,
+    "A session advance should provide compatible snapshots for a turn report",
+  );
   const reset = reduceGameSession(session, { type: "reset" });
   assert.ok(reset.ok);
   assert.equal(reset.state.turn, exampleScenario.start.turn);
