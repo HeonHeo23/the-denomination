@@ -36,6 +36,7 @@ export interface TurnReport {
   readonly year?: number;
   readonly highlights: readonly TurnReportChange[];
   readonly changes: readonly TurnReportChange[];
+  readonly changedEffectIds: readonly string[];
   readonly situationTransitions: readonly TurnReportSituationTransition[];
   readonly grudges: readonly TurnReportGrudge[];
 }
@@ -90,12 +91,24 @@ export function projectTurnReport(
   const highlights = [...changes]
     .sort((left, right) => right.relativeMagnitude - left.relativeMagnitude)
     .slice(0, 4);
+  const changedEffectIds = scenario.effects
+    .filter((effect) => {
+      const previousContribution =
+        previous.effects[effect.id]?.lastContribution ?? 0;
+      const currentContribution =
+        current.effects[effect.id]?.lastContribution ?? 0;
+      return (
+        Math.abs(currentContribution - previousContribution) > CHANGE_EPSILON
+      );
+    })
+    .map((effect) => effect.id);
 
   return {
     turn: current.turn,
     year: current.year,
     highlights,
     changes,
+    changedEffectIds,
     situationTransitions,
     grudges: current.grudges.map((grudge) => {
       const target = nodes.get(grudge.target);

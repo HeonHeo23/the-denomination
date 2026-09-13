@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import type { SavedGame } from "@/app/persistence";
 import type { LoadedScenarioCatalogEntry } from "@/app/scenarioCatalog";
@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SimulationState } from "@/simulation";
 import { SimulationGraph } from "@/ui/graph/SimulationGraph";
+import type { GraphTurnFeedback } from "@/ui/graph/projectToReactFlow";
 import { ToastNotification } from "@/components/ToastNotification";
 import { NodeDetailsDialog } from "@/ui/panels/NodeDetailsDialog";
 import { TurnReportDialog } from "@/ui/panels/TurnReportDialog";
@@ -17,6 +18,9 @@ import {
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
 import { InstitutionOverview } from "./InstitutionOverview";
+import "./game-shell.css";
+
+const TURN_REVEAL_DURATION_MS = 1000;
 
 interface GameViewProps {
   readonly entry: LoadedScenarioCatalogEntry;
@@ -48,11 +52,39 @@ export function GameView({
   const session = useGameSession(entry.scenario, restoredState);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport>();
+  const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
   const previousState = useRef<SimulationState | undefined>(undefined);
   const previousMessage = useRef<string | undefined>(undefined);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const graphTurnFeedback = useMemo<GraphTurnFeedback | undefined>(
+    () =>
+      revealingTurn
+        ? {
+            changes: revealingTurn.changes.map((change) => ({
+              nodeId: change.node.id,
+              delta: change.delta,
+              previousActive: change.previousActive,
+              isActive: change.isActive,
+            })),
+            changedEffectIds: revealingTurn.changedEffectIds,
+          }
+        : undefined,
+    [revealingTurn],
+  );
+
+  useEffect(
+    () => () => {
+      if (revealTimer.current !== undefined) {
+        clearTimeout(revealTimer.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!session.ok) {
@@ -65,9 +97,34 @@ export function GameView({
       previousMessage.current !== undefined &&
       session.message !== previousMessage.current;
     if (before && session.state.turn > before.turn) {
-      setTurnReport(projectTurnReport(session.scenario, before, session.state));
+      const report = projectTurnReport(session.scenario, before, session.state);
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+
+      if (revealTimer.current !== undefined) {
+        clearTimeout(revealTimer.current);
+        revealTimer.current = undefined;
+      }
+      setRevealingTurn(undefined);
+      setTurnReport(undefined);
       setToastMessage(undefined);
+      if (reducedMotion) {
+        setTurnReport(report);
+      } else {
+        setRevealingTurn(report);
+        revealTimer.current = setTimeout(() => {
+          setRevealingTurn(undefined);
+          setTurnReport(report);
+          revealTimer.current = undefined;
+        }, TURN_REVEAL_DURATION_MS);
+      }
     } else if (before && session.state.turn !== before.turn) {
+      if (revealTimer.current !== undefined) {
+        clearTimeout(revealTimer.current);
+        revealTimer.current = undefined;
+      }
+      setRevealingTurn(undefined);
       setTurnReport(undefined);
     } else if (before && messageChanged) {
       setToastMessage(session.message);
@@ -107,15 +164,26 @@ export function GameView({
     toastMessage ?? (notice !== dismissedNotice ? notice : undefined);
 
   return (
-    <div className="game-enter flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
+    <div
+      className="game-enter flex h-dvh min-h-0 flex-col overflow-hidden bg-background"
+      data-game-shell
+    >
       <GameHeader
         denominationName={denominationName}
         playerName={playerName}
         scenarioTitle={scenario.title}
         state={session.state}
         resources={resources}
+        activeSituationCount={
+          situations.filter(
+            (situation) => session.state.nodes[situation.id].isActive,
+          ).length
+        }
         canLoad={Boolean(savedGame)}
-        onAdvance={session.nextTurn}
+        resolvingTurn={revealingTurn !== undefined}
+        onAdvance={() => {
+          if (!revealingTurn) session.nextTurn();
+        }}
         onSave={() => onSave(session.state)}
         onLoad={onLoad}
         onReset={session.reset}
@@ -127,10 +195,16 @@ export function GameView({
         onToggleMusic={onToggleMusic}
       />
 
-      <main className="mx-auto grid min-h-0 w-full max-w-[1800px] flex-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-3 sm:p-4 xl:grid-cols-[20rem_minmax(0,1fr)] xl:p-0">
-        <ScrollArea className="hidden h-full min-h-0 border-r bg-muted/10 pr-0 xl:block">
+      <main
+        className="mx-auto grid min-h-0 w-full max-w-[1800px] flex-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-3 sm:p-4 xl:grid-cols-[20rem_minmax(0,1fr)] xl:p-0"
+        data-game-table
+      >
+        <ScrollArea
+          className="hidden h-full min-h-0 pr-0 xl:block"
+          data-game-dossier
+        >
           <div className="min-h-full px-4">
-            <div className="border-b bg-background/95 py-3">
+            <div className="py-3" data-game-current-commission>
               <span className="block font-mono text-[0.6rem] tracking-[0.16em] text-muted-foreground uppercase">
                 Scenario
               </span>
@@ -150,15 +224,16 @@ export function GameView({
 
         <section
           className="min-h-0 min-w-0 overflow-hidden xl:col-start-2"
+          data-game-board-frame
           aria-label="Institutional causal graph"
         >
           <div className="graph-canvas relative size-full min-h-0">
             <div className="graph-legend" aria-label="Effect legend">
               <span>
-                <i className="effect-key effect-key--positive" /> Positive
+                <i className="effect-key effect-key--positive" /> Increasing
               </span>
               <span>
-                <i className="effect-key effect-key--negative" /> Negative
+                <i className="effect-key effect-key--negative" /> Decreasing
               </span>
               <span>
                 <i className="effect-key effect-key--inactive" /> Inactive
@@ -168,6 +243,7 @@ export function GameView({
               scenario={scenario}
               state={session.state}
               onNodeSelect={setSelectedNodeId}
+              turnFeedback={graphTurnFeedback}
             />
           </div>
         </section>

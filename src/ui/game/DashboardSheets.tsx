@@ -72,7 +72,11 @@ function DashboardSheet({
         if (!open) onClose();
       }}
     >
-      <SheetContent className="sm:max-w-md" side={side}>
+      <SheetContent
+        className="sm:max-w-md"
+        side={side}
+        data-game-dashboard-sheet
+      >
         <SheetHeader className={headerBorder ? "shrink-0 border-b" : undefined}>
           {eyebrow && (
             <span className="font-mono text-[0.6rem] tracking-[0.16em] text-muted-foreground uppercase">

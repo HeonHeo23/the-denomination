@@ -15,6 +15,19 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly domain: NumericDomain;
   readonly active: boolean;
   readonly forced: boolean;
+  readonly turnDelta?: number;
+  readonly activationTransition?: "began" | "ended";
+  readonly revealing?: boolean;
+}
+
+export interface GraphTurnFeedback {
+  readonly changes: readonly {
+    readonly nodeId: string;
+    readonly delta: number;
+    readonly previousActive: boolean;
+    readonly isActive: boolean;
+  }[];
+  readonly changedEffectIds: readonly string[];
 }
 
 const nodeTypeOrder = [
@@ -30,9 +43,9 @@ const clusterMinimumHeight = 180;
 const nodeColumnGap = 188;
 const nodeRowGap = 96;
 
-const positiveEffectColor = "#39735a";
-const negativeEffectColor = "#a94338";
-const neutralEffectColor = "#777166";
+const positiveEffectColor = "var(--game-increasing)";
+const negativeEffectColor = "var(--game-decreasing)";
+const neutralEffectColor = "var(--game-neutral-effect)";
 
 function effectColor(contribution: number): string {
   if (contribution > 0) return positiveEffectColor;
@@ -44,12 +57,15 @@ export function projectEffectsToReactFlow(
   scenario: ScenarioDefinition,
   state: SimulationState,
   hoveredNodeId?: string,
+  turnFeedback?: GraphTurnFeedback,
 ): Edge[] {
   const visible = new Set(
     scenario.nodes
       .filter((definition) => definition.graphVisible !== false)
       .map(({ id }) => id),
   );
+
+  const changedEffects = new Set(turnFeedback?.changedEffectIds ?? []);
 
   return scenario.effects
     .filter(
@@ -64,6 +80,7 @@ export function projectEffectsToReactFlow(
       const isConnected =
         effect.source === hoveredNodeId || effect.target === hoveredNodeId;
       const isTracing = hoveredNodeId !== undefined;
+      const isTurnChanged = changedEffects.has(effect.id);
       const baseStrokeWidth = Math.min(3, 1.2 + Math.abs(contribution) * 3);
       const contributionLabel = formatContributionPercent(contribution);
       const label = isConnected
@@ -79,11 +96,20 @@ export function projectEffectsToReactFlow(
         label,
         type: "smoothstep",
         animated:
-          isConnected &&
+          (isConnected || isTurnChanged) &&
           state.nodes[effect.source].isActive &&
           Math.abs(contribution) > 0.001,
+        className: isTurnChanged
+          ? "effect-edge effect-edge--turn-changed"
+          : "effect-edge",
         style: {
-          opacity: isTracing ? (isConnected ? 1 : 0.1) : 0.28,
+          opacity: isTracing
+            ? isConnected
+              ? 1
+              : 0.1
+            : isTurnChanged
+              ? 0.9
+              : 0.28,
           stroke: color,
           strokeWidth:
             isTracing && isConnected
@@ -113,7 +139,11 @@ export function projectToReactFlow(
   scenario: ScenarioDefinition,
   state: SimulationState,
   hoveredNodeId?: string,
+  turnFeedback?: GraphTurnFeedback,
 ): { nodes: Node<SimulationNodeData>[]; edges: Edge[] } {
+  const turnChanges = new Map(
+    turnFeedback?.changes.map((change) => [change.nodeId, change]) ?? [],
+  );
   const groupedNodes = new Map<string, typeof scenario.nodes>();
   for (const definition of scenario.nodes) {
     if (definition.graphVisible === false) continue;
@@ -160,6 +190,7 @@ export function projectToReactFlow(
     return orderedDefinitions.map(
       (definition, nodeIndex): Node<SimulationNodeData> => {
         const runtime = state.nodes[definition.id];
+        const turnChange = turnChanges.get(definition.id);
         const column = nodeIndex % 2;
         const row = Math.floor(nodeIndex / 2);
         return {
@@ -179,13 +210,26 @@ export function projectToReactFlow(
             domain: definition.domain,
             active: runtime.isActive,
             forced: runtime.isForced,
+            turnDelta: turnChange?.delta,
+            activationTransition:
+              turnChange && turnChange.previousActive !== turnChange.isActive
+                ? turnChange.isActive
+                  ? "began"
+                  : "ended"
+                : undefined,
+            revealing: turnChange !== undefined,
           },
         };
       },
     );
   });
 
-  const edges = projectEffectsToReactFlow(scenario, state, hoveredNodeId);
+  const edges = projectEffectsToReactFlow(
+    scenario,
+    state,
+    hoveredNodeId,
+    turnFeedback,
+  );
 
   return { nodes, edges };
 }

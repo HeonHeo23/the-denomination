@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToastNotification } from "@/components/ToastNotification";
+import "./landing.css";
 
 export interface LandingErrors {
   readonly scenario?: string;
@@ -112,7 +113,7 @@ export function LandingPage({
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(390px,500px)] lg:gap-12 lg:py-8 xl:gap-20">
           <section className="max-w-3xl text-primary-foreground">
             <h1 className="mt-5 max-w-3xl font-heading text-[clamp(3.5rem,7.5vw,7rem)] leading-none font-semibold tracking-tight text-balance">
-              {denominationName.trim() || "One, Holy, Apostlic, and Catholic"}
+              {denominationName.trim() || "One, Holy, Apostolic, and Catholic"}
             </h1>
             {/* Change the folloiwngs to render the scenario descriptions */}
             <p className="mt-8 max-w-xl leading-8 text-primary-foreground/70">
@@ -162,7 +163,7 @@ export function LandingPage({
               </Card>
             )}
 
-            <Card>
+            <Card data-game-launch-document>
               <CardHeader>
                 <CardTitle>
                   {savedGame ? "Start another history" : "Found an institution"}
@@ -215,7 +216,7 @@ export function LandingPage({
                           onChange={(event) =>
                             onPlayerNameChange(event.target.value)
                           }
-                          placeholder="Jesus Christ"
+                          placeholder="Elias Ward"
                           maxLength={40}
                           autoComplete="name"
                           aria-invalid={Boolean(errors.playerName)}
@@ -233,7 +234,7 @@ export function LandingPage({
                           onChange={(event) =>
                             onDenominationNameChange(event.target.value)
                           }
-                          placeholder="The True Church"
+                          placeholder="Covenant Fellowship"
                           maxLength={60}
                           aria-invalid={Boolean(errors.denominationName)}
                           required

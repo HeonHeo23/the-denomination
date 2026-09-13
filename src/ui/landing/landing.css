@@ -1,0 +1,29 @@
+.landing-cover {
+  position: relative;
+  isolation: isolate;
+  height: 100dvh;
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in oklch, var(--primary) 94%, transparent) 0%,
+      color-mix(in oklch, var(--primary) 82%, transparent) 42%,
+      color-mix(in oklch, var(--primary) 52%, transparent) 100%
+    ),
+    url("../../assets/institution-founding.png") 62% center / cover no-repeat;
+}
+
+[data-game-launch-document] {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--card) 93%, transparent),
+      color-mix(in oklch, var(--card) 93%, transparent)
+    ),
+    url("../../assets/game-laid-paper.webp");
+  box-shadow: var(--game-document-shadow);
+}
+
+@media (max-width: 640px) {
+  .landing-cover {
+    background-position: 68% center;
+  }
+}

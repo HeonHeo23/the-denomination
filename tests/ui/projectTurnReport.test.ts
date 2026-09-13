@@ -23,6 +23,14 @@ export function runTurnReportProjectionTests() {
   const completedTurn = {
     ...initial,
     turn: initial.turn + 1,
+    effects: {
+      ...initial.effects,
+      "centralization-to-reach": {
+        ...initial.effects["centralization-to-reach"],
+        lastContribution:
+          initial.effects["centralization-to-reach"].lastContribution + 0.1,
+      },
+    },
     nodes: {
       ...initial.nodes,
       "leadership-trust": {
@@ -65,6 +73,10 @@ export function runTurnReportProjectionTests() {
     "Situation activation should be reported independently of numeric change",
   );
   assert(
+    report.changedEffectIds.join(",") === "centralization-to-reach",
+    "Report should identify changed Effects in Scenario order",
+  );
+  assert(
     report.grudges[0]?.targetName === "Leadership Trust" &&
       report.grudges[0]?.targetDomain ===
         exampleScenario.nodes.find((node) => node.id === "leadership-trust")
@@ -75,8 +87,10 @@ export function runTurnReportProjectionTests() {
 
   const unchanged = projectTurnReport(exampleScenario, initial, initial);
   assert(
-    unchanged.changes.length === 0 && unchanged.highlights.length === 0,
-    "An unchanged snapshot should not contain node changes",
+    unchanged.changes.length === 0 &&
+      unchanged.highlights.length === 0 &&
+      unchanged.changedEffectIds.length === 0,
+    "An unchanged snapshot should not contain node or Effect changes",
   );
   assert(
     institutionEra(0) === "humble" && institutionEra(4) === "humble",

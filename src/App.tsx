@@ -24,7 +24,6 @@ import type { SimulationState } from "@/simulation";
 import { ConfirmationDialog } from "@/ui/ConfirmationDialog";
 import { GameView } from "@/ui/game/GameView";
 import { LandingPage, type LandingErrors } from "@/ui/landing/LandingPage";
-import "./App.css";
 
 interface ActiveGame {
   readonly key: number;

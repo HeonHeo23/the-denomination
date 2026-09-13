@@ -1,0 +1,185 @@
+.effect-bar {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 1.35rem;
+  isolation: isolate;
+}
+
+.effect-bar [data-slot="progress"] {
+  height: 100%;
+  border: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--muted) 78%, var(--card));
+}
+
+.effect-bar [data-slot="progress-indicator"] {
+  visibility: hidden;
+}
+
+.effect-bar__fill,
+.effect-bar__preview-fill {
+  position: absolute;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  border-radius: calc(var(--radius-sm) / 2);
+  pointer-events: none;
+}
+
+.effect-bar__fill {
+  z-index: 1;
+  left: 50%;
+  width: var(--effect-bar-span, 0%);
+  background: var(--game-increasing);
+}
+
+.effect-bar__preview-fill {
+  z-index: 2;
+  left: var(--effect-bar-preview-start, 50%);
+  width: var(--effect-bar-preview-span, 0%);
+  background: color-mix(in oklch, var(--secondary) 76%, var(--card));
+}
+
+.effect-bar[data-tone="negative"] .effect-bar__fill {
+  right: 50%;
+  left: auto;
+  background: var(--game-decreasing);
+}
+
+.effect-bar[data-tone="neutral"] .effect-bar__fill {
+  display: none;
+}
+
+.effect-bar::after {
+  position: absolute;
+  z-index: 2;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  left: 50%;
+  width: 1px;
+  background: color-mix(in oklch, var(--foreground) 32%, transparent);
+  content: "";
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.effect-bar__value {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: flex;
+  gap: 0.28rem;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.effect-bar__value-current {
+  color: var(--muted-foreground);
+}
+
+.effect-bar__value-target {
+  color: var(--foreground);
+}
+
+.effect-bar[data-label-tone="positive"] .effect-bar__value {
+  left: calc(50% - 0.25rem);
+  transform: translate(-100%, -50%);
+}
+
+.effect-bar[data-label-tone="negative"] .effect-bar__value {
+  left: calc(50% + 0.25rem);
+}
+
+.effect-bar[data-label-tone="neutral"] .effect-bar__value {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.stance-slider [data-slot="slider-track"] {
+  height: 0.75rem;
+  overflow: visible;
+}
+
+.stance-slider [data-slot="slider-thumb"] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.slider-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 2px;
+  height: calc(100% + 0.5rem);
+  border-radius: 999px;
+  background: var(--primary);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.slider-marker__label {
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 50%;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+[data-game-node-record],
+[data-game-chronicle] {
+  background:
+    linear-gradient(
+      color-mix(in oklch, var(--game-raised-document) 94%, transparent),
+      color-mix(in oklch, var(--game-raised-document) 94%, transparent)
+    ),
+    url("../../assets/game-laid-paper.webp");
+  box-shadow: var(--game-document-shadow);
+}
+
+[data-game-chronicle] {
+  border-color: color-mix(in oklch, var(--game-brass) 42%, var(--border));
+}
+
+[data-game-chronicle-header] {
+  position: relative;
+}
+
+[data-game-chronicle-header]::after {
+  width: min(16rem, 72%);
+  height: 1px;
+  margin-top: 0.25rem;
+  background: linear-gradient(
+    90deg,
+    var(--game-brass),
+    color-mix(in oklch, var(--game-brass) 0%, transparent)
+  );
+  content: "";
+}
+
+[data-game-period-seal] {
+  display: grid;
+  flex: none;
+}
+
+[data-game-change] {
+  border-inline-start: 2px solid var(--game-neutral-effect);
+}
+
+[data-game-change="increasing"] {
+  border-inline-start-color: var(--game-increasing);
+}
+
+[data-game-change="decreasing"] {
+  border-inline-start-color: var(--game-decreasing);
+}

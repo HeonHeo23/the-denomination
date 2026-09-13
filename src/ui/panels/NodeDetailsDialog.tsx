@@ -19,6 +19,7 @@ import { formatValue } from "@/ui/formatValue";
 import { NodeEffectCard } from "./NodeEffectCard";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
+import "./panels.css";
 
 interface NodeDetailsDialogProps {
   readonly definition: NodeDefinition;
@@ -98,7 +99,10 @@ export function NodeDetailsDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="flex h-[min(780px,calc(100dvh-2rem))] min-h-0 w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
+      <DialogContent
+        className="flex h-[min(780px,calc(100dvh-2rem))] min-h-0 w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-5xl"
+        data-game-node-record
+      >
         <DialogHeader className="shrink-0 px-6 pt-6">
           <div className="mb-2 flex gap-2">
             <Badge variant="secondary">

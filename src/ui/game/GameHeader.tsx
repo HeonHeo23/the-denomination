@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowRight,
   BookOpenText,
+  Church,
   Menu,
   PanelLeftOpen,
   RotateCcw,
@@ -16,8 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -25,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { formatValue } from "@/ui/formatValue";
 
 interface GameHeaderProps {
   readonly denominationName: string;
@@ -32,7 +34,9 @@ interface GameHeaderProps {
   readonly scenarioTitle: string;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
+  readonly activeSituationCount: number;
   readonly canLoad: boolean;
+  readonly resolvingTurn: boolean;
   readonly onAdvance: () => void;
   readonly onSave: () => void;
   readonly onLoad: () => void;
@@ -45,20 +49,30 @@ interface GameHeaderProps {
   readonly onToggleMusic: () => void;
 }
 
-const contiguousButton = "h-full rounded-none border-0 border-r px-2 sm:px-3";
-
 function IdentityBlock({
   denominationName,
   playerName,
 }: Pick<GameHeaderProps, "denominationName" | "playerName">) {
   return (
-    <div className="min-w-0 flex-1 self-stretch px-1 py-2 sm:px-2 lg:max-w-sm xl:flex xl:h-full xl:w-80 xl:flex-none xl:flex-col xl:justify-center xl:border-r xl:bg-muted/20 xl:px-5 xl:py-0">
-      <strong className="block truncate font-heading text-xl font-semibold leading-tight">
-        {denominationName}
-      </strong>
-      <span className="block truncate text-xs text-muted-foreground">
-        Led by {playerName}
+    <div
+      className="flex min-w-0 flex-1 items-center gap-3 self-stretch px-2 lg:max-w-sm xl:w-80 xl:flex-none xl:px-5"
+      data-game-identity
+    >
+      <span
+        className="hidden shrink-0 sm:grid"
+        data-game-seal
+        aria-hidden="true"
+      >
+        <Church />
       </span>
+      <div className="flex min-w-0 flex-col justify-center">
+        <strong className="truncate font-heading text-xl leading-tight font-semibold">
+          {denominationName}
+        </strong>
+        <span className="truncate text-xs text-muted-foreground">
+          In the care of {playerName}
+        </span>
+      </div>
     </div>
   );
 }
@@ -67,11 +81,14 @@ function ScenarioBlock({
   scenarioTitle,
 }: Pick<GameHeaderProps, "scenarioTitle">) {
   return (
-    <div className="hidden min-w-0 flex-1 self-stretch border-l px-3 py-2 lg:block xl:hidden">
-      <span className="block font-mono text-[0.58rem] tracking-[0.16em] text-muted-foreground uppercase">
+    <div
+      className="hidden min-w-0 flex-1 flex-col justify-center px-4 lg:flex xl:hidden"
+      data-game-scenario
+    >
+      <span className="font-mono text-[0.58rem] tracking-[0.16em] text-muted-foreground uppercase">
         Scenario
       </span>
-      <strong className="block truncate font-heading text-lg font-semibold">
+      <strong className="truncate font-heading text-lg font-semibold">
         {scenarioTitle}
       </strong>
     </div>
@@ -80,11 +97,14 @@ function ScenarioBlock({
 
 function TurnDisplay({ state }: Pick<GameHeaderProps, "state">) {
   return (
-    <div className="hidden h-full shrink-0 items-center gap-2 bg-primary/5 px-3 sm:flex">
-      <span className="font-mono text-[0.55rem] tracking-tighter">
+    <div
+      className="hidden h-full shrink-0 items-center gap-2 px-4 sm:flex"
+      data-game-turn
+    >
+      <span className="font-mono text-[0.55rem] tracking-[0.14em] uppercase">
         {state.year === undefined ? "Turn" : "Year"}
       </span>
-      <strong className="font-heading text-lg font-semibold text-primary sm:text-2xl">
+      <strong className="font-heading text-2xl leading-none font-semibold">
         {state.year ?? state.turn}
       </strong>
     </div>
@@ -96,49 +116,63 @@ function ResourceStrip({
   state,
 }: Pick<GameHeaderProps, "resources" | "state">) {
   return (
-    <div className="hidden h-full xl:flex">
+    <dl className="hidden h-full items-stretch xl:flex" data-game-resources>
       {resources.map((resource) => (
-        <Badge
-          className="h-full rounded-none border-0 border-l border-primary px-3 font-mono text-[0.65rem]"
-          variant="secondary"
+        <div
+          className="flex min-w-24 flex-col justify-center px-3"
+          data-game-resource
           key={resource.id}
         >
-          {resource.name} {state.nodes[resource.id].value.toFixed(1)}
-        </Badge>
+          <dt className="truncate font-mono text-[0.52rem] tracking-[0.12em] uppercase">
+            {resource.name}
+          </dt>
+          <dd className="font-heading text-lg leading-none font-semibold">
+            {formatValue(state.nodes[resource.id].value, resource.domain)}
+          </dd>
+        </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
 function PanelActions({
+  activeSituationCount,
   onOpenSituations,
   onOpenChronicle,
-}: Pick<GameHeaderProps, "onOpenSituations" | "onOpenChronicle">) {
+}: Pick<
+  GameHeaderProps,
+  "activeSituationCount" | "onOpenSituations" | "onOpenChronicle"
+>) {
   return (
-    <div className="hidden h-full items-stretch border-l md:flex">
+    <div
+      className="hidden h-full items-stretch md:flex"
+      data-game-panel-actions
+    >
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className={contiguousButton}
+        className="h-full rounded-none"
+        data-game-header-button
         onClick={onOpenSituations}
-        aria-label="Open situations"
-        title="Situations"
+        aria-label={`Open situations, ${activeSituationCount} active`}
       >
         <ShieldAlert data-icon="inline-start" />
-        <span className="hidden sm:inline">Situations</span>
+        <span>Situations</span>
+        {activeSituationCount > 0 && (
+          <Badge variant="destructive">{activeSituationCount}</Badge>
+        )}
       </Button>
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className={contiguousButton}
+        className="h-full rounded-none"
+        data-game-header-button
         onClick={onOpenChronicle}
-        aria-label="Open chronicle"
-        title="Chronicle"
       >
         <BookOpenText data-icon="inline-start" />
-        <span className="hidden sm:inline">Chronicle</span>
+        <span className="hidden lg:inline">Chronicle</span>
       </Button>
     </div>
   );
@@ -172,31 +206,20 @@ function GameActionsMenu({
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant={compact ? "outline" : "ghost"}
+          variant="ghost"
           size="icon-lg"
-          className={cn(
-            "h-full w-12 rounded-none border-0",
-            compact && "ml-auto border-l",
-          )}
+          className={cn("h-full rounded-none", compact && "ml-auto")}
+          data-game-menu-trigger
         >
           <Menu />
-          <span className="sr-only">
-            {compact ? "Game actions" : "More game actions"}
-          </span>
+          <span className="sr-only">Game actions</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuCheckboxItem
-          checked={musicMuted}
-          onCheckedChange={onToggleMusic}
-        >
-          {musicMuted ? <VolumeX /> : <Volume2 />} Mute music
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-        {compact ? (
+        {compact && (
           <>
             <DropdownMenuGroup className="md:hidden">
-              <DropdownMenuLabel>Panels</DropdownMenuLabel>
+              <DropdownMenuLabel>Institution</DropdownMenuLabel>
               <DropdownMenuItem onSelect={onOpenSituations}>
                 <ShieldAlert /> Situations
               </DropdownMenuItem>
@@ -205,36 +228,35 @@ function GameActionsMenu({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator className="md:hidden" />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Game actions</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onSave}>
-                <Save /> Save game
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onLoad} disabled={!canLoad}>
-                <Archive /> Load saved game
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={onReset}>
-                <RotateCcw /> Reset simulation
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onMainMenu}>
-                <Settings2 /> Main menu
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
           </>
-        ) : (
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Game actions</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={onReset}>
-              <RotateCcw /> Reset simulation
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onMainMenu}>
-              <Settings2 /> Main menu
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
         )}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Record</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={onSave}>
+            <Save /> Save game
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onLoad} disabled={!canLoad}>
+            <Archive /> Load saved game
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuCheckboxItem
+            checked={musicMuted}
+            onCheckedChange={onToggleMusic}
+          >
+            {musicMuted ? <VolumeX /> : <Volume2 />} Mute music
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={onReset}>
+            <RotateCcw /> Reset simulation
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onMainMenu}>
+            <Settings2 /> Main menu
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -247,7 +269,9 @@ export function GameHeader(props: GameHeaderProps) {
     scenarioTitle,
     state,
     resources,
+    activeSituationCount,
     canLoad,
+    resolvingTurn,
     onAdvance,
     onSave,
     onLoad,
@@ -273,19 +297,16 @@ export function GameHeader(props: GameHeaderProps) {
   };
 
   return (
-    <header className="h-16 shrink-0 border-b bg-background/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-w-[1800px] items-stretch gap-0 px-3 sm:px-4 xl:px-0">
+    <header className="h-16 shrink-0" data-game-command-bar>
+      <div className="mx-auto flex h-full max-w-[1800px] items-stretch px-3 sm:px-4 xl:px-0">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="lg"
-          className={cn(
-            contiguousButton,
-            "-ml-3 shrink-0 sm:-ml-4 xl:ml-0 xl:hidden",
-          )}
+          className="-ml-3 h-full shrink-0 rounded-none sm:-ml-4 xl:ml-0 xl:hidden"
+          data-game-overview-trigger
           onClick={onOpenOverview}
           aria-label="Open institution overview"
-          title="Institution overview"
         >
           <PanelLeftOpen data-icon="inline-start" />
           <span className="hidden sm:inline">Overview</span>
@@ -298,50 +319,31 @@ export function GameHeader(props: GameHeaderProps) {
         <TurnDisplay state={state} />
         <ResourceStrip resources={resources} state={state} />
         <PanelActions
+          activeSituationCount={activeSituationCount}
           onOpenSituations={onOpenSituations}
           onOpenChronicle={onOpenChronicle}
         />
-        <div className="ml-auto hidden h-full items-stretch border-l xl:flex">
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className={contiguousButton}
-            onClick={onSave}
-          >
-            <Save data-icon="inline-start" />
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="lg"
-            className={contiguousButton}
-            onClick={onLoad}
-            disabled={!canLoad}
-          >
-            <Archive data-icon="inline-start" />
-            Load
-          </Button>
-          <GameActionsMenu compact={false} {...actionProps} />
-        </div>
-        <div className="xl:hidden">
-          <GameActionsMenu compact {...actionProps} />
-        </div>
+        <GameActionsMenu compact {...actionProps} />
         <Button
           type="button"
           size="lg"
-          className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none border-0 border-l px-3 text-base sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
+          className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
+          data-game-advance
           onClick={onAdvance}
+          disabled={resolvingTurn}
         >
-          <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase sm:hidden">
+          <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
             {state.year === undefined
               ? `Turn ${state.turn}`
               : `Year ${state.year}`}
           </span>
           <span className="flex items-center gap-2 sm:contents">
-            <span className="hidden xl:inline">Advance turn</span>
-            <span className="xl:hidden">Advance</span>
+            <span className="hidden xl:inline">
+              {resolvingTurn ? "Recording proceedings" : "Advance the year"}
+            </span>
+            <span className="xl:hidden">
+              {resolvingTurn ? "Recording" : "Advance"}
+            </span>
             <ArrowRight data-icon="inline-end" />
           </span>
         </Button>

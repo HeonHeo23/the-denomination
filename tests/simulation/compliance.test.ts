@@ -485,7 +485,11 @@ export function runComplianceTests() {
     },
   };
   assert.equal(executeCommand(capped, poor, command).accepted, false);
-  const repealQuote = assessStanceRepeal(capped, changed.state, "centralization");
+  const repealQuote = assessStanceRepeal(
+    capped,
+    changed.state,
+    "centralization",
+  );
   assert.ok(repealQuote.legal);
   const repealed = executeCommand(capped, changed.state, {
     type: "repeal-stance",
@@ -494,7 +498,10 @@ export function runComplianceTests() {
   assert.ok(repealed.accepted);
   assert.equal(repealed.state.nodes.centralization.isActive, false);
   assert.equal(repealed.state.nodes.centralization.value, 0.75);
-  close(changed.state.nodes.authority.value - repealed.state.nodes.authority.value, 2);
+  close(
+    changed.state.nodes.authority.value - repealed.state.nodes.authority.value,
+    2,
+  );
   assert.equal(repealed.state.history.at(-1)?.title, "Centralization repealed");
   assert.ok(
     executeCommand(capped, repealed.state, {
@@ -604,8 +611,14 @@ export function runComplianceTests() {
   assert.equal(formatContributionPercent(-0.1234), "−12.3%");
   assert.equal(formatContributionPercent(0), "0.0%");
   assert.equal(formatValue(25, domain), "25.0");
-  assert.equal(formatSignedValue(0.045, { min: 0, max: 1, clamp: true }), "+4.5%");
-  assert.equal(formatSignedValue(-0.045, { min: 0, max: 1, clamp: true }), "-4.5%");
+  assert.equal(
+    formatSignedValue(0.045, { min: 0, max: 1, clamp: true }),
+    "+4.5%",
+  );
+  assert.equal(
+    formatSignedValue(-0.045, { min: 0, max: 1, clamp: true }),
+    "-4.5%",
+  );
   assert.equal(formatSignedValue(2.25, domain), "+2.3");
   assert.equal(meterPercent(25, domain), 75);
   assert.equal(meterPercent(100, domain), 100);
@@ -657,6 +670,46 @@ export function runComplianceTests() {
         edge.style?.opacity === 0.1,
     ),
     "Hovering a node should fade unrelated Effects",
+  );
+  const feedbackGraph = projectToReactFlow(
+    exampleScenario,
+    initial,
+    undefined,
+    {
+      changes: [
+        {
+          nodeId: "centralization",
+          delta: 0.05,
+          previousActive: true,
+          isActive: true,
+        },
+        {
+          nodeId: "governance-tension",
+          delta: 0,
+          previousActive: false,
+          isActive: true,
+        },
+      ],
+      changedEffectIds: ["centralization-to-reach"],
+    },
+  );
+  assert.equal(
+    feedbackGraph.nodes.find((node) => node.id === "centralization")?.data
+      .turnDelta,
+    0.05,
+    "Turn feedback should project a node delta without changing runtime state",
+  );
+  assert.equal(
+    feedbackGraph.nodes.find((node) => node.id === "governance-tension")?.data
+      .activationTransition,
+    "began",
+    "Turn feedback should project activation transitions",
+  );
+  assert.equal(
+    feedbackGraph.edges.find((edge) => edge.id === "centralization-to-reach")
+      ?.className,
+    "effect-edge effect-edge--turn-changed",
+    "Changed Effects should receive reveal styling",
   );
   assert.ok(
     normalTurn.nodes.authority.value !== initial.nodes.authority.baseValue,
