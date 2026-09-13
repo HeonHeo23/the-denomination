@@ -2,7 +2,7 @@ import type {
   EffectDefinition,
   ScenarioDefinition,
 } from "../domain/definitions";
-import type { CalculationTrace } from "../domain/results";
+import type { CalculationTrace, StanceEffectPreview } from "../domain/results";
 import type {
   EffectRuntimeState,
   HistoryEntry,
@@ -10,6 +10,7 @@ import type {
 } from "../domain/runtime";
 import { responseValue } from "./responseValue";
 import { conditionsMet, clampValue } from "./shared";
+import { executeCommand } from "./playerActions";
 
 interface EvaluationResult {
   readonly state: SimulationState;
@@ -39,7 +40,7 @@ function evaluateEffect(
         : 0;
   const inertiaTurns = effect.inertiaTurns ?? 1;
   const previous = state.effects[effect.id]?.sourceHistory ?? [];
-  // Inertia is a moving average owned by this Effect, not by either node.
+  // Inertia is a moving average owned by this Effect.
   const history = [...previous, sourceValue].slice(-inertiaTurns);
   const effectiveSource =
     history.reduce((total, value) => total + value, 0) / history.length;
@@ -159,4 +160,52 @@ export function evaluatePersistentState(
   }
 
   return { state: { ...state, nodes, effects, history }, trace };
+}
+
+/**
+ * Projects a Stance's outgoing Effects after its candidate value fills each
+ * Effect's complete Inertia window. The preview never changes the live state.
+ */
+export function previewStanceEffects(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stanceId: string,
+  value: number,
+): readonly StanceEffectPreview[] {
+  const stance = scenario.nodes.find((node) => node.id === stanceId);
+  const currentRuntime = state.nodes[stanceId];
+
+  // Validation
+  if (
+    state.scenarioId !== scenario.id ||
+    stance?.type !== "stance" ||
+    !currentRuntime ||
+    !Number.isFinite(value)
+  ) {
+    return [];
+  }
+
+  let candidateState = state;
+  if (!currentRuntime.isActive || value !== currentRuntime.value) {
+    const command = executeCommand(scenario, state, {
+      type: currentRuntime.isActive ? "set-stance" : "enact-stance",
+      stanceId,
+      value,
+    });
+    if (!command.accepted) return [];
+    candidateState = command.state;
+  }
+
+  // A full window of the same source value averages to that value, so evaluate
+  // only this Stance's outgoing Effects without simulating a temporary turn.
+  const candidateRuntime = candidateState.nodes[stanceId];
+
+  return scenario.effects
+    .filter((effect) => effect.source === stanceId)
+    .map((effect) => ({
+      effectId: effect.id,
+      contribution: candidateRuntime.isActive
+        ? responseValue(effect.response, candidateRuntime.value, candidateState)
+        : 0,
+    }));
 }

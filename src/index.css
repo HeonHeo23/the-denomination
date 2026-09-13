@@ -1,40 +1,163 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  font-family: "Manrope", system-ui, sans-serif;
-  color: #272d27;
-  background: #e7e1d5;
+  color-scheme: light;
+  font-family: "Inter", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --ink: #272d27;
-  --muted: #756f65;
-  --paper: #f7f3e9;
-  --paper-deep: #eee8dc;
-  --line: #d5cec0;
-  --green: #315e4c;
-  --green-soft: #dbe6dc;
-  --red: #a44d42;
-  --gold: #b88b45;
+  --background: oklch(0.955 0.025 86);
+  --foreground: oklch(0.255 0.035 151);
+  --card: oklch(0.982 0.016 87);
+  --card-foreground: oklch(0.255 0.035 151);
+  --popover: oklch(0.982 0.016 87);
+  --popover-foreground: oklch(0.255 0.035 151);
+  --primary: oklch(0.31 0.066 156);
+  --primary-foreground: oklch(0.975 0.018 86);
+  --secondary: oklch(0.79 0.096 79);
+  --secondary-foreground: oklch(0.26 0.035 72);
+  --muted: oklch(0.9 0.033 83);
+  --muted-foreground: oklch(0.47 0.034 106);
+  --accent: oklch(0.875 0.043 139);
+  --accent-foreground: oklch(0.28 0.058 154);
+  --destructive: oklch(0.42 0.105 20);
+  --destructive-foreground: oklch(0.975 0.018 86);
+  --border: oklch(0.77 0.044 78);
+  --input: oklch(0.72 0.045 77);
+  --ring: oklch(0.63 0.09 78);
+  --chart-1: oklch(0.43 0.09 162);
+  --chart-2: oklch(0.5 0.13 18);
+  --chart-3: oklch(0.62 0.07 139);
+  --chart-4: oklch(0.45 0.072 304);
+  --chart-5: oklch(0.66 0.105 79);
+  --radius: 0.3rem;
+  --sidebar: oklch(0.925 0.03 84);
+  --sidebar-foreground: oklch(0.255 0.035 151);
+  --sidebar-primary: oklch(0.31 0.066 156);
+  --sidebar-primary-foreground: oklch(0.975 0.018 86);
+  --sidebar-accent: oklch(0.865 0.045 138);
+  --sidebar-accent-foreground: oklch(0.28 0.058 154);
+  --sidebar-border: oklch(0.77 0.044 78);
+  --sidebar-ring: oklch(0.63 0.09 78);
 }
-* {
-  box-sizing: border-box;
+
+@theme inline {
+  --font-heading: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "DM Mono", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.2 0.032 164);
+  --foreground: oklch(0.95 0.018 87);
+  --card: oklch(0.24 0.034 164);
+  --card-foreground: oklch(0.95 0.018 87);
+  --popover: oklch(0.24 0.034 164);
+  --popover-foreground: oklch(0.95 0.018 87);
+  --primary: oklch(0.8 0.07 145);
+  --primary-foreground: oklch(0.2 0.032 164);
+  --secondary: oklch(0.66 0.105 79);
+  --secondary-foreground: oklch(0.2 0.032 164);
+  --muted: oklch(0.29 0.026 160);
+  --muted-foreground: oklch(0.72 0.025 95);
+  --accent: oklch(0.34 0.044 151);
+  --accent-foreground: oklch(0.93 0.018 87);
+  --destructive: oklch(0.68 0.16 18);
+  --destructive-foreground: oklch(0.98 0.01 88);
+  --border: oklch(0.98 0.01 88 / 12%);
+  --input: oklch(0.98 0.01 88 / 18%);
+  --ring: oklch(0.72 0.09 79);
 }
-button,
-input,
-select {
-  font: inherit;
-}
-button {
-  cursor: pointer;
-}
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid rgba(49, 94, 76, 0.25);
-  outline-offset: 2px;
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full overflow-hidden;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply m-0 min-w-80 bg-background text-foreground;
+    background-image: radial-gradient(
+      circle at 20% 0%,
+      color-mix(in oklch, var(--card) 70%, transparent),
+      transparent 38rem
+    );
+  }
+
+  [data-slot="card"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"] {
+    box-shadow: 0 12px 32px
+      color-mix(in oklch, var(--foreground) 7%, transparent);
+  }
+
+  [data-slot="card-title"],
+  [data-slot="dialog-title"],
+  [data-slot="sheet-title"],
+  [data-slot="alert-dialog-title"] {
+    letter-spacing: -0.015em;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    color: var(--secondary-foreground);
+    background: var(--secondary);
+  }
 }

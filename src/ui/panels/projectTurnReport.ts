@@ -1,6 +1,7 @@
 import type {
   NodeDefinition,
   NodeType,
+  NumericDomain,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
@@ -26,6 +27,7 @@ export interface TurnReportGrudge {
   readonly id: string;
   readonly label: string;
   readonly targetName: string;
+  readonly targetDomain?: NumericDomain;
   readonly magnitude: number;
 }
 
@@ -56,7 +58,7 @@ export function projectTurnReport(
 ): TurnReport {
   const changes: TurnReportChange[] = [];
   const situationTransitions: TurnReportSituationTransition[] = [];
-  const names = new Map(scenario.nodes.map((node) => [node.id, node.name]));
+  const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
 
   for (const node of scenario.nodes) {
     const before = previous.nodes[node.id];
@@ -87,7 +89,7 @@ export function projectTurnReport(
 
   const highlights = [...changes]
     .sort((left, right) => right.relativeMagnitude - left.relativeMagnitude)
-    .slice(0, 3);
+    .slice(0, 4);
 
   return {
     turn: current.turn,
@@ -95,12 +97,16 @@ export function projectTurnReport(
     highlights,
     changes,
     situationTransitions,
-    grudges: current.grudges.map((grudge) => ({
-      id: grudge.id,
-      label: grudge.label,
-      targetName: names.get(grudge.target) ?? grudge.target,
-      magnitude: grudge.magnitude,
-    })),
+    grudges: current.grudges.map((grudge) => {
+      const target = nodes.get(grudge.target);
+      return {
+        id: grudge.id,
+        label: grudge.label,
+        targetName: target?.name ?? grudge.target,
+        targetDomain: target?.domain,
+        magnitude: grudge.magnitude,
+      };
+    }),
   };
 }
 

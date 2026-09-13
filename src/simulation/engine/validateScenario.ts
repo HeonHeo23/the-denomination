@@ -138,8 +138,8 @@ export function validateScenario(input: unknown): readonly string[] {
     ])
   )
     return errors;
-  if (input.schemaVersion !== 1)
-    error("$.schemaVersion", "supported version is 1");
+  if (input.schemaVersion !== 2)
+    error("$.schemaVersion", "supported version is 2");
   id(input.id, "$.id");
   string(input.title, "$.title");
   string(input.description, "$.description");
@@ -166,7 +166,7 @@ export function validateScenario(input: unknown): readonly string[] {
     "requires",
   ];
   const extras: Record<string, string[]> = {
-    stance: ["control", "cost"],
+    stance: ["control", "cost", "enactmentCost", "repealCost"],
     indicator: [],
     resource: [],
     faction: ["valueMeaning"],
@@ -180,6 +180,8 @@ export function validateScenario(input: unknown): readonly string[] {
         ...base,
         "control",
         "cost",
+        "enactmentCost",
+        "repealCost",
         "valueMeaning",
         "startThreshold",
         "stopThreshold",
@@ -323,6 +325,31 @@ export function validateScenario(input: unknown): readonly string[] {
         number(value.cost.perPoint, `${path}.cost.perPoint`);
         if (value.cost.maxChange !== undefined)
           number(value.cost.maxChange, `${path}.cost.maxChange`);
+      }
+      for (const [field, label] of [
+        ["enactmentCost", "enactment"],
+        ["repealCost", "repeal"],
+      ] as const) {
+        const transitionCost = value[field];
+        if (
+          transitionCost !== undefined &&
+          object(transitionCost, `${path}.${field}`, ["resourceId", "amount"])
+        ) {
+          refs.push({
+            value: transitionCost.resourceId,
+            path: `${path}.${field}.resourceId`,
+            resource: true,
+          });
+          number(transitionCost.amount, `${path}.${field}.amount`);
+          if (
+            typeof transitionCost.amount === "number" &&
+            transitionCost.amount < 0
+          )
+            error(
+              `${path}.${field}.amount`,
+              `${label} cost must not be negative`,
+            );
+        }
       }
     }
   });

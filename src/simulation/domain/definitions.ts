@@ -67,11 +67,19 @@ export interface StanceCostDefinition {
   readonly maxChange?: number;
 }
 
+/** A fixed Resource cost for enacting or repealing a Stance. */
+export interface StanceTransitionCostDefinition {
+  readonly resourceId: NodeId;
+  readonly amount: number;
+}
+
 /** A persistent position controlled primarily by the player. */
 export interface StanceDefinition extends BaseNodeDefinition {
   readonly type: "stance";
   readonly control: ContinuousStanceControl | DiscreteStanceControl;
   readonly cost?: StanceCostDefinition;
+  readonly enactmentCost?: StanceTransitionCostDefinition;
+  readonly repealCost?: StanceTransitionCostDefinition;
 }
 
 /** A continuously calculated measure that cannot be deactivated. */
@@ -155,7 +163,7 @@ export interface ScenarioDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
   /** Incidents are not supported by this implementation yet. */

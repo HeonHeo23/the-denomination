@@ -23,6 +23,12 @@ export type SessionAction =
       readonly stanceId: string;
       readonly value: number;
     }
+  | {
+      readonly type: "enact-stance";
+      readonly stanceId: string;
+      readonly value: number;
+    }
+  | { readonly type: "repeal-stance"; readonly stanceId: string }
   | { readonly type: "advance" }
   | { readonly type: "reset" };
 

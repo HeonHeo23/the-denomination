@@ -17,6 +17,10 @@ export function useGameSession(
     ...session,
     setStance: (stanceId: string, value: number) =>
       dispatch({ type: "set-stance", stanceId, value }),
+    enactStance: (stanceId: string, value: number) =>
+      dispatch({ type: "enact-stance", stanceId, value }),
+    repealStance: (stanceId: string) =>
+      dispatch({ type: "repeal-stance", stanceId }),
     nextTurn: () => dispatch({ type: "advance" }),
     reset: () => dispatch({ type: "reset" }),
   };

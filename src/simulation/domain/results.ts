@@ -35,3 +35,16 @@ export interface StanceChangeAssessment {
   readonly cost: number;
   readonly message: string;
 }
+
+/** Read-only preview of an enactment or repeal command. */
+export interface StanceTransitionAssessment {
+  readonly legal: boolean;
+  readonly cost: number;
+  readonly message: string;
+}
+
+/** Direct Effect values projected after a Stance fills each output's Inertia window. */
+export interface StanceEffectPreview {
+  readonly effectId: string;
+  readonly contribution: number;
+}

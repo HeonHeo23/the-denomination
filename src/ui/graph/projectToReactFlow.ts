@@ -4,6 +4,7 @@ import type {
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
+import { formatContributionPercent } from "../formatValue";
 
 export interface SimulationNodeData extends Record<string, unknown> {
   readonly label: string;
@@ -39,12 +40,6 @@ function effectColor(contribution: number): string {
   return neutralEffectColor;
 }
 
-function formatContribution(contribution: number): string {
-  if (contribution > 0) return `+${contribution.toFixed(3)}`;
-  if (contribution < 0) return `−${Math.abs(contribution).toFixed(3)}`;
-  return "0.000";
-}
-
 export function projectEffectsToReactFlow(
   scenario: ScenarioDefinition,
   state: SimulationState,
@@ -70,7 +65,7 @@ export function projectEffectsToReactFlow(
         effect.source === hoveredNodeId || effect.target === hoveredNodeId;
       const isTracing = hoveredNodeId !== undefined;
       const baseStrokeWidth = Math.min(3, 1.2 + Math.abs(contribution) * 3);
-      const contributionLabel = formatContribution(contribution);
+      const contributionLabel = formatContributionPercent(contribution);
       const label = isConnected
         ? effect.label
           ? `${effect.label} · ${contributionLabel}`

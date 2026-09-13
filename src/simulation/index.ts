@@ -9,7 +9,12 @@ export type * from "./domain/results";
 export type * from "./domain/runtime";
 export { advanceTurn } from "./engine/advanceTurn";
 export { initializeScenario } from "./engine/initialize";
-export { executeCommand } from "./engine/playerActions";
+export {
+  assessStanceEnactment,
+  assessStanceRepeal,
+  assessStanceChange,
+  executeCommand,
+} from "./engine/playerActions";
 export { validateScenario } from "./engine/validateScenario";
 export { loadScenario } from "./engine/loadScenario";
-export { assessStanceChange } from "./engine/playerActions";
+export { previewStanceEffects } from "./engine/evaluatePersistentState";

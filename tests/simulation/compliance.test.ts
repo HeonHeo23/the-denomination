@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
   advanceTurn,
-  assessStanceChange,
+  assessStanceEnactment,
+  assessStanceRepeal,
   executeCommand,
   initializeScenario,
   loadScenario,
@@ -18,7 +19,13 @@ import {
   projectEffectsToReactFlow,
   projectToReactFlow,
 } from "../../src/ui/graph/projectToReactFlow";
-import { formatValue, meterPercent } from "../../src/ui/formatValue";
+import {
+  formatContributionPercent,
+  formatSignedValue,
+  formatValue,
+  meterPercent,
+  toPercent,
+} from "../../src/ui/formatValue";
 
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
@@ -42,7 +49,7 @@ export function runComplianceTests() {
   assert.deepEqual(loaded.scenario.events, []);
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
   const minimal: ScenarioDefinition = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: "minimal",
     title: "Minimal",
     description: "Empty content",
@@ -57,7 +64,7 @@ export function runComplianceTests() {
   const invalid: [unknown, string][] = [
     [null, "$"],
     [{}, "$.schemaVersion"],
-    [{ ...exampleScenario, schemaVersion: 2 }, "$.schemaVersion"],
+    [{ ...exampleScenario, schemaVersion: 1 }, "$.schemaVersion"],
     [{ ...exampleScenario, startingTurn: 0 }, "$.startingTurn"],
     [
       {
@@ -151,14 +158,14 @@ export function runComplianceTests() {
         "governance-tension",
         (n) => ({ ...n, startThreshold: 2 }) as NodeDefinition,
       ),
-      "$.nodes[8].startThreshold",
+      "$.nodes[10].startThreshold",
     ],
     [
       editNode(
         "governance-tension",
         (n) => ({ ...n, stopThreshold: 0.9 }) as NodeDefinition,
       ),
-      "$.nodes[8].stopThreshold",
+      "$.nodes[10].stopThreshold",
     ],
     [
       editNode(
@@ -214,6 +221,28 @@ export function runComplianceTests() {
           }) as NodeDefinition,
       ),
       "$.nodes[0].cost.resourceId",
+    ],
+    [
+      editNode(
+        "centralization",
+        (n) =>
+          ({
+            ...n,
+            enactmentCost: { resourceId: "clergy-quality", amount: 1 },
+          }) as NodeDefinition,
+      ),
+      "$.nodes[0].enactmentCost.resourceId",
+    ],
+    [
+      editNode(
+        "centralization",
+        (n) =>
+          ({
+            ...n,
+            repealCost: { resourceId: "authority", amount: -1 },
+          }) as NodeDefinition,
+      ),
+      "$.nodes[0].repealCost.amount",
     ],
     [
       editNode(
@@ -396,11 +425,13 @@ export function runComplianceTests() {
           perPoint: 12,
           maxChange: 0.2,
         },
+        enactmentCost: { resourceId: "authority", amount: 3 },
+        repealCost: { resourceId: "authority", amount: 2 },
       }) as NodeDefinition,
   );
   const cappedInitial = initializeScenario(capped);
   const snapshot = structuredClone(cappedInitial);
-  const quote = assessStanceChange(
+  const quote = assessStanceEnactment(
     capped,
     cappedInitial,
     "centralization",
@@ -408,7 +439,7 @@ export function runComplianceTests() {
   );
   assert.ok(quote.legal);
   const command = {
-    type: "set-stance" as const,
+    type: "enact-stance" as const,
     stanceId: "centralization",
     value: 0.75,
   };
@@ -420,10 +451,15 @@ export function runComplianceTests() {
     quote.cost,
   );
   assert.ok(
-    executeCommand(capped, changed.state, { ...command, value: 0.95 }).accepted,
+    executeCommand(capped, changed.state, {
+      type: "set-stance",
+      stanceId: "centralization",
+      value: 0.95,
+    }).accepted,
   );
   const rejected = executeCommand(capped, cappedInitial, {
-    ...command,
+    type: "set-stance",
+    stanceId: "centralization",
     value: 0.751,
   });
   assert.equal(rejected.accepted, false);
@@ -431,7 +467,7 @@ export function runComplianceTests() {
   assert.deepEqual(cappedInitial, snapshot);
   assert.equal(
     executeCommand(capped, cappedInitial, { ...command, value: 0.55 }).accepted,
-    false,
+    true,
   );
   assert.equal(
     executeCommand({ ...exampleScenario, conditions: [] }, initial, {
@@ -449,6 +485,58 @@ export function runComplianceTests() {
     },
   };
   assert.equal(executeCommand(capped, poor, command).accepted, false);
+  const repealQuote = assessStanceRepeal(capped, changed.state, "centralization");
+  assert.ok(repealQuote.legal);
+  const repealed = executeCommand(capped, changed.state, {
+    type: "repeal-stance",
+    stanceId: "centralization",
+  });
+  assert.ok(repealed.accepted);
+  assert.equal(repealed.state.nodes.centralization.isActive, false);
+  assert.equal(repealed.state.nodes.centralization.value, 0.75);
+  close(changed.state.nodes.authority.value - repealed.state.nodes.authority.value, 2);
+  assert.equal(repealed.state.history.at(-1)?.title, "Centralization repealed");
+  assert.ok(
+    executeCommand(capped, repealed.state, {
+      type: "enact-stance",
+      stanceId: "centralization",
+      value: 0.75,
+    }).accepted,
+  );
+  assert.equal(
+    executeCommand(capped, cappedInitial, {
+      type: "repeal-stance",
+      stanceId: "centralization",
+    }).accepted,
+    false,
+  );
+  const freeTransitions = editNode(
+    "centralization",
+    (n) =>
+      ({
+        ...n,
+        initial: { value: 0.55, isActive: false, isForced: false },
+        enactmentCost: undefined,
+        repealCost: undefined,
+      }) as NodeDefinition,
+  );
+  const freeInitial = initializeScenario(freeTransitions);
+  const freelyEnacted = executeCommand(freeTransitions, freeInitial, {
+    type: "enact-stance",
+    stanceId: "centralization",
+    value: 0.55,
+  });
+  assert.ok(freelyEnacted.accepted);
+  assert.equal(
+    freelyEnacted.state.nodes.authority.value,
+    freeInitial.nodes.authority.value,
+  );
+  assert.ok(
+    executeCommand(freeTransitions, freelyEnacted.state, {
+      type: "repeal-stance",
+      stanceId: "centralization",
+    }).accepted,
+  );
   const discrete = editNode(
     "centralization",
     (n) =>
@@ -467,13 +555,15 @@ export function runComplianceTests() {
   assert.deepEqual(validateScenario(discrete), []);
   assert.equal(
     executeCommand(discrete, initializeScenario(discrete), {
-      ...command,
+      type: "set-stance",
+      stanceId: "centralization",
       value: 0.75,
     }).accepted,
     false,
   );
   const forcedChange = executeCommand(discrete, initializeScenario(discrete), {
-    ...command,
+    type: "set-stance",
+    stanceId: "centralization",
     value: 1,
   });
   assert.ok(forcedChange.accepted);
@@ -509,7 +599,14 @@ export function runComplianceTests() {
   assert.deepEqual(frozenInput, initial);
 
   const domain = { min: -50, max: 50, clamp: true };
+  assert.equal(toPercent(0.42), 42);
+  assert.equal(formatContributionPercent(0.1234), "+12.3%");
+  assert.equal(formatContributionPercent(-0.1234), "−12.3%");
+  assert.equal(formatContributionPercent(0), "0.0%");
   assert.equal(formatValue(25, domain), "25.0");
+  assert.equal(formatSignedValue(0.045, { min: 0, max: 1, clamp: true }), "+4.5%");
+  assert.equal(formatSignedValue(-0.045, { min: 0, max: 1, clamp: true }), "-4.5%");
+  assert.equal(formatSignedValue(2.25, domain), "+2.3");
   assert.equal(meterPercent(25, domain), 75);
   assert.equal(meterPercent(100, domain), 100);
   assert.equal(formatValue(0.4, { min: 0, max: 1, clamp: true }), "40%");
@@ -545,6 +642,12 @@ export function runComplianceTests() {
       (edge) => edge.source === "centralization" && edge.label !== undefined,
     ),
     "Hovering a node should reveal its connected Effect labels",
+  );
+  assert.ok(
+    tracedEdges.some(
+      (edge) => typeof edge.label === "string" && edge.label.includes("%"),
+    ),
+    "Connected Effect contributions should be displayed as percentages",
   );
   assert.ok(
     tracedEdges.some(

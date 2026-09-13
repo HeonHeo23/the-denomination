@@ -64,7 +64,7 @@ abstractions without a demonstrated need.
 | Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
 | UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                     |
 | React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
-| Persistence adapter            | `src/app/persistence.ts`                                                                        | Validate, serialize, restore, and clear versioned browser saves without changing engine semantics      |
+| Persistence adapter            | `src/app/persistence.ts`                                                                       | Validate, serialize, restore, and clear versioned browser saves without changing engine semantics     |
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
@@ -215,6 +215,12 @@ rules in `GAME_DESIGN.md`. The unresolved complete phase order must remain
 localized in the turn orchestrator so it can be settled without changing UI or
 content ownership.
 
+Any future gradual Stance implementation or minister-like influence must be
+modeled and calculated by the simulation engine through its public API. The
+UI, session, and persistence layers MUST NOT duplicate those rules; define
+their exact responsibilities once the mechanics and data contract are
+specified.
+
 Incident candidate calculation and incident selection should be separable
 engine steps. This is required because the selection policy is still a design
 TBD, not because it warrants a general rules framework.
@@ -234,8 +240,8 @@ private helpers. It describes current code rather than adding game semantics;
 | `initializeScenario`<br>`initialize.ts`                   | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                            |
 | `validateScenario`<br>`validateScenario.ts`               | Public          | 1. Collect diagnostics. <br>2. Check IDs, domains, values, thresholds, references, and costs. <br>3. Return all errors.                            |
 | `reject`<br>`playerActions.ts`                            | Private         | 1. Create a rejected result. <br>2. Preserve the original state. <br>3. Include the message.                                                       |
-| `changeStance`<br>`playerActions.ts`                      | Private         | 1. Validate value and prerequisites. <br>2. Check/debit cost. <br>3. Set value and baseline. <br>4. Add history and accept.                        |
-| `executeCommand`<br>`playerActions.ts`                    | Public          | 1. Verify Scenario ownership. <br>2. Dispatch and type-check the Stance. <br>3. Delegate to `changeStance`.                                        |
+| `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal`<br>`playerActions.ts` | Public | Assess the semantic Stance action against one Scenario and runtime snapshot. |
+| `executeCommand`<br>`playerActions.ts`                    | Public          | Verify Scenario ownership, dispatch change/enact/repeal commands, debit authored costs, and return an immutable next snapshot. |
 | `indexNodes`<br>`shared.ts`                               | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                     |
 | `clampValue`<br>`shared.ts`                               | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                      |
 

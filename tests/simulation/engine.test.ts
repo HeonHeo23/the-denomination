@@ -27,8 +27,60 @@ assert(
   "Example Scenario must validate",
 );
 assert(
-  exampleScenario.nodes.length === 24,
+  exampleScenario.nodes.length === 48,
   "Expanded Scenario should contain the original and expanded ministry nodes",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "institutional-authority")
+    ?.type === "indicator",
+  "Institutional Authority should be a simulated Indicator",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "authority")?.baseline ===
+    25,
+  "Authority should have a lower underlying baseline",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "ministry-capacity")
+    ?.type === "indicator",
+  "Ministry Capacity should be a simulated Indicator",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "money")?.type ===
+    "resource",
+  "Money should be a spendable Resource",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "revenue")?.type ===
+    "indicator",
+  "Revenue should be a simulated Indicator",
+);
+assert(
+  exampleScenario.nodes.find((node) => node.id === "expenditure")?.type ===
+    "indicator",
+  "Expenditure should be a simulated Indicator",
+);
+assert(
+  exampleScenario.effects.some(
+    (effect) => effect.id === "revenue-to-money" && effect.target === "money",
+  ),
+  "Budget should receive calculated Revenue",
+);
+assert(
+  exampleScenario.effects.some(
+    (effect) =>
+      effect.id === "expenditure-to-money" && effect.target === "money",
+  ),
+  "Budget should subtract calculated Expenditure",
+);
+assert(
+  exampleScenario.effects.some(
+    (effect) =>
+      effect.id === "institutional-authority-to-authority-resource" &&
+      effect.source === "institutional-authority" &&
+      effect.target === "authority",
+  ),
+  "Institutional Authority should feed the Authority Resource",
 );
 assert(
   exampleScenario.effects.length >= 40,

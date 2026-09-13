@@ -1,27 +1,39 @@
-import type { ScenarioDefinition } from "../domain/definitions";
+import type {
+  ScenarioDefinition,
+  StanceDefinition,
+} from "../domain/definitions";
 import type { SimulationCommand } from "../domain/commands";
-import type { CommandResult, StanceChangeAssessment } from "../domain/results";
+import type {
+  CommandResult,
+  StanceChangeAssessment,
+  StanceTransitionAssessment,
+} from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { clampValue, conditionsMet, indexNodes } from "./shared";
 
-/** The single source of command legality and cost for previews and execution. */
-export function assessStanceChange(
+type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
+
+function reject(message: string, cost = 0): Assessment {
+  return { legal: false, cost, message };
+}
+
+function stanceFor(
   scenario: ScenarioDefinition,
   state: SimulationState,
   stanceId: string,
-  value: number,
-): StanceChangeAssessment {
-  const reject = (message: string, cost = 0): StanceChangeAssessment => ({
-    legal: false,
-    cost,
-    message,
-  });
+): StanceDefinition | Assessment {
   if (state.scenarioId !== scenario.id)
     return reject("The runtime state belongs to another Scenario.");
   const stance = indexNodes(scenario)[stanceId];
   if (!stance || stance.type !== "stance")
     return reject("That node is not a Stance.");
-  const runtime = state.nodes[stanceId];
+  return stance;
+}
+
+function validValue(
+  stance: StanceDefinition,
+  value: number,
+): Assessment | undefined {
   if (!Number.isFinite(value)) return reject("Choose a valid value.");
   if (value < stance.domain.min || value > stance.domain.max)
     return reject(`${stance.name} is outside its permitted range.`);
@@ -30,6 +42,44 @@ export function assessStanceChange(
     !stance.control.states.some((option) => option.value === value)
   )
     return reject(`${stance.name} does not permit that state.`);
+  return undefined;
+}
+
+function assessTransitionCost(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  cost: number,
+  resourceId: string | undefined,
+  action: "enact" | "repeal",
+): Assessment | { readonly resourceName: string } {
+  if (!Number.isFinite(cost))
+    return reject("The configured Stance cost is not finite.");
+  if (!resourceId) return { resourceName: "" };
+  const resource = indexNodes(scenario)[resourceId];
+  if (!resource || resource.type !== "resource")
+    return reject(`The configured ${action} cost is invalid.`, cost);
+  if (state.nodes[resource.id].value < cost)
+    return reject(
+      `Not enough ${resource.name}. This ${action} costs ${cost.toFixed(1)}.`,
+      cost,
+    );
+  return { resourceName: resource.name };
+}
+
+/** The single source of active Stance-change legality and cost. */
+export function assessStanceChange(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stanceId: string,
+  value: number,
+): StanceChangeAssessment {
+  const stance = stanceFor(scenario, state, stanceId);
+  if ("legal" in stance) return stance;
+  const invalid = validValue(stance, value);
+  if (invalid) return invalid;
+  const runtime = state.nodes[stanceId];
+  if (!runtime.isActive)
+    return reject(`Enact ${stance.name} before changing it.`);
   if (!conditionsMet(scenario, stance.requires))
     return reject(`The prerequisites for ${stance.name} are not met.`);
   const amountChanged = Math.abs(value - runtime.value);
@@ -39,7 +89,6 @@ export function assessStanceChange(
     : 0;
   if (!Number.isFinite(cost))
     return reject("The configured Stance cost is not finite.");
-  // Ignore only floating-point roundoff at an exact authored limit.
   const tolerance =
     Number.EPSILON * Math.max(1, Math.abs(value), Math.abs(runtime.value)) * 4;
   if (
@@ -69,40 +118,129 @@ export function assessStanceChange(
   };
 }
 
+/** Assess whether an inactive Stance can be enacted at a selected value. */
+export function assessStanceEnactment(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stanceId: string,
+  value: number,
+): StanceTransitionAssessment {
+  const stance = stanceFor(scenario, state, stanceId);
+  if ("legal" in stance) return stance;
+  const invalid = validValue(stance, value);
+  if (invalid) return invalid;
+  if (state.nodes[stanceId].isActive)
+    return reject(`${stance.name} is already enacted.`);
+  if (!conditionsMet(scenario, stance.requires))
+    return reject(`The prerequisites for ${stance.name} are not met.`);
+  const cost = stance.enactmentCost?.amount ?? 0;
+  const affordability = assessTransitionCost(
+    scenario,
+    state,
+    cost,
+    stance.enactmentCost?.resourceId,
+    "enact",
+  );
+  if ("legal" in affordability) return affordability;
+  return {
+    legal: true,
+    cost,
+    message: `${stance.name} enacted at ${value}${cost ? ` for ${cost.toFixed(1)} ${affordability.resourceName}` : ""}.`,
+  };
+}
+
+/** Assess whether an active ordinary Stance can be repealed. */
+export function assessStanceRepeal(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stanceId: string,
+): StanceTransitionAssessment {
+  const stance = stanceFor(scenario, state, stanceId);
+  if ("legal" in stance) return stance;
+  const runtime = state.nodes[stanceId];
+  if (!runtime.isActive) return reject(`${stance.name} is not enacted.`);
+  if (runtime.isForced)
+    return reject(`${stance.name} is forced active and cannot be repealed.`);
+  const cost = stance.repealCost?.amount ?? 0;
+  const affordability = assessTransitionCost(
+    scenario,
+    state,
+    cost,
+    stance.repealCost?.resourceId,
+    "repeal",
+  );
+  if ("legal" in affordability) return affordability;
+  return {
+    legal: true,
+    cost,
+    message: `${stance.name} repealed${cost ? ` for ${cost.toFixed(1)} ${affordability.resourceName}` : ""}.`,
+  };
+}
+
+function debitCost(
+  scenario: ScenarioDefinition,
+  nodes: Record<string, SimulationState["nodes"][string]>,
+  resourceId: string | undefined,
+  cost: number,
+) {
+  if (!resourceId || cost === 0) return;
+  const resource = nodes[resourceId];
+  const definition = indexNodes(scenario)[resourceId];
+  nodes[resourceId] = {
+    ...resource,
+    baseValue: clampValue(resource.baseValue - cost, definition),
+    value: clampValue(resource.value - cost, definition),
+  };
+}
+
 /** Reassess against the current snapshot before applying an immutable transaction. */
 export function executeCommand(
   scenario: ScenarioDefinition,
   state: SimulationState,
   command: SimulationCommand,
 ): CommandResult {
-  const assessment = assessStanceChange(
-    scenario,
-    state,
-    command.stanceId,
-    command.value,
-  );
+  const assessment =
+    command.type === "set-stance"
+      ? assessStanceChange(scenario, state, command.stanceId, command.value)
+      : command.type === "enact-stance"
+        ? assessStanceEnactment(
+            scenario,
+            state,
+            command.stanceId,
+            command.value,
+          )
+        : assessStanceRepeal(scenario, state, command.stanceId);
   if (!assessment.legal)
     return { accepted: false, state, message: assessment.message };
   const stance = indexNodes(scenario)[command.stanceId];
-  if (stance.type !== "stance")
+  if (!stance || stance.type !== "stance")
     return { accepted: false, state, message: "That node is not a Stance." };
   const nodes = { ...state.nodes };
-  if (stance.cost) {
-    const resource = nodes[stance.cost.resourceId];
-    const definition = indexNodes(scenario)[stance.cost.resourceId];
-    // Preserve the existing provisional Resource/baseline interaction.
-    nodes[stance.cost.resourceId] = {
-      ...resource,
-      baseValue: clampValue(resource.baseValue - assessment.cost, definition),
-      value: clampValue(resource.value - assessment.cost, definition),
+  if (command.type === "set-stance") {
+    debitCost(scenario, nodes, stance.cost?.resourceId, assessment.cost);
+  } else {
+    const transitionCost =
+      command.type === "enact-stance"
+        ? stance.enactmentCost
+        : stance.repealCost;
+    debitCost(scenario, nodes, transitionCost?.resourceId, assessment.cost);
+  }
+  if (command.type === "repeal-stance") {
+    nodes[stance.id] = { ...nodes[stance.id], isActive: false };
+  } else {
+    nodes[stance.id] = {
+      ...nodes[stance.id],
+      value: command.value,
+      baseValue: command.value,
+      isActive: true,
     };
   }
-  nodes[stance.id] = {
-    ...nodes[stance.id],
-    value: command.value,
-    baseValue: command.value,
-    isActive: true,
-  };
+  const action =
+    command.type === "set-stance"
+      ? "change"
+      : command.type === "enact-stance"
+        ? "enact"
+        : "repeal";
   return {
     accepted: true,
     message: assessment.message,
@@ -112,11 +250,21 @@ export function executeCommand(
       history: [
         ...state.history,
         {
-          id: `${stance.id}:change:${state.turn}:${state.history.length}`,
+          id: `${stance.id}:${action}:${state.turn}:${state.history.length}`,
           turn: state.turn,
           kind: "stance",
-          title: `${stance.name} changed`,
-          detail: `The Stance is now ${command.value}.`,
+          title:
+            command.type === "set-stance"
+              ? `${stance.name} changed`
+              : command.type === "enact-stance"
+                ? `${stance.name} enacted`
+                : `${stance.name} repealed`,
+          detail:
+            command.type === "repeal-stance"
+              ? "The Stance is no longer active."
+              : command.type === "enact-stance"
+                ? `The Stance was enacted at ${command.value}.`
+                : `The Stance is now ${command.value}.`,
         },
       ],
     },

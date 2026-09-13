@@ -31,11 +31,11 @@ Statuses used here are:
 | Activation schema migration | Implemented | `src/simulation/domain/definitions.ts`, `validateScenario.ts`, `src/scenarios/example` | Authored Scenario content uses `initial.isActive` and `initial.isForced`; legacy activation strings are rejected. |
 | Persistent Effects and inertia | Implemented | `src/simulation/engine/evaluatePersistentState.ts` | Uses the synchronous snapshot model and per-Effect history; newly activated Situation outputs begin on the following turn. |
 | Static conditions and requirements | Implemented | `src/simulation/engine/shared.ts`, `playerActions.ts`, `evaluatePersistentState.ts` | Scenario `conditions` are matched against node `requires` for supported eligibility checks. |
-| Stance assessment and execution | Implemented | `src/simulation/engine/playerActions.ts` | Shared assessment covers range, discrete states, requirements, no-op changes, costs, available Resources, and `maxChange`; execution reassesses before applying the immutable transaction. |
+| Stance assessment and execution | Implemented | `src/simulation/engine/playerActions.ts` | Shared assessment and immutable execution cover active-Stance changes plus inactive-Stance enactment and non-forced repeal, including authored fixed transition costs. |
 | Application session ownership | Implemented | `src/app/gameSession.ts`, `useGameSession.ts` | A reducer owns the active validated Scenario, runtime snapshot, messages, traces, reset, commands, turn advancement, and validated snapshot restoration. |
-| Scenario catalog and launcher | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/main.tsx` | The browser validates catalog entries, presents Scenario and identity setup, and launches or continues the selected session. The catalog currently contains one bundled Scenario. |
+| Scenario catalog and launcher | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/ui/landing`, `src/main.tsx` | The browser validates catalog entries, presents the responsive Scenario and identity setup, and launches or continues the selected session. The catalog currently contains one bundled Scenario. |
 | Browser persistence | Implemented | `src/app/persistence.ts` | One versioned local save stores display identity, Scenario/content identity, and canonical runtime state. Restoration validates the complete record against current content before use. |
-| Domain-aware UI projection | Implemented | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/panels` | UI formatting and meters use node domains rather than assuming every value is a percentage. |
+| Domain-aware UI projection | Implemented | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels` | A fixed-viewport, graph-first shadcn presentation keeps formatting and meters domain-aware rather than assuming every value is a percentage. Node details and turn reports use scrollable Dialogs, relationship projections retain navigable node IDs, and secondary dashboards use Sheets. Stance editing previews direct outgoing contributions after configured Inertia fully settles, including the unchanged target, without mutating the active snapshot. |
 | Events and Dilemmas | Unsupported | `src/simulation/engine/validateScenario.ts`, `loadScenario.ts` | The format and design define incident shapes, but nonempty `events` or `dilemmas` content is currently rejected and no incident execution exists. |
 
 ## Deferred or incomplete areas
@@ -51,6 +51,9 @@ implemented by this status file:
 - injected or seedable runtime dependencies for deterministic replay;
 - additional Scenario content beyond the bundled example;
 - additional response-function and contextual-input semantics;
+- gradual Stance implementation and the minister-like actors or offices
+  intended to influence its pace; the design direction is recorded in
+  `GAME_DESIGN.md`, but no target/progress state or such actor system exists;
 - incompatible-Stance resolution and specialized governance procedures.
 
 Changes to these areas require updating the appropriate authoritative document

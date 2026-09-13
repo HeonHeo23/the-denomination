@@ -62,7 +62,7 @@ export function SimulationGraph({
       }
       onPaneMouseLeave={() => setHoveredNodeId(undefined)}
       proOptions={{ hideAttribution: true }}
-      aria-label="Institutional causal graph"
+      aria-label="Simulation graph"
     >
       <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
       <Controls showInteractive={false} />

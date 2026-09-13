@@ -34,7 +34,11 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
   // Seed the full window; initialization itself does not advance the Effect.
   for (const effect of scenario.effects) {
     const sourceValue =
-      effect.source === "_default_" ? 1 : nodes[effect.source].value;
+      effect.source === "_default_"
+        ? 1
+        : nodes[effect.source].isActive
+          ? nodes[effect.source].value
+          : 0;
     effects[effect.id] = {
       sourceHistory: Array.from(
         { length: effect.inertiaTurns ?? 1 },

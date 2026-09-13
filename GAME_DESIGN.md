@@ -90,7 +90,30 @@ cost = base cost + cost per point * absolute value change
 A cost may also cap the change made by one action. The player may make unlimited
 Stance-change actions during a turn while each action is legal and sufficient
 Resources remain. An inactive Stance may become active when legally enacted. A
-A forced-active Stance cannot normally be cancelled.
+forced-active Stance cannot normally be cancelled.
+
+An inactive Stance is enacted at a chosen legal value. Its optional fixed
+enactment cost is charged instead of the normal change cost, so enacting at the
+stored value is a meaningful action. An active non-forced Stance may be
+repealed for its optional fixed repeal cost; repeal preserves its stored value
+for a later enactment and never refunds prior costs. Omitted enactment or
+repeal costs permit that transition for free.
+
+Identity Stances describe positions constitutive of the denomination and will
+normally be authored forced active. Policy Stances describe enacted programs
+and will normally be authored with configurable activation. This distinction is
+currently descriptive only: activation flags and explicitly authored costs,
+rather than a Stance subtype, determine engine behavior.
+
+Under the current rules, a legal Stance change immediately updates that
+Stance's stored runtime value. This does not immediately recalculate its
+outgoing Effects. Those are evaluated during turn simulation and respond
+according to each Effect's Inertia.
+
+Enactment and repeal likewise change activation immediately. An inactive
+source contributes zero to its Effect inertia history; enactment therefore
+builds through that Effect's configured Inertia while repeal stops normal
+outgoing participation when the following turn is evaluated.
 
 Mutually incompatible Stances and any conflict-resolution behavior require
 explicit content support; there is no universal implicit rule.
@@ -338,6 +361,14 @@ Do not infer or implement the following until this document is revised:
 - a required multi-attribute Faction model;
 - universal incident cadence, probability constants, or random distribution;
 - incompatible-Stance resolution beyond explicit supported content;
+- Stance implementation progress and the minister-like system intended to
+  influence it. The future direction is for a chosen Stance position to be
+  implemented over time, with its rate affected by minister-like actors or
+  offices. This is separate from per-Effect Inertia. The actor model,
+  assignments, capabilities, progress formula, Resource/cost timing,
+  cancellation or reversal behavior, and persistence rules are unspecified.
+  Until those rules are defined, Stance changes remain immediate as described
+  above; do not add implementation delay or minister mechanics;
 - any iterative or equilibrium solver replacing synchronous snapshot updates.
 
 Governance concepts currently use the ordinary nodes, Effects, Resources,

@@ -1,0 +1,186 @@
+import { useState } from "react";
+import type {
+  NodeDefinition,
+  NodeRuntimeState,
+  ScenarioDefinition,
+  SimulationState,
+} from "@/simulation";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { formatValue } from "@/ui/formatValue";
+import { NodeEffectCard } from "./NodeEffectCard";
+import { projectNodeEffects } from "./projectNodeEffects";
+import { StanceEditor } from "./StanceEditor";
+
+interface NodeDetailsDialogProps {
+  readonly definition: NodeDefinition;
+  readonly runtime: NodeRuntimeState;
+  readonly scenario: ScenarioDefinition;
+  readonly state: SimulationState;
+  readonly onApply: (stanceId: string, value: number) => void;
+  readonly onEnact: (stanceId: string, value: number) => void;
+  readonly onRepeal: (stanceId: string) => void;
+  readonly onNodeSelect: (nodeId: string) => void;
+  readonly onClose: () => void;
+}
+
+function activationLabel(runtime: NodeRuntimeState): string {
+  if (runtime.isForced) return "Forced active";
+  return runtime.isActive ? "Active" : "Inactive";
+}
+
+export function NodeDetailsDialog({
+  definition,
+  runtime,
+  scenario,
+  state,
+  onApply,
+  onEnact,
+  onRepeal,
+  onNodeSelect,
+  onClose,
+}: NodeDetailsDialogProps) {
+  const [stancePreview, setStancePreview] = useState<{
+    readonly stanceId: string;
+    readonly value: number;
+  } | null>(null);
+  const previewValue =
+    definition.type !== "stance"
+      ? undefined
+      : stancePreview?.stanceId === definition.id
+        ? stancePreview.value
+        : runtime.value;
+  const effects = projectNodeEffects(
+    definition.id,
+    scenario,
+    state,
+    previewValue,
+  );
+
+  const details = [
+    ["Current value", formatValue(runtime.value, definition.domain)],
+    [
+      "Domain",
+      `${formatValue(definition.domain.min, definition.domain)}–${formatValue(definition.domain.max, definition.domain)}`,
+    ],
+    ...(definition.baseline === undefined
+      ? []
+      : [["Baseline", formatValue(definition.baseline, definition.domain)]]),
+    ...(definition.type === "faction"
+      ? [["Value meaning", definition.valueMeaning]]
+      : []),
+    ...(definition.type === "situation"
+      ? [
+          [
+            "Starts at",
+            formatValue(definition.startThreshold, definition.domain),
+          ],
+          [
+            "Stops at",
+            formatValue(definition.stopThreshold, definition.domain),
+          ],
+        ]
+      : []),
+  ];
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(780px,calc(100dvh-2rem))] min-h-0 w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-5xl">
+        <DialogHeader className="shrink-0 px-6 pt-6">
+          <div className="mb-2 flex gap-2">
+            <Badge variant="secondary">
+              {definition.category ?? "Uncategorized"}
+            </Badge>
+            <Badge className="capitalize" variant="outline">
+              {definition.type}
+            </Badge>
+            <Badge variant="outline">{activationLabel(runtime)}</Badge>
+          </div>
+          <DialogTitle>{definition.name}</DialogTitle>
+          <DialogDescription>{definition.description}</DialogDescription>
+        </DialogHeader>
+        <Separator />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col px-6",
+              definition.type === "stance" ? "gap-2 pb-4" : "gap-5 pb-6",
+            )}
+          >
+            <dl className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {details.map(([label, value]) => (
+                <div className="rounded-lg bg-muted p-3" key={label}>
+                  <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                    {label}
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium wrap-break-word">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            {definition.type === "stance" ? (
+              <NodeEffectCard
+                title="Outgoing effects"
+                direction="outgoing"
+                effects={effects.outgoing}
+                onNodeSelect={(nodeId) => {
+                  setStancePreview(null);
+                  onNodeSelect(nodeId);
+                }}
+                layout="stance"
+              />
+            ) : (
+              <div className="grid h-full min-h-0 flex-1 gap-4 lg:grid-cols-2">
+                <NodeEffectCard
+                  title="Incoming effects"
+                  direction="incoming"
+                  effects={effects.incoming}
+                  onNodeSelect={onNodeSelect}
+                />
+                <NodeEffectCard
+                  title="Outgoing effects"
+                  direction="outgoing"
+                  effects={effects.outgoing}
+                  onNodeSelect={onNodeSelect}
+                />
+              </div>
+            )}
+          </div>
+
+          {definition.type === "stance" && (
+            <div className="shrink-0 bg-background px-6 py-2">
+              <StanceEditor
+                key={definition.id}
+                state={state}
+                definition={definition}
+                value={runtime.value}
+                scenario={scenario}
+                onApply={(value) => onApply(definition.id, value)}
+                onEnact={(value) => onEnact(definition.id, value)}
+                onRepeal={() => onRepeal(definition.id)}
+                onDraftChange={(value) =>
+                  setStancePreview({ stanceId: definition.id, value })
+                }
+              />
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

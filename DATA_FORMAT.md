@@ -27,7 +27,7 @@ Scenario is the sole top-level playable content object:
 
 ```ts
 interface ScenarioDefinition {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   title: string;
   description: string;
@@ -126,12 +126,22 @@ interface StanceDefinition extends BaseNodeDefinition {
     perPoint: number;
     maxChange?: number;
   };
+  enactmentCost?: { resourceId: string; amount: number };
+  repealCost?: { resourceId: string; amount: number };
 }
 ```
 
-Discrete state values must be unique and within the Stance domain. A cost's
-`resourceId` must reference a Resource. `maxChange` limits one action, not the
-number of actions in a turn.
+Discrete state values must be unique and within the Stance domain. Every cost's
+`resourceId` must reference a Resource. `maxChange` limits one active-Stance
+change action, not the number of actions in a turn. `enactmentCost` and
+`repealCost` are optional fixed costs; an omitted transition cost permits that
+transition without a Resource debit.
+
+Version 2 Stances do not define a separate target position, implementation
+progress, or minister-like actor/assignment. Those belong to a deferred design
+direction for gradual Stance implementation. Do not add ad hoc fields for that
+system; its authored and runtime representation must be specified and
+versioned after the mechanics are settled.
 
 Named range labels and incompatible-Stance data are not canonical fields until
 their deferred mechanics are specified.
@@ -363,7 +373,7 @@ does not replace runtime validation for parsed content.
 
 ```ts
 {
-  schemaVersion: 1,
+  schemaVersion: 2,
   id: 'connectional-fellowship-1980',
   title: 'The Connectional Fellowship',
   description: 'A growing fellowship under institutional strain.',
@@ -409,7 +419,7 @@ required:
 
 | MVP                                     | Intended format                                                |
 | --------------------------------------- | -------------------------------------------------------------- |
-| no schema version                       | `schemaVersion: 1`                                             |
+| no schema version                       | `schemaVersion: 2`                                             |
 | `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
 | `initialValue`, activation state        | `initial.value`, `initial.isActive`, `initial.isForced`        |
 | `baselineValue`                         | `baseline`                                                     |
