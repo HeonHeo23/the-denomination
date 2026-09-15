@@ -37,7 +37,8 @@
   z-index: 2;
   left: var(--effect-bar-preview-start, 50%);
   width: var(--effect-bar-preview-span, 0%);
-  background: color-mix(in oklch, var(--secondary) 76%, var(--card));
+  opacity: 0.78;
+  background: color-mix(in oklch, var(--game-increasing) 62%, var(--card));
 }
 
 .effect-bar[data-tone="negative"] .effect-bar__fill {
@@ -46,7 +47,15 @@
   background: var(--game-decreasing);
 }
 
+.effect-bar[data-preview-tone="negative"] .effect-bar__preview-fill {
+  background: color-mix(in oklch, var(--game-decreasing) 62%, var(--card));
+}
+
 .effect-bar[data-tone="neutral"] .effect-bar__fill {
+  display: none;
+}
+
+.effect-bar[data-preview-tone="neutral"] .effect-bar__preview-fill {
   display: none;
 }
 
@@ -143,7 +152,7 @@
       color-mix(in oklch, var(--game-raised-document) 94%, transparent),
       color-mix(in oklch, var(--game-raised-document) 94%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
   box-shadow: var(--game-document-shadow);
 }
 
@@ -182,4 +191,141 @@
 
 [data-game-change="decreasing"] {
   border-inline-start-color: var(--game-decreasing);
+}
+
+.node-record__eyebrow,
+.effect-table__legend {
+  color: var(--game-ink-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.node-record__reading {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(8rem, auto) minmax(10rem, 1fr) minmax(
+      8rem,
+      auto
+    );
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.85rem 1rem;
+  border-block: 1px solid
+    color-mix(in oklch, var(--game-brass) 32%, var(--border));
+  background: color-mix(in oklch, var(--game-paper) 72%, transparent);
+}
+
+.node-record__reading > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.node-record__reading > div:last-child {
+  text-align: right;
+}
+
+.node-record__reading span,
+.node-record__reading small {
+  color: var(--game-ink-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.node-record__reading strong {
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.node-record__reading [data-slot="progress"] {
+  height: 0.58rem;
+  border-radius: 1px;
+  background: color-mix(in oklch, var(--game-ink-subtle) 14%, transparent);
+}
+
+.node-record__reading [data-slot="progress-indicator"] {
+  background: var(--game-brass);
+}
+
+.node-record__meter {
+  position: relative;
+  min-width: 0;
+  padding-block: 0.82rem;
+}
+
+.node-record__facts {
+  gap: 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 75%, transparent);
+}
+
+.node-record__facts > div {
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border-inline-end: 1px solid
+    color-mix(in oklch, var(--border) 62%, transparent);
+}
+
+[data-game-effect-table] {
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--game-raised-document) 74%, transparent);
+  box-shadow: none;
+}
+
+[data-game-effect-row] {
+  border-radius: 1px;
+}
+
+[data-game-command-tray] {
+  padding-top: 0.55rem;
+  border-top: 2px solid
+    color-mix(in oklch, var(--game-brass) 42%, var(--border));
+}
+
+.stance-command-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--game-ink-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+}
+
+.stance-command-summary strong {
+  color: var(--game-ink);
+}
+
+.stance-command-summary > span:last-child {
+  margin-inline-start: auto;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+}
+
+.stance-command-summary > span[data-state="legal"] {
+  color: var(--game-increasing);
+}
+
+.stance-command-summary > span[data-state="blocked"] {
+  color: var(--game-warning);
+}
+
+@media (max-width: 640px) {
+  .node-record__reading {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .node-record__meter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .effect-table__legend,
+  .stance-command-summary {
+    flex-wrap: wrap;
+  }
 }

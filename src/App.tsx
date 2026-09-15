@@ -24,6 +24,7 @@ import type { SimulationState } from "@/simulation";
 import { ConfirmationDialog } from "@/ui/ConfirmationDialog";
 import { GameView } from "@/ui/game/GameView";
 import { LandingPage, type LandingErrors } from "@/ui/landing/LandingPage";
+import { InterfaceSoundProvider } from "@/ui/sound/InterfaceSoundProvider";
 
 interface ActiveGame {
   readonly key: number;
@@ -104,6 +105,23 @@ function Application({
       });
     }
   }, [musicMuted]);
+
+  useEffect(() => {
+    if (musicMuted) return;
+    const startFromGesture = () => {
+      startMusic();
+      window.removeEventListener("pointerdown", startFromGesture, true);
+      window.removeEventListener("keydown", startFromGesture, true);
+    };
+    window.addEventListener("pointerdown", startFromGesture, {
+      capture: true,
+    });
+    window.addEventListener("keydown", startFromGesture, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", startFromGesture, true);
+      window.removeEventListener("keydown", startFromGesture, true);
+    };
+  }, [musicMuted, startMusic]);
   const initialSave = useMemo(
     () => loadSavedGame(storage, entries),
     [entries, storage],
@@ -218,6 +236,7 @@ function Application({
   );
 
   const loadActiveGame = useCallback(() => {
+    startMusic();
     const result = loadSavedGame(storage, entries);
     if (result.status !== "ready") {
       setNotice(
@@ -251,7 +270,7 @@ function Application({
       restoredState: result.save.state,
     });
     setNotice("Saved game loaded.");
-  }, [entries, storage]);
+  }, [entries, startMusic, storage]);
 
   const confirmAction = () => {
     if (!confirmation) return;
@@ -281,11 +300,7 @@ function Application({
   };
 
   return (
-    <div
-      className="h-dvh overflow-hidden bg-background"
-      onPointerDownCapture={startMusic}
-      onKeyDownCapture={startMusic}
-    >
+    <div className="h-dvh overflow-hidden bg-background">
       <Toaster position="bottom-right" />
       <audio
         ref={audioRef}
@@ -373,14 +388,16 @@ function App({
     );
   }
   return (
-    <Application
-      entries={loaded.entries}
-      catalogNotice={
-        loaded.diagnostics.length
-          ? "Some Scenario catalog entries could not be loaded."
-          : undefined
-      }
-    />
+    <InterfaceSoundProvider>
+      <Application
+        entries={loaded.entries}
+        catalogNotice={
+          loaded.diagnostics.length
+            ? "Some Scenario catalog entries could not be loaded."
+            : undefined
+        }
+      />
+    </InterfaceSoundProvider>
   );
 }
 

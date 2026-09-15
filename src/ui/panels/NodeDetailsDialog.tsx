@@ -14,11 +14,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { formatValue } from "@/ui/formatValue";
+import { formatValue, meterPercent } from "@/ui/formatValue";
+import { projectNodeReferenceMarkers } from "@/ui/referenceMarkers";
 import { NodeEffectCard } from "./NodeEffectCard";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
+import "../reference-markers.css";
 import "./panels.css";
 
 interface NodeDetailsDialogProps {
@@ -65,14 +68,18 @@ export function NodeDetailsDialog({
     state,
     previewValue,
   );
+  const referenceMarkers = projectNodeReferenceMarkers(definition);
+  const referenceDescription = referenceMarkers
+    .map(
+      ({ label, value }) => `${label} ${formatValue(value, definition.domain)}`,
+    )
+    .join("; ");
+  const referenceAriaDescription = referenceDescription
+    ? `; ${referenceDescription}`
+    : "";
 
   const details = [
-    ["Current value", formatValue(runtime.value, definition.domain)],
-    [
-      "Domain",
-      `${formatValue(definition.domain.min, definition.domain)}–${formatValue(definition.domain.max, definition.domain)}`,
-    ],
-    ...(definition.baseline === undefined
+    ...(definition.baseline === undefined || definition.type === "indicator"
       ? []
       : [["Baseline", formatValue(definition.baseline, definition.domain)]]),
     ...(definition.type === "faction"
@@ -124,9 +131,68 @@ export function NodeDetailsDialog({
               definition.type === "stance" ? "gap-2 pb-4" : "gap-5 pb-6",
             )}
           >
-            <dl className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <section
+              className="node-record__reading"
+              aria-label="Current reading"
+            >
+              <div>
+                <span>Current value</span>
+                <strong>{formatValue(runtime.value, definition.domain)}</strong>
+                <small>{activationLabel(runtime)}</small>
+              </div>
+              <div className="node-record__meter">
+                <Progress
+                  value={meterPercent(runtime.value, definition.domain)}
+                  aria-label={`${definition.name}: current ${formatValue(runtime.value, definition.domain)}${referenceAriaDescription}`}
+                />
+                {referenceMarkers.map((marker) => (
+                  <span
+                    className="reference-meter-marker"
+                    data-reference-edge={
+                      marker.positionPercent === 0
+                        ? "start"
+                        : marker.positionPercent === 100
+                          ? "end"
+                          : undefined
+                    }
+                    key={marker.kind}
+                    style={{
+                      left: `${marker.positionPercent}%`,
+                    }}
+                    title={`${marker.label} ${formatValue(marker.value, definition.domain)}`}
+                    aria-hidden="true"
+                  >
+                    <span className="reference-meter-marker__label">
+                      {marker.kind === "start-threshold"
+                        ? "Starts"
+                        : marker.kind === "stop-threshold"
+                          ? "Stops"
+                          : marker.label}
+                    </span>
+                    <span
+                      className="reference-meter-tick"
+                      data-reference-kind={marker.kind}
+                    />
+                    <span className="reference-meter-marker__value">
+                      {formatValue(marker.value, definition.domain)}
+                    </span>
+                  </span>
+                ))}
+              </div>
+              <div>
+                <span>Numeric domain</span>
+                <strong>
+                  {formatValue(definition.domain.min, definition.domain)}–
+                  {formatValue(definition.domain.max, definition.domain)}
+                </strong>
+                <small>
+                  {definition.domain.clamp ? "Clamped" : "Unclamped"}
+                </small>
+              </div>
+            </section>
+            <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {details.map(([label, value]) => (
-                <div className="rounded-lg bg-muted p-3" key={label}>
+                <div key={label}>
                   <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
                     {label}
                   </dt>

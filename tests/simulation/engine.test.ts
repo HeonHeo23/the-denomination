@@ -10,6 +10,7 @@ import {
 } from "../../src/simulation/index";
 import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
+import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -258,5 +259,6 @@ assert(
 runComplianceTests();
 runNodeEffectProjectionTests();
 runTurnReportProjectionTests();
+runInterfaceSoundTests();
 
 console.log("Engine checks passed across core MVP mechanics.");

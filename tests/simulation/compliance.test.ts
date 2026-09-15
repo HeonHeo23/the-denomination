@@ -17,8 +17,10 @@ import {
 } from "../../src/app/gameSession";
 import {
   projectEffectsToReactFlow,
+  projectGraphCategories,
   projectToReactFlow,
 } from "../../src/ui/graph/projectToReactFlow";
+import { projectNodeReferenceMarkers } from "../../src/ui/referenceMarkers";
 import {
   formatContributionPercent,
   formatSignedValue,
@@ -624,8 +626,108 @@ export function runComplianceTests() {
   assert.equal(meterPercent(100, domain), 100);
   assert.equal(formatValue(0.4, { min: 0, max: 1, clamp: true }), "40%");
   const graph = projectToReactFlow(exampleScenario, initial);
+  const graphCategories = projectGraphCategories(exampleScenario);
+  assert.deepEqual(
+    graphCategories.map(({ label }) => label),
+    [
+      ...new Set(
+        exampleScenario.nodes
+          .filter(
+            (node) => !("graphVisible" in node) || node.graphVisible !== false,
+          )
+          .map((node) => node.category ?? "Other concerns"),
+      ),
+    ],
+    "Graph categories should preserve first Scenario appearance order",
+  );
+  assert.deepEqual(
+    graphCategories,
+    projectGraphCategories(exampleScenario),
+    "Graph category navigation should be stable",
+  );
+  assert.ok(
+    graphCategories.every(({ nodeIds }) =>
+      nodeIds.every((id) => graph.nodes.some((node) => node.id === id)),
+    ),
+    "Every category focus should resolve to visible graph nodes",
+  );
   assert.ok(!graph.nodes.some((n) => n.id === "authority"));
   assert.deepEqual(graph.nodes[0].data.domain, exampleScenario.nodes[0].domain);
+  const definitionsById = new Map<string, NodeDefinition>(
+    exampleScenario.nodes.map((definition) => [definition.id, definition]),
+  );
+  for (const projectedNode of graph.nodes) {
+    const definition = definitionsById.get(projectedNode.id);
+    assert.ok(
+      definition,
+      `Missing Scenario definition for ${projectedNode.id}`,
+    );
+    assert.deepEqual(
+      projectedNode.data.referenceMarkers,
+      projectNodeReferenceMarkers(definition),
+      `${projectedNode.id} should project its meter references`,
+    );
+
+    if (definition.type === "stance") {
+      assert.deepEqual(
+        projectedNode.data.referenceMarkers,
+        [],
+        `${projectedNode.id} should not show a baseline tick`,
+      );
+      continue;
+    }
+
+    if (definition.type === "situation") {
+      assert.deepEqual(
+        projectedNode.data.referenceMarkers.map(({ kind, value }) => ({
+          kind,
+          value,
+        })),
+        [
+          { kind: "start-threshold", value: definition.startThreshold },
+          { kind: "stop-threshold", value: definition.stopThreshold },
+        ],
+        `${projectedNode.id} should show activation thresholds without a baseline`,
+      );
+    } else {
+      const baseline = projectedNode.data.referenceMarkers.find(
+        ({ kind }) => kind === "baseline",
+      );
+      assert.equal(
+        baseline?.value,
+        definition.baseline ?? definition.initial.value,
+        `${projectedNode.id} should use its authored baseline or initial value`,
+      );
+      assert.deepEqual(
+        projectedNode.data.referenceMarkers.map(({ kind }) => kind),
+        ["baseline"],
+        `${projectedNode.id} should not receive Situation threshold markers`,
+      );
+    }
+  }
+
+  const centralization = graph.nodes.find(
+    (node) => node.id === "centralization",
+  );
+  assert.ok(centralization);
+  assert.deepEqual(
+    centralization.data.referenceMarkers,
+    [],
+    "Stance meters should omit baseline ticks",
+  );
+
+  const hiddenResource: NodeDefinition | undefined = exampleScenario.nodes.find(
+    (definition) => definition.id === "authority",
+  );
+  assert.ok(hiddenResource && hiddenResource.type === "resource");
+  assert.ok(!graph.nodes.some((node) => node.id === hiddenResource.id));
+  assert.deepEqual(
+    projectNodeReferenceMarkers(hiddenResource).map(
+      ({ kind, value, positionPercent }) => ({ kind, value, positionPercent }),
+    ),
+    [{ kind: "baseline", value: 25, positionPercent: 25 }],
+    "Hidden Resources should keep their baseline available to dossier meters",
+  );
   assert.deepEqual(
     graph.nodes.map(({ id, position }) => ({ id, position })),
     projectToReactFlow(exampleScenario, initial).nodes.map(

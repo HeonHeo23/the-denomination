@@ -1,5 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Church, Volume2, VolumeX } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  BellOff,
+  Church,
+  Map,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import type { SavedGame } from "@/app/persistence";
 import type { LoadedScenarioCatalogEntry } from "@/app/scenarioCatalog";
 import { Button } from "@/components/ui/button";
@@ -13,7 +21,6 @@ import {
 } from "@/components/ui/card";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -29,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToastNotification } from "@/components/ToastNotification";
+import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import "./landing.css";
 
 export interface LandingErrors {
@@ -70,6 +78,7 @@ export function LandingPage({
   musicMuted,
   onToggleMusic,
 }: LandingPageProps) {
+  const interfaceSound = useInterfaceSound();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
   const selected = entries.find(
     ({ scenario }) => scenario.id === selectedScenarioId,
@@ -80,8 +89,8 @@ export function LandingPage({
   const visibleNotice = notice !== dismissedNotice ? notice : undefined;
 
   return (
-    <main className="landing-cover h-dvh overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 xl:px-20">
-      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-[1520px] flex-col">
+    <main className="landing-cover h-dvh overflow-hidden px-5 py-6 sm:px-8 lg:px-12 xl:px-20">
+      <div className="mx-auto flex h-full min-h-0 max-w-[1520px] flex-col">
         <header className="flex items-center gap-3 border-b border-primary-foreground/20 pb-5 text-primary-foreground">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-9 place-items-center rounded-lg bg-secondary text-secondary-foreground">
@@ -93,29 +102,35 @@ export function LandingPage({
               </strong>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="ml-auto shrink-0 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
-            onClick={onToggleMusic}
-            aria-pressed={musicMuted}
-          >
-            {musicMuted ? (
-              <VolumeX data-icon="inline-start" />
-            ) : (
-              <Volume2 data-icon="inline-start" />
-            )}
-            {musicMuted ? "Music muted" : "Mute music"}
-          </Button>
+          <div className="ml-auto flex shrink-0 gap-1" data-game-audio-settings>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onToggleMusic}
+              aria-pressed={musicMuted}
+            >
+              {musicMuted ? <VolumeX /> : <Volume2 />}
+              <span className="sr-only sm:not-sr-only">Music</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={interfaceSound.toggle}
+              aria-pressed={interfaceSound.muted}
+            >
+              {interfaceSound.muted ? <BellOff /> : <Bell />}
+              <span className="sr-only sm:not-sr-only">Effect sounds</span>
+            </Button>
+          </div>
         </header>
 
-        <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(390px,500px)] lg:gap-12 lg:py-8 xl:gap-20">
+        <div className="grid min-h-0 flex-1 items-center gap-8 overflow-hidden py-8 lg:grid-cols-[minmax(0,1fr)_minmax(390px,500px)] lg:gap-12 lg:py-8 xl:gap-20">
           <section className="max-w-3xl text-primary-foreground">
-            <h1 className="mt-5 max-w-3xl font-heading text-[clamp(3.5rem,7.5vw,7rem)] leading-none font-semibold tracking-tight text-balance">
-              {denominationName.trim() || "One, Holy, Apostolic, and Catholic"}
+            <h1 className="mt-5 max-w-3xl font-heading text-[clamp(3.5rem,7.5vw,7rem)] leading-none font-semibold tracking-tight text-wrap">
+              {denominationName.trim() || "One, Holy, Catholic, and Apostolic"}
             </h1>
-            {/* Change the folloiwngs to render the scenario descriptions */}
             <p className="mt-8 max-w-xl leading-8 text-primary-foreground/70">
               Guide an institution through the decisions that become a legacy.
               <br />
@@ -130,7 +145,7 @@ export function LandingPage({
           </section>
 
           <section
-            className="flex w-full flex-col gap-4"
+            className="flex min-h-0 w-full flex-col gap-4 overflow-y-auto overscroll-contain"
             aria-label="Begin a game"
           >
             {savedGame && savedEntry && (
@@ -166,7 +181,9 @@ export function LandingPage({
             <Card data-game-launch-document>
               <CardHeader>
                 <CardTitle>
-                  {savedGame ? "Start another history" : "Found an institution"}
+                  {savedGame
+                    ? "Found another institution"
+                    : "Found an institution"}
                 </CardTitle>
               </CardHeader>
               <Separator />
@@ -197,15 +214,55 @@ export function LandingPage({
                         </SelectContent>
                       </Select>
                       <FieldError>{errors.scenario}</FieldError>
-                      {selected && (
-                        <FieldDescription>
-                          Begins{" "}
-                          {selected.scenario.start.year ??
-                            `at turn ${selected.scenario.start.turn}`}
-                          . {selected.scenario.description}
-                        </FieldDescription>
-                      )}
                     </Field>
+
+                    {selected && (
+                      <section
+                        data-game-scenario-briefing
+                        aria-labelledby="scenario-briefing-title"
+                      >
+                        <span>
+                          <Map aria-hidden="true" />
+                        </span>
+                        <div className="scenario-briefing__summary">
+                          <h2 id="scenario-briefing-title">
+                            {selected.scenario.title}
+                          </h2>
+                          <p>{selected.scenario.description}</p>
+                        </div>
+                        <dl>
+                          <div>
+                            <dt>Opening year</dt>
+                            <dd>
+                              {selected.scenario.start.year ??
+                                `Turn ${selected.scenario.start.turn}`}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Board pieces</dt>
+                            <dd>
+                              {
+                                selected.scenario.nodes.filter(
+                                  (node) => node.graphVisible !== false,
+                                ).length
+                              }
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Categories</dt>
+                            <dd>
+                              {
+                                new Set(
+                                  selected.scenario.nodes
+                                    .map((node) => node.category)
+                                    .filter(Boolean),
+                                ).size
+                              }
+                            </dd>
+                          </div>
+                        </dl>
+                      </section>
+                    )}
 
                     <div className="grid gap-5 sm:grid-cols-2">
                       <Field data-invalid={Boolean(errors.playerName)}>

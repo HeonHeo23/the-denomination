@@ -132,6 +132,7 @@ export function DashboardSheets({
         open={activePanel === "situations"}
         title="Situations"
         description="Threshold-driven conditions currently being watched by the institution."
+        eyebrow={`${situations.filter((situation) => state.nodes[situation.id].isActive).length} active notices`}
         onClose={onClose}
       >
         <ItemGroup>
@@ -142,6 +143,9 @@ export function DashboardSheets({
                 role="listitem"
                 variant={runtime.isActive ? "outline" : "muted"}
                 key={situation.id}
+                data-game-situation-notice={
+                  runtime.isActive ? "active" : "inactive"
+                }
               >
                 <ItemContent>
                   <ItemTitle>{situation.name}</ItemTitle>
@@ -169,6 +173,7 @@ export function DashboardSheets({
         open={activePanel === "chronicle"}
         title="Chronicle"
         description="Recent institutional history and temporary effects still in force."
+        eyebrow="Institutional ledger"
         onClose={onClose}
       >
         {state.history.length === 0 ? (
@@ -189,7 +194,12 @@ export function DashboardSheets({
               .reverse()
               .slice(0, 8)
               .map((entry) => (
-                <Item role="listitem" variant="muted" key={entry.id}>
+                <Item
+                  role="listitem"
+                  variant="muted"
+                  key={entry.id}
+                  data-game-chronicle-entry
+                >
                   <Clock3 aria-hidden="true" />
                   <ItemContent>
                     <ItemTitle>{entry.title}</ItemTitle>

@@ -26,6 +26,8 @@ export function ConfirmationDialog({
   onSaveAndExit,
   onCancel,
 }: ConfirmationDialogProps) {
+  if (kind === undefined) return <AlertDialog open={false} />;
+
   const isReplacement = kind === "new-game";
   const isMainMenu = kind === "main-menu";
 

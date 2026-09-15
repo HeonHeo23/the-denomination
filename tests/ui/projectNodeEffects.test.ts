@@ -45,7 +45,7 @@ export function runNodeEffectProjectionTests() {
   assert(
     inactiveOutgoing.contributionLabel === "0.0%" &&
       inactiveOutgoing.contributionTone === "neutral",
-    "Missing active contribution should remain neutral",
+    "An inactive source should be identified and its missing contribution should remain neutral",
   );
 
   const stateWithNegativeContribution = {
@@ -198,7 +198,10 @@ export function runNodeEffectProjectionTests() {
       stanceId: "clergy-formation",
       value: 0.4,
     });
-    assert(change.accepted, "The alternate-inertia Stance change should succeed");
+    assert(
+      change.accepted,
+      "The alternate-inertia Stance change should succeed",
+    );
     let settled = change.state;
     for (let turn = 0; turn < inertiaTurns; turn += 1) {
       settled = advanceTurn(inertiaScenario, settled).state;

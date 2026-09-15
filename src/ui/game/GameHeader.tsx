@@ -9,6 +9,8 @@ import {
   Save,
   ShieldAlert,
   Settings2,
+  Bell,
+  BellOff,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -27,11 +29,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatValue } from "@/ui/formatValue";
+import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 
 interface GameHeaderProps {
   readonly denominationName: string;
   readonly playerName: string;
   readonly scenarioTitle: string;
+  readonly graphContextLabel: string;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
   readonly activeSituationCount: number;
@@ -79,17 +83,18 @@ function IdentityBlock({
 
 function ScenarioBlock({
   scenarioTitle,
-}: Pick<GameHeaderProps, "scenarioTitle">) {
+  graphContextLabel,
+}: Pick<GameHeaderProps, "scenarioTitle" | "graphContextLabel">) {
   return (
     <div
       className="hidden min-w-0 flex-1 flex-col justify-center px-4 lg:flex xl:hidden"
       data-game-scenario
     >
       <span className="font-mono text-[0.58rem] tracking-[0.16em] text-muted-foreground uppercase">
-        Scenario
+        {graphContextLabel === "Overview" ? "Scenario overview" : "Board focus"}
       </span>
       <strong className="truncate font-heading text-lg font-semibold">
-        {scenarioTitle}
+        {graphContextLabel === "Overview" ? scenarioTitle : graphContextLabel}
       </strong>
     </div>
   );
@@ -178,6 +183,43 @@ function PanelActions({
   );
 }
 
+function RecordActions({
+  canLoad,
+  onSave,
+  onLoad,
+}: Pick<GameHeaderProps, "canLoad" | "onSave" | "onLoad">) {
+  return (
+    <div
+      className="hidden h-full items-stretch lg:flex"
+      data-game-record-actions
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onSave}
+      >
+        <Save data-icon="inline-start" />
+        <span>Save</span>
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onLoad}
+        disabled={!canLoad}
+      >
+        <Archive data-icon="inline-start" />
+        <span>Load</span>
+      </Button>
+    </div>
+  );
+}
+
 function GameActionsMenu({
   compact,
   canLoad,
@@ -189,6 +231,8 @@ function GameActionsMenu({
   onSave,
   musicMuted,
   onToggleMusic,
+  interfaceSoundsMuted,
+  onToggleInterfaceSounds,
 }: {
   readonly compact: boolean;
   readonly canLoad: boolean;
@@ -200,6 +244,8 @@ function GameActionsMenu({
   readonly onSave: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
+  readonly interfaceSoundsMuted: boolean;
+  readonly onToggleInterfaceSounds: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -215,7 +261,7 @@ function GameActionsMenu({
           <span className="sr-only">Game actions</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-56">
         {compact && (
           <>
             <DropdownMenuGroup className="md:hidden">
@@ -230,7 +276,7 @@ function GameActionsMenu({
             <DropdownMenuSeparator className="md:hidden" />
           </>
         )}
-        <DropdownMenuGroup>
+        <DropdownMenuGroup className="lg:hidden">
           <DropdownMenuLabel>Record</DropdownMenuLabel>
           <DropdownMenuItem onSelect={onSave}>
             <Save /> Save game
@@ -239,13 +285,19 @@ function GameActionsMenu({
             <Archive /> Load saved game
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="lg:hidden" />
         <DropdownMenuGroup>
           <DropdownMenuCheckboxItem
             checked={musicMuted}
             onCheckedChange={onToggleMusic}
           >
             {musicMuted ? <VolumeX /> : <Volume2 />} Mute music
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={interfaceSoundsMuted}
+            onCheckedChange={onToggleInterfaceSounds}
+          >
+            {interfaceSoundsMuted ? <BellOff /> : <Bell />} Mute effect sounds
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -263,10 +315,12 @@ function GameActionsMenu({
 }
 
 export function GameHeader(props: GameHeaderProps) {
+  const interfaceSound = useInterfaceSound();
   const {
     denominationName,
     playerName,
     scenarioTitle,
+    graphContextLabel,
     state,
     resources,
     activeSituationCount,
@@ -294,6 +348,8 @@ export function GameHeader(props: GameHeaderProps) {
     onSave,
     musicMuted,
     onToggleMusic,
+    interfaceSoundsMuted: interfaceSound.muted,
+    onToggleInterfaceSounds: interfaceSound.toggle,
   };
 
   return (
@@ -315,7 +371,10 @@ export function GameHeader(props: GameHeaderProps) {
           denominationName={denominationName}
           playerName={playerName}
         />
-        <ScenarioBlock scenarioTitle={scenarioTitle} />
+        <ScenarioBlock
+          scenarioTitle={scenarioTitle}
+          graphContextLabel={graphContextLabel}
+        />
         <TurnDisplay state={state} />
         <ResourceStrip resources={resources} state={state} />
         <PanelActions
@@ -323,6 +382,7 @@ export function GameHeader(props: GameHeaderProps) {
           onOpenSituations={onOpenSituations}
           onOpenChronicle={onOpenChronicle}
         />
+        <RecordActions canLoad={canLoad} onSave={onSave} onLoad={onLoad} />
         <GameActionsMenu compact {...actionProps} />
         <Button
           type="button"

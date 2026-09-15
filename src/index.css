@@ -56,10 +56,15 @@
   --game-decreasing: oklch(0.46 0.12 25);
   --game-neutral-effect: oklch(0.5 0.022 83);
   --game-warning: oklch(0.46 0.12 25);
+  --game-marker-baseline: var(--game-ink);
+  --game-marker-start: var(--game-warning);
+  --game-marker-stop: var(--game-brass);
   --game-seal: oklch(0.36 0.09 25);
   --game-seal-foreground: oklch(0.965 0.02 84);
   --game-document-shadow: 0 10px 28px
     color-mix(in oklch, var(--game-wood) 16%, transparent);
+  --game-paper-texture: url("./assets/game-laid-paper.webp");
+  --game-wood-texture: url("./assets/game-dark-wood.webp");
 }
 
 @theme inline {
@@ -141,6 +146,9 @@
   --game-decreasing: oklch(0.7 0.13 25);
   --game-neutral-effect: oklch(0.66 0.022 83);
   --game-warning: oklch(0.7 0.13 25);
+  --game-marker-baseline: var(--game-ink);
+  --game-marker-start: var(--game-warning);
+  --game-marker-stop: var(--game-brass);
   --game-seal: oklch(0.62 0.11 25);
   --game-seal-foreground: oklch(0.97 0.015 84);
 }

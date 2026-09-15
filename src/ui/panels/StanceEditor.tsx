@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { formatValue, meterPercent } from "@/ui/formatValue";
+import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 
 interface StanceEditorProps {
   readonly state: SimulationState;
@@ -46,6 +47,7 @@ export function StanceEditor({
   onRepeal,
   onDraftChange,
 }: StanceEditorProps) {
+  const { play } = useInterfaceSound();
   const [draft, setDraft] = useState(value);
   const inactive = !state.nodes[definition.id].isActive;
   const assessment = inactive
@@ -77,7 +79,19 @@ export function StanceEditor({
   const costLabel = inactive ? "Enactment cost" : "Change cost";
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2" data-game-command-tray>
+      <div className="stance-command-summary">
+        <span>
+          Current <strong>{formatValue(value, definition.domain)}</strong>
+        </span>
+        <span aria-hidden="true">→</span>
+        <span>
+          Proposed <strong>{formatValue(draft, definition.domain)}</strong>
+        </span>
+        <span data-state={assessment.legal ? "legal" : "blocked"}>
+          {assessment.legal ? "Action available" : "Unavailable"}
+        </span>
+      </div>
       <Card className="bg-muted/20 py-0 ring-0">
         <CardContent className="px-3 py-1.5 sm:px-4">
           <Field className="gap-1">
@@ -184,7 +198,10 @@ export function StanceEditor({
             variant="destructive"
             disabled={!repealAssessment.legal}
             title={repealAssessment.message}
-            onClick={onRepeal}
+            onClick={() => {
+              play("confirm");
+              onRepeal();
+            }}
           >
             {definition.repealCost
               ? `Repeal policy · ${repealAssessment.cost.toFixed(1)} ${scenario.nodes.find(({ id }) => id === definition.repealCost?.resourceId)?.name ?? "Resource"}`
@@ -204,6 +221,7 @@ export function StanceEditor({
           type="button"
           disabled={!assessment.legal}
           onClick={() => {
+            play("confirm");
             if (inactive) onEnact(draft);
             else onApply(draft);
           }}

@@ -18,6 +18,7 @@ import {
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
 import { InstitutionOverview } from "./InstitutionOverview";
+import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import "./game-shell.css";
 
 const TURN_REVEAL_DURATION_MS = 1000;
@@ -49,6 +50,7 @@ export function GameView({
   musicMuted,
   onToggleMusic,
 }: GameViewProps) {
+  const { play } = useInterfaceSound();
   const session = useGameSession(entry.scenario, restoredState);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport>();
@@ -56,6 +58,11 @@ export function GameView({
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
+  const [graphContextLabel, setGraphContextLabel] = useState(
+    () =>
+      entry.scenario.nodes.find((node) => node.graphVisible !== false)
+        ?.category ?? "Overview",
+  );
   const previousState = useRef<SimulationState | undefined>(undefined);
   const previousMessage = useRef<string | undefined>(undefined);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -111,11 +118,19 @@ export function GameView({
       setToastMessage(undefined);
       if (reducedMotion) {
         setTurnReport(report);
+        if (report.situationTransitions.some(({ kind }) => kind === "began")) {
+          play("warning");
+        }
       } else {
         setRevealingTurn(report);
         revealTimer.current = setTimeout(() => {
           setRevealingTurn(undefined);
           setTurnReport(report);
+          if (
+            report.situationTransitions.some(({ kind }) => kind === "began")
+          ) {
+            play("warning");
+          }
           revealTimer.current = undefined;
         }, TURN_REVEAL_DURATION_MS);
       }
@@ -131,7 +146,7 @@ export function GameView({
     }
     previousState.current = session.state;
     previousMessage.current = session.message;
-  }, [session]);
+  }, [play, session]);
 
   if (!session.ok) {
     return (
@@ -172,6 +187,7 @@ export function GameView({
         denominationName={denominationName}
         playerName={playerName}
         scenarioTitle={scenario.title}
+        graphContextLabel={graphContextLabel}
         state={session.state}
         resources={resources}
         activeSituationCount={
@@ -182,15 +198,27 @@ export function GameView({
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
         onAdvance={() => {
-          if (!revealingTurn) session.nextTurn();
+          if (!revealingTurn) {
+            play("advance");
+            session.nextTurn();
+          }
         }}
         onSave={() => onSave(session.state)}
         onLoad={onLoad}
         onReset={session.reset}
         onMainMenu={() => onMainMenu(session.state)}
-        onOpenOverview={() => setActivePanel("overview")}
-        onOpenSituations={() => setActivePanel("situations")}
-        onOpenChronicle={() => setActivePanel("chronicle")}
+        onOpenOverview={() => {
+          play("paper");
+          setActivePanel("overview");
+        }}
+        onOpenSituations={() => {
+          play("paper");
+          setActivePanel("situations");
+        }}
+        onOpenChronicle={() => {
+          play("paper");
+          setActivePanel("chronicle");
+        }}
         musicMuted={musicMuted}
         onToggleMusic={onToggleMusic}
       />
@@ -243,6 +271,7 @@ export function GameView({
               scenario={scenario}
               state={session.state}
               onNodeSelect={setSelectedNodeId}
+              onViewContextChange={setGraphContextLabel}
               turnFeedback={graphTurnFeedback}
             />
           </div>

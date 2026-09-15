@@ -1,0 +1,82 @@
+.reference-meter-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--game-ink-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.42rem;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.reference-meter-marker[data-reference-edge="start"] {
+  align-items: flex-start;
+  transform: none;
+}
+
+.reference-meter-marker[data-reference-edge="start"]
+  .reference-meter-marker__label {
+  left: 0;
+  transform: none;
+}
+
+.reference-meter-marker[data-reference-edge="start"] .reference-meter-tick {
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.reference-meter-marker[data-reference-edge="end"] {
+  align-items: flex-end;
+  transform: translateX(-100%);
+}
+
+.reference-meter-marker[data-reference-edge="end"]
+  .reference-meter-marker__label {
+  left: 100%;
+  transform: translateX(-100%);
+}
+
+.reference-meter-marker[data-reference-edge="end"] .reference-meter-tick {
+  left: 100%;
+  transform: translateY(-50%);
+}
+
+.reference-meter-marker__label {
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  text-transform: uppercase;
+}
+
+.reference-meter-marker__value {
+  margin-top: 0.42rem;
+  color: var(--game-ink);
+  font-weight: 600;
+}
+
+.reference-meter-tick {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 2px;
+  height: 0.72rem;
+  background: var(--game-marker-baseline);
+  box-shadow: 0 0 0 1px var(--game-raised-document);
+  transform: translate(-50%, -50%);
+}
+
+.reference-meter-tick[data-reference-kind="start-threshold"] {
+  background: var(--game-marker-start);
+}
+
+.reference-meter-tick[data-reference-kind="stop-threshold"] {
+  background: var(--game-marker-stop);
+}

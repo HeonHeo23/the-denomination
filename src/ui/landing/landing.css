@@ -13,17 +13,125 @@
 }
 
 [data-game-launch-document] {
+  position: relative;
+  border-color: color-mix(in oklch, var(--game-brass) 62%, var(--border));
+  border-radius: 2px;
   background-image:
     linear-gradient(
       color-mix(in oklch, var(--card) 93%, transparent),
       color-mix(in oklch, var(--card) 93%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
   box-shadow: var(--game-document-shadow);
+}
+
+[data-game-launch-document]::before {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  left: 0.45rem;
+  border: 1px solid color-mix(in oklch, var(--game-brass) 22%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+[data-game-audio-settings] button {
+  color: var(--game-wood-foreground);
+  border-color: color-mix(
+    in oklch,
+    var(--game-wood-foreground) 30%,
+    transparent
+  );
+  background: color-mix(in oklch, var(--game-wood) 28%, transparent);
+}
+
+[data-game-audio-settings] button:hover {
+  color: var(--game-wood-foreground);
+  background: color-mix(in oklch, var(--game-paper) 12%, transparent);
+}
+
+[data-game-scenario-briefing] {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  color: var(--game-ink);
+  border: 1px solid color-mix(in oklch, var(--game-brass) 55%, transparent);
+  border-radius: 2px;
+  background:
+    linear-gradient(
+      color-mix(in oklch, var(--game-paper) 92%, transparent),
+      color-mix(in oklch, var(--game-paper) 92%, transparent)
+    ),
+    var(--game-paper-texture);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--game-paper) 60%, transparent);
+}
+
+[data-game-scenario-briefing] > span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--game-seal);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+[data-game-scenario-briefing] > span svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+[data-game-scenario-briefing] h2 {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+[data-game-scenario-briefing] p {
+  margin-top: 0.15rem;
+  color: var(--game-ink-subtle);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+[data-game-scenario-briefing] dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-column: 1 / -1;
+  margin-top: 0.8rem;
+  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+}
+
+[data-game-scenario-briefing] dl > div {
+  padding-top: 0.55rem;
+}
+
+[data-game-scenario-briefing] dt {
+  color: var(--game-ink-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-game-scenario-briefing] dd {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {
   .landing-cover {
     background-position: 68% center;
+  }
+
+  [data-game-scenario-briefing] {
+    padding: 0.8rem;
   }
 }

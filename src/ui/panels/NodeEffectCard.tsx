@@ -32,27 +32,30 @@ function effectBarSpanPercent(contribution: number): number {
 }
 
 function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
-  const span = effectBarSpanPercent(effect.contribution);
+  const currentSpan = effectBarSpanPercent(effect.contribution);
+  const previewContribution = effect.previewContribution ?? effect.contribution;
+  const previewSpan = effectBarSpanPercent(previewContribution);
   const hasTarget = effect.previewContribution !== undefined;
   const hasPreviewDifference =
     hasTarget &&
     Math.abs(effect.previewContribution - effect.contribution) >= 0.000001;
-  const currentPosition =
-    50 +
-    Math.sign(effect.contribution) * effectBarSpanPercent(effect.contribution);
-  const previewPosition = hasPreviewDifference
-    ? 50 +
-      Math.sign(effect.previewContribution ?? 0) *
-        effectBarSpanPercent(effect.previewContribution ?? 0)
-    : undefined;
+  const currentPosition = 50 + Math.sign(effect.contribution) * currentSpan;
+  const previewPosition = 50 + Math.sign(previewContribution) * previewSpan;
+  const previewExtendsCurrent =
+    Math.sign(previewContribution) === Math.sign(effect.contribution) &&
+    Math.abs(previewContribution) > Math.abs(effect.contribution);
+  const previewStart = previewExtendsCurrent
+    ? Math.min(currentPosition, previewPosition)
+    : previewContribution < 0
+      ? previewPosition
+      : 50;
+  const previewVisibleSpan = previewExtendsCurrent
+    ? Math.abs(previewPosition - currentPosition)
+    : previewSpan;
   const style = {
-    "--effect-bar-span": `${span}%`,
-    ...(previewPosition === undefined
-      ? {}
-      : {
-          "--effect-bar-preview-start": `${Math.min(currentPosition, previewPosition)}%`,
-          "--effect-bar-preview-span": `${Math.abs(currentPosition - previewPosition)}%`,
-        }),
+    "--effect-bar-span": `${currentSpan}%`,
+    "--effect-bar-preview-start": `${previewStart}%`,
+    "--effect-bar-preview-span": `${previewVisibleSpan}%`,
   } as CSSProperties;
   const displayedLabel = hasTarget
     ? (effect.previewContributionLabel ?? effect.contributionLabel)
@@ -68,8 +71,8 @@ function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
     <div
       className="effect-bar"
       data-tone={effect.contributionTone}
+      data-preview-tone={effect.previewContributionTone}
       data-label-tone={displayedTone}
-      data-preview={hasPreviewDifference ? "true" : undefined}
       title={previewDescription}
       style={style}
     >
@@ -144,6 +147,7 @@ function EffectRow({
       tabIndex={linked ? 0 : undefined}
       size="sm"
       variant="muted"
+      data-game-effect-row
     >
       <Icon aria-hidden="true" />
       <ItemContent
@@ -208,11 +212,16 @@ export function NodeEffectCard({
   layout = "standard",
 }: NodeEffectCardProps) {
   return (
-    <Card className="h-full min-h-0 max-h-full" size="sm">
+    <Card
+      className="h-full min-h-0 max-h-full"
+      size="sm"
+      data-game-effect-table
+    >
       <CardHeader className="shrink-0">
-        <CardTitle>
-          {title} ({effects.length})
-        </CardTitle>
+        <div className="flex items-end justify-between gap-3">
+          <CardTitle>{title}</CardTitle>
+          <span className="effect-table__legend">{effects.length} effects</span>
+        </div>
       </CardHeader>
       <CardContent className="min-h-0 flex-1 p-2">
         {effects.length === 0 ? (

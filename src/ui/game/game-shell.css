@@ -5,7 +5,7 @@
       color-mix(in oklch, var(--game-wood) 80%, transparent),
       color-mix(in oklch, var(--game-wood) 80%, transparent)
     ),
-    url("../../assets/game-dark-wood.webp");
+    var(--game-wood-texture);
 }
 
 .game-enter {
@@ -22,7 +22,7 @@
       color-mix(in oklch, var(--game-wood) 91%, transparent),
       color-mix(in oklch, var(--game-wood) 76%, transparent)
     ),
-    url("../../assets/game-dark-wood.webp");
+    var(--game-wood-texture);
   box-shadow: 0 5px 20px color-mix(in oklch, var(--game-wood) 58%, transparent);
 }
 
@@ -31,6 +31,7 @@
 [data-game-turn],
 [data-game-resources],
 [data-game-panel-actions],
+[data-game-record-actions],
 [data-game-menu-trigger],
 [data-game-overview-trigger] {
   border-inline-end: 1px solid
@@ -70,7 +71,7 @@
       color-mix(in oklch, var(--game-paper) 92%, transparent),
       color-mix(in oklch, var(--game-paper) 92%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
   box-shadow: inset 0 0 0 1px
     color-mix(in oklch, var(--game-brass) 30%, transparent);
 }
@@ -116,6 +117,10 @@
     -5px 0 18px color-mix(in oklch, var(--game-wood) 38%, transparent);
 }
 
+[data-game-advance]:not(:disabled) {
+  animation: advance-ready 2.8s ease-in-out infinite;
+}
+
 [data-game-advance]:hover {
   background: color-mix(in oklch, var(--game-seal) 88%, black);
 }
@@ -137,7 +142,7 @@
       color-mix(in oklch, var(--game-paper) 93%, transparent),
       color-mix(in oklch, var(--game-paper) 93%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
   box-shadow: inset -12px 0 28px
     color-mix(in oklch, var(--game-wood) 8%, transparent);
 }
@@ -174,7 +179,7 @@
       color-mix(in oklch, var(--game-raised-document) 92%, transparent),
       color-mix(in oklch, var(--game-raised-document) 92%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
   box-shadow: 0 2px 0 color-mix(in oklch, var(--game-wood) 12%, transparent);
 }
 
@@ -184,7 +189,43 @@
       color-mix(in oklch, var(--game-raised-document) 94%, transparent),
       color-mix(in oklch, var(--game-raised-document) 94%, transparent)
     ),
-    url("../../assets/game-laid-paper.webp");
+    var(--game-paper-texture);
+}
+
+[data-game-situation-notice] {
+  position: relative;
+  border-radius: 2px;
+}
+
+[data-game-situation-notice="active"] {
+  border-inline-start: 4px solid var(--game-warning);
+  background: color-mix(in oklch, var(--game-warning) 7%, var(--game-paper));
+  box-shadow: 0 5px 14px
+    color-mix(in oklch, var(--game-warning) 12%, transparent);
+}
+
+[data-game-situation-notice="inactive"] {
+  opacity: 0.62;
+}
+
+[data-game-chronicle-entry] {
+  position: relative;
+  margin-inline-start: 0.65rem;
+  border-inline-start: 2px solid
+    color-mix(in oklch, var(--game-brass) 42%, var(--border));
+  border-radius: 0 2px 2px 0;
+}
+
+[data-game-chronicle-entry]::before {
+  position: absolute;
+  top: 1rem;
+  left: -0.38rem;
+  width: 0.62rem;
+  height: 0.62rem;
+  border: 2px solid var(--game-paper);
+  border-radius: 50%;
+  background: var(--game-seal);
+  content: "";
 }
 
 [data-game-document="ledger"] [data-slot="progress"] {
@@ -211,6 +252,14 @@
   color: var(--game-warning);
 }
 
+@keyframes advance-ready {
+  50% {
+    box-shadow:
+      inset 1px 0 0 color-mix(in oklch, var(--game-brass) 58%, transparent),
+      -7px 0 24px color-mix(in oklch, var(--game-brass) 28%, transparent);
+  }
+}
+
 @keyframes game-enter {
   from {
     opacity: 0;
@@ -219,7 +268,24 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .game-enter {
+  .game-enter,
+  [data-game-advance]:not(:disabled) {
     animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  [data-game-identity] {
+    padding-inline: 0.4rem;
+  }
+
+  [data-game-identity] strong {
+    max-width: min(34vw, 9rem);
+    font-size: 1rem;
+  }
+
+  [data-game-identity] > div > span {
+    max-width: min(34vw, 9rem);
+    font-size: 0.65rem;
   }
 }
