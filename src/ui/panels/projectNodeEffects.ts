@@ -15,6 +15,7 @@ export interface NodeEffectView {
   readonly previewContribution?: number;
   readonly previewContributionLabel?: string;
   readonly previewContributionTone?: EffectContributionTone;
+  readonly previewKind?: "settled" | "estimate";
   readonly inertiaTurns?: number;
 }
 
@@ -40,24 +41,36 @@ export function projectNodeEffects(
   previewStanceValue?: number,
 ): NodeEffectsView {
   const nodeNames = new Map(scenario.nodes.map((node) => [node.id, node.name]));
-  const previewByEffect = new Map(
+  const previewByEffect = new Map<
+    string,
+    { readonly contribution: number; readonly kind: "settled" | "estimate" }
+  >(
     previewStanceValue === undefined
       ? []
       : previewStanceEffects(scenario, state, nodeId, previewStanceValue).map(
-          ({ effectId, contribution }) => [effectId, contribution] as const,
+          ({ effectId, contribution, kind }) =>
+            [effectId, { contribution, kind }] as const,
         ),
   );
   const incoming: NodeEffectView[] = [];
   const outgoing: NodeEffectView[] = [];
 
   for (const effect of scenario.effects) {
+    const previewingOwnEffect =
+      previewStanceValue !== undefined && effect.source === nodeId;
+    if (
+      effect.source !== "_default_" &&
+      !state.nodes[effect.source].isActive &&
+      !previewingOwnEffect
+    )
+      continue;
     const contribution = state.effects[effect.id]?.lastContribution ?? 0;
     const view = (
       effectId: string,
       relatedName: string,
       relatedNodeId?: string,
     ): NodeEffectView => {
-      const previewContribution = previewByEffect.get(effectId);
+      const preview = previewByEffect.get(effectId);
       return {
         id: effect.id,
         relatedNodeId,
@@ -66,13 +79,15 @@ export function projectNodeEffects(
         contribution,
         contributionLabel: formatContributionPercent(contribution),
         contributionTone: contributionTone(contribution),
-        ...(previewContribution === undefined
+        ...(preview === undefined
           ? {}
           : {
-              previewContribution,
-              previewContributionLabel:
-                formatContributionPercent(previewContribution),
-              previewContributionTone: contributionTone(previewContribution),
+              previewContribution: preview.contribution,
+              previewContributionLabel: formatContributionPercent(
+                preview.contribution,
+              ),
+              previewContributionTone: contributionTone(preview.contribution),
+              previewKind: preview.kind,
             }),
         inertiaTurns: effect.inertiaTurns ?? 1,
       };

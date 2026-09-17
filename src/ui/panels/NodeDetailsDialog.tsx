@@ -78,26 +78,9 @@ export function NodeDetailsDialog({
     ? `; ${referenceDescription}`
     : "";
 
-  const details = [
-    ...(definition.baseline === undefined || definition.type === "indicator"
-      ? []
-      : [["Baseline", formatValue(definition.baseline, definition.domain)]]),
-    ...(definition.type === "faction"
-      ? [["Value meaning", definition.valueMeaning]]
-      : []),
-    ...(definition.type === "situation"
-      ? [
-          [
-            "Starts at",
-            formatValue(definition.startThreshold, definition.domain),
-          ],
-          [
-            "Stops at",
-            formatValue(definition.stopThreshold, definition.domain),
-          ],
-        ]
-      : []),
-  ];
+  // Reserved facts-table template. Value metadata is currently conveyed by
+  // the reading meter/reference markers and faction header annotation.
+  const details: readonly [string, string][] = [];
 
   return (
     <Dialog
@@ -110,7 +93,7 @@ export function NodeDetailsDialog({
         className="flex h-[min(780px,calc(100dvh-2rem))] min-h-0 w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-5xl"
         data-game-node-record
       >
-        <DialogHeader className="shrink-0 px-6 pt-6">
+        <DialogHeader className="shrink-0 gap-3 px-6 pt-6">
           <div className="mb-2 flex gap-2">
             <Badge variant="secondary">
               {definition.category ?? "Uncategorized"}
@@ -120,8 +103,22 @@ export function NodeDetailsDialog({
             </Badge>
             <Badge variant="outline">{activationLabel(runtime)}</Badge>
           </div>
-          <DialogTitle>{definition.name}</DialogTitle>
-          <DialogDescription>{definition.description}</DialogDescription>
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,24rem)] lg:items-end lg:gap-6">
+            <div className="min-w-0">
+              <DialogTitle>{definition.name}</DialogTitle>
+              <DialogDescription>{definition.description}</DialogDescription>
+            </div>
+            {definition.type === "faction" && (
+              <div className="min-w-0 lg:justify-self-end lg:text-right">
+                <span className="font-mono text-[0.58rem] tracking-[0.14em] text-muted-foreground uppercase">
+                  Value meaning
+                </span>
+                <p className="mt-1 truncate text-xs leading-relaxed text-muted-foreground">
+                  {definition.valueMeaning}
+                </p>
+              </div>
+            )}
+          </div>
         </DialogHeader>
         <Separator />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -190,19 +187,20 @@ export function NodeDetailsDialog({
                 </small>
               </div>
             </section>
-            <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {details.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium wrap-break-word">
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
+            {details.length > 0 && (
+              <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                {details.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium wrap-break-word">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {definition.type === "stance" ? (
               <NodeEffectCard
                 title="Outgoing effects"
@@ -232,7 +230,7 @@ export function NodeDetailsDialog({
             )}
           </div>
 
-          {definition.type === "stance" && (
+          {definition.type === "stance" && !state.outcome && (
             <div className="shrink-0 bg-background px-6 py-2">
               <StanceEditor
                 key={definition.id}

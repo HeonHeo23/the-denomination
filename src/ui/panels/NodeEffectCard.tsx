@@ -64,7 +64,7 @@ function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
     ? (effect.previewContributionTone ?? effect.contributionTone)
     : effect.contributionTone;
   const previewDescription = hasTarget
-    ? `Current ${effect.contributionLabel}; settled target ${displayedLabel} after the full ${effect.inertiaTurns ?? 1}-turn inertia window`
+    ? `Current ${effect.contributionLabel}; ${effect.previewKind === "estimate" ? "hypothetical estimate" : "settled target"} ${displayedLabel} after the full ${effect.inertiaTurns ?? 1}-turn inertia window`
     : `${effect.contributionLabel} change`;
 
   return (

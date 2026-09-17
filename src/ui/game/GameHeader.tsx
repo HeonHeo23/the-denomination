@@ -27,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { formatValue } from "@/ui/formatValue";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 
@@ -39,6 +38,11 @@ interface GameHeaderProps {
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
   readonly activeSituationCount: number;
+  readonly urgentGameOverWarning?: {
+    readonly title: string;
+    readonly turnsRemaining: number;
+  };
+  readonly gameOver: boolean;
   readonly canLoad: boolean;
   readonly resolvingTurn: boolean;
   readonly onAdvance: () => void;
@@ -49,6 +53,7 @@ interface GameHeaderProps {
   readonly onOpenOverview: () => void;
   readonly onOpenSituations: () => void;
   readonly onOpenChronicle: () => void;
+  readonly onOpenGameOver: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
 }
@@ -77,25 +82,6 @@ function IdentityBlock({
           In the care of {playerName}
         </span>
       </div>
-    </div>
-  );
-}
-
-function ScenarioBlock({
-  scenarioTitle,
-  graphContextLabel,
-}: Pick<GameHeaderProps, "scenarioTitle" | "graphContextLabel">) {
-  return (
-    <div
-      className="hidden min-w-0 flex-1 flex-col justify-center px-4 lg:flex xl:hidden"
-      data-game-scenario
-    >
-      <span className="font-mono text-[0.58rem] tracking-[0.16em] text-muted-foreground uppercase">
-        {graphContextLabel === "Overview" ? "Scenario overview" : "Board focus"}
-      </span>
-      <strong className="truncate font-heading text-lg font-semibold">
-        {graphContextLabel === "Overview" ? scenarioTitle : graphContextLabel}
-      </strong>
     </div>
   );
 }
@@ -142,11 +128,15 @@ function ResourceStrip({
 
 function PanelActions({
   activeSituationCount,
+  urgentGameOverWarning,
   onOpenSituations,
   onOpenChronicle,
 }: Pick<
   GameHeaderProps,
-  "activeSituationCount" | "onOpenSituations" | "onOpenChronicle"
+  | "activeSituationCount"
+  | "urgentGameOverWarning"
+  | "onOpenSituations"
+  | "onOpenChronicle"
 >) {
   return (
     <div
@@ -160,13 +150,22 @@ function PanelActions({
         className="h-full rounded-none"
         data-game-header-button
         onClick={onOpenSituations}
-        aria-label={`Open situations, ${activeSituationCount} active`}
+        aria-label={
+          urgentGameOverWarning
+            ? `Open situations, ${urgentGameOverWarning.title} has ${urgentGameOverWarning.turnsRemaining} turns remaining`
+            : `Open situations, ${activeSituationCount} active`
+        }
       >
         <ShieldAlert data-icon="inline-start" />
         <span>Situations</span>
-        {activeSituationCount > 0 && (
+        {urgentGameOverWarning ? (
+          <Badge variant="destructive">
+            {urgentGameOverWarning.turnsRemaining} turn
+            {urgentGameOverWarning.turnsRemaining === 1 ? "" : "s"}
+          </Badge>
+        ) : activeSituationCount > 0 ? (
           <Badge variant="destructive">{activeSituationCount}</Badge>
-        )}
+        ) : null}
       </Button>
       <Button
         type="button"
@@ -254,7 +253,7 @@ function GameActionsMenu({
           type="button"
           variant="ghost"
           size="icon-lg"
-          className={cn("h-full rounded-none", compact && "ml-auto")}
+          className="h-full rounded-none"
           data-game-menu-trigger
         >
           <Menu />
@@ -319,11 +318,11 @@ export function GameHeader(props: GameHeaderProps) {
   const {
     denominationName,
     playerName,
-    scenarioTitle,
-    graphContextLabel,
     state,
     resources,
     activeSituationCount,
+    urgentGameOverWarning,
+    gameOver,
     canLoad,
     resolvingTurn,
     onAdvance,
@@ -334,6 +333,7 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenOverview,
     onOpenSituations,
     onOpenChronicle,
+    onOpenGameOver,
     musicMuted,
     onToggleMusic,
   } = props;
@@ -371,40 +371,69 @@ export function GameHeader(props: GameHeaderProps) {
           denominationName={denominationName}
           playerName={playerName}
         />
-        <ScenarioBlock
-          scenarioTitle={scenarioTitle}
-          graphContextLabel={graphContextLabel}
-        />
         <TurnDisplay state={state} />
         <ResourceStrip resources={resources} state={state} />
         <PanelActions
           activeSituationCount={activeSituationCount}
+          urgentGameOverWarning={urgentGameOverWarning}
           onOpenSituations={onOpenSituations}
           onOpenChronicle={onOpenChronicle}
         />
-        <RecordActions canLoad={canLoad} onSave={onSave} onLoad={onLoad} />
-        <GameActionsMenu compact {...actionProps} />
+        {urgentGameOverWarning && !gameOver && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="h-full rounded-none md:hidden"
+            data-game-header-button
+            onClick={onOpenSituations}
+            aria-label={`${urgentGameOverWarning.title}: ${urgentGameOverWarning.turnsRemaining} turns remaining`}
+          >
+            <ShieldAlert data-icon="inline-start" />
+            <Badge variant="destructive">
+              {urgentGameOverWarning.turnsRemaining}
+            </Badge>
+          </Button>
+        )}
+        <div className="ml-auto flex h-full items-stretch">
+          <RecordActions canLoad={canLoad} onSave={onSave} onLoad={onLoad} />
+          <GameActionsMenu compact {...actionProps} />
+        </div>
         <Button
           type="button"
           size="lg"
           className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
           data-game-advance
-          onClick={onAdvance}
-          disabled={resolvingTurn}
+          onClick={gameOver ? onOpenGameOver : onAdvance}
+          disabled={resolvingTurn && !gameOver}
         >
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
-            {state.year === undefined
-              ? `Turn ${state.turn}`
-              : `Year ${state.year}`}
+            {gameOver
+              ? "Game over"
+              : state.year === undefined
+                ? `Turn ${state.turn}`
+                : `Year ${state.year}`}
           </span>
           <span className="flex items-center gap-2 sm:contents">
             <span className="hidden xl:inline">
-              {resolvingTurn ? "Recording proceedings" : "Advance the year"}
+              {gameOver
+                ? "View final report"
+                : resolvingTurn
+                  ? "Recording proceedings"
+                  : "Advance the year"}
             </span>
             <span className="xl:hidden">
-              {resolvingTurn ? "Recording" : "Advance"}
+              {gameOver
+                ? "Final report"
+                : resolvingTurn
+                  ? "Recording"
+                  : "Advance"}
             </span>
-            <ArrowRight data-icon="inline-end" />
+            {gameOver ? (
+              <ShieldAlert data-icon="inline-end" />
+            ) : (
+              <ArrowRight data-icon="inline-end" />
+            )}
           </span>
         </Button>
       </div>

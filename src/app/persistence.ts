@@ -1,7 +1,8 @@
 import type { ScenarioDefinition, SimulationState } from "../simulation";
 import type { LoadedScenarioCatalogEntry } from "./scenarioCatalog";
 
-export const SAVE_STORAGE_KEY = "the-denomination.save.v1";
+export const SAVE_STORAGE_KEY = "the-denomination.save.v2";
+export const LEGACY_SAVE_STORAGE_KEY = "the-denomination.save.v1";
 
 export interface SaveStorage {
   getItem(key: string): string | null;
@@ -10,7 +11,7 @@ export interface SaveStorage {
 }
 
 export interface SavedGame {
-  readonly version: 1;
+  readonly version: 2;
   readonly scenarioId: string;
   readonly scenarioContentVersion: number;
   readonly playerName: string;
@@ -88,7 +89,16 @@ function validRuntimeState(
   if (
     !exactObject(
       value,
-      ["scenarioId", "turn", "nodes", "effects", "grudges", "history"],
+      [
+        "scenarioId",
+        "turn",
+        "nodes",
+        "effects",
+        "grudges",
+        "history",
+        "gameOverProgress",
+        "outcome",
+      ],
       ["year"],
     ) ||
     value.scenarioId !== scenario.id ||
@@ -104,7 +114,11 @@ function validRuntimeState(
       scenario.effects.map(({ id }) => id),
     ) ||
     !Array.isArray(value.grudges) ||
-    !Array.isArray(value.history)
+    !Array.isArray(value.history) ||
+    !exactObject(
+      value.gameOverProgress,
+      (scenario.gameOvers ?? []).map(({ id }) => id),
+    )
   )
     return false;
 
@@ -116,6 +130,7 @@ function validRuntimeState(
 
   const nodes = value.nodes as ObjectValue;
   const effects = value.effects as ObjectValue;
+  const gameOverProgress = value.gameOverProgress as ObjectValue;
 
   if (
     !scenario.nodes.every((node) => validNodeState(nodes[node.id], node)) ||
@@ -124,6 +139,98 @@ function validRuntimeState(
     )
   )
     return false;
+
+  const gameOvers = new Map(
+    (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
+  );
+  for (const definition of gameOvers.values()) {
+    const progress = gameOverProgress[definition.id];
+    if (
+      !exactObject(progress, [
+        "episode",
+        "consecutiveTurns",
+        "matchedPrerequisiteGroupIds",
+      ]) ||
+      !finite(progress.episode) ||
+      !Number.isInteger(progress.episode) ||
+      progress.episode < 0 ||
+      !finite(progress.consecutiveTurns) ||
+      !Number.isInteger(progress.consecutiveTurns) ||
+      progress.consecutiveTurns < 0 ||
+      progress.consecutiveTurns > definition.terminalAfterTurns ||
+      !Array.isArray(progress.matchedPrerequisiteGroupIds)
+    )
+      return false;
+    const groupIds = new Set(definition.prerequisiteGroups.map(({ id }) => id));
+    if (
+      progress.matchedPrerequisiteGroupIds.some(
+        (id) => typeof id !== "string" || !groupIds.has(id),
+      ) ||
+      new Set(progress.matchedPrerequisiteGroupIds).size !==
+        progress.matchedPrerequisiteGroupIds.length ||
+      (progress.consecutiveTurns === 0) !==
+        (progress.matchedPrerequisiteGroupIds.length === 0) ||
+      (progress.consecutiveTurns > 0 && progress.episode === 0)
+    )
+      return false;
+  }
+
+  if (value.outcome !== null) {
+    if (
+      !exactObject(value.outcome, ["kind", "turn", "causes"]) ||
+      value.outcome.kind !== "game-over" ||
+      value.outcome.turn !== value.turn ||
+      !Array.isArray(value.outcome.causes) ||
+      value.outcome.causes.length === 0
+    )
+      return false;
+    const causeIds = new Set<string>();
+    for (const cause of value.outcome.causes) {
+      if (
+        !exactObject(cause, ["gameOverId", "matchedPrerequisiteGroupIds"]) ||
+        typeof cause.gameOverId !== "string" ||
+        causeIds.has(cause.gameOverId) ||
+        !Array.isArray(cause.matchedPrerequisiteGroupIds)
+      )
+        return false;
+      const definition = gameOvers.get(cause.gameOverId);
+      const progress = gameOverProgress[cause.gameOverId] as
+        ObjectValue | undefined;
+      const groupIds = new Set(
+        definition?.prerequisiteGroups.map(({ id }) => id) ?? [],
+      );
+      if (
+        !definition ||
+        progress?.consecutiveTurns !== definition.terminalAfterTurns ||
+        cause.matchedPrerequisiteGroupIds.length === 0 ||
+        new Set(cause.matchedPrerequisiteGroupIds).size !==
+          cause.matchedPrerequisiteGroupIds.length ||
+        cause.matchedPrerequisiteGroupIds.some(
+          (id) => typeof id !== "string" || !groupIds.has(id),
+        ) ||
+        cause.matchedPrerequisiteGroupIds.join("\u0000") !==
+          (progress.matchedPrerequisiteGroupIds as unknown[]).join("\u0000")
+      )
+        return false;
+      causeIds.add(cause.gameOverId);
+    }
+    if (
+      [...gameOvers.values()].some(
+        (definition) =>
+          (gameOverProgress[definition.id] as ObjectValue).consecutiveTurns ===
+            definition.terminalAfterTurns && !causeIds.has(definition.id),
+      )
+    )
+      return false;
+  } else if (
+    [...gameOvers.values()].some(
+      (definition) =>
+        (gameOverProgress[definition.id] as ObjectValue).consecutiveTurns ===
+        definition.terminalAfterTurns,
+    )
+  ) {
+    return false;
+  }
 
   const nodeIds = new Set(scenario.nodes.map(({ id }) => id));
   const grudgeIds = new Set<string>();
@@ -144,7 +251,7 @@ function validRuntimeState(
       !nodeIds.has(grudge.target) ||
       !finite(grudge.magnitude) ||
       !finite(grudge.decay) ||
-      grudge.decay < 0 ||
+      grudge.decay <= 0 ||
       grudge.decay > 1 ||
       !finite(grudge.createdTurn) ||
       !Number.isInteger(grudge.createdTurn) ||
@@ -165,7 +272,9 @@ function validRuntimeState(
       !Number.isInteger(entry.turn) ||
       entry.turn < scenario.start.turn ||
       entry.turn > value.turn ||
-      !["stance", "situation"].includes(String(entry.kind)) ||
+      !["stance", "situation", "crisis", "game-over"].includes(
+        String(entry.kind),
+      ) ||
       !nonempty(entry.title) ||
       typeof entry.detail !== "string"
     )
@@ -188,7 +297,7 @@ export function validateSavedGame(
       "denominationName",
       "state",
     ]) ||
-    value.version !== 1 ||
+    value.version !== 2 ||
     typeof value.scenarioId !== "string" ||
     !finite(value.scenarioContentVersion) ||
     !Number.isInteger(value.scenarioContentVersion) ||
@@ -226,7 +335,25 @@ export function loadSavedGame(
       discardInvalid: false,
     };
   }
-  if (serialized === null) return { status: "empty" };
+  if (serialized === null) {
+    try {
+      if (storage.getItem(LEGACY_SAVE_STORAGE_KEY) !== null)
+        return {
+          status: "unavailable",
+          message:
+            "The previous saved game uses an older format and cannot be restored after the Game Over update.",
+          discardInvalid: true,
+        };
+    } catch {
+      return {
+        status: "unavailable",
+        message:
+          "Saved progress is unavailable because browser storage could not be read.",
+        discardInvalid: false,
+      };
+    }
+    return { status: "empty" };
+  }
 
   let parsed: unknown;
   try {
@@ -260,6 +387,7 @@ export function storeSavedGame(
 export function clearSavedGame(storage: SaveStorage): string | undefined {
   try {
     storage.removeItem(SAVE_STORAGE_KEY);
+    storage.removeItem(LEGACY_SAVE_STORAGE_KEY);
     return undefined;
   } catch {
     return "Saved progress could not be removed from browser storage.";

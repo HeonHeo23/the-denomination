@@ -56,6 +56,17 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     effects,
     grudges: [],
     history: [],
+    gameOverProgress: Object.fromEntries(
+      (scenario.gameOvers ?? []).map((definition) => [
+        definition.id,
+        {
+          episode: 0,
+          consecutiveTurns: 0,
+          matchedPrerequisiteGroupIds: [],
+        },
+      ]),
+    ),
+    outcome: null,
   };
   for (const effect of scenario.effects) {
     const participates =

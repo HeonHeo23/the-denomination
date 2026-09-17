@@ -4,6 +4,8 @@ import type {
   NumericDomain,
   ScenarioDefinition,
   SimulationState,
+  GameOverDefinition,
+  GameOverStageDefinition,
 } from "../../simulation";
 
 const CHANGE_EPSILON = 1e-9;
@@ -39,6 +41,15 @@ export interface TurnReport {
   readonly changedEffectIds: readonly string[];
   readonly situationTransitions: readonly TurnReportSituationTransition[];
   readonly grudges: readonly TurnReportGrudge[];
+  readonly crisisTransitions: readonly TurnReportCrisisTransition[];
+}
+
+export interface TurnReportCrisisTransition {
+  readonly kind: "stage" | "recovered";
+  readonly definition: GameOverDefinition;
+  readonly stage?: GameOverStageDefinition;
+  readonly consecutiveTurns: number;
+  readonly turnsRemaining: number;
 }
 
 function relativeMagnitude(delta: number, node: NodeDefinition): number {
@@ -60,6 +71,34 @@ export function projectTurnReport(
   const changes: TurnReportChange[] = [];
   const situationTransitions: TurnReportSituationTransition[] = [];
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
+  const crisisTransitions: TurnReportCrisisTransition[] = [];
+
+  for (const definition of scenario.gameOvers ?? []) {
+    const before = previous.gameOverProgress[definition.id];
+    const after = current.gameOverProgress[definition.id];
+    if (!before || !after) continue;
+    if (before.consecutiveTurns > 0 && after.consecutiveTurns === 0) {
+      crisisTransitions.push({
+        kind: "recovered",
+        definition,
+        consecutiveTurns: 0,
+        turnsRemaining: definition.terminalAfterTurns,
+      });
+    } else if (after.consecutiveTurns > before.consecutiveTurns) {
+      const stage = definition.stages.find(
+        ({ atTurn }) => atTurn === after.consecutiveTurns,
+      );
+      if (stage)
+        crisisTransitions.push({
+          kind: "stage",
+          definition,
+          stage,
+          consecutiveTurns: after.consecutiveTurns,
+          turnsRemaining:
+            definition.terminalAfterTurns - after.consecutiveTurns,
+        });
+    }
+  }
 
   for (const node of scenario.nodes) {
     const before = previous.nodes[node.id];
@@ -120,6 +159,7 @@ export function projectTurnReport(
         magnitude: grudge.magnitude,
       };
     }),
+    crisisTransitions,
   };
 }
 

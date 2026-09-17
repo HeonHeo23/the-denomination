@@ -1,5 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { BookOpenText, ChevronDown, Sparkles } from "lucide-react";
+import {
+  BookOpenText,
+  ChevronDown,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +38,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
 import type { TurnReport, TurnReportChange } from "./projectTurnReport";
@@ -113,7 +120,8 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
   const hasOutcomes =
     report.changes.length > 0 ||
     report.situationTransitions.length > 0 ||
-    report.grudges.length > 0;
+    report.grudges.length > 0 ||
+    report.crisisTransitions.length > 0;
   const significant = isEtherealTurn(report);
 
   return (
@@ -151,137 +159,178 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Separator />
-        <div
-          className={cn(
-            "min-h-0 flex-1 px-6",
-            showAllChanges
-              ? "overflow-y-auto"
-              : "flex flex-col overflow-hidden",
-          )}
-        >
-          {!hasOutcomes ? (
-            <Empty className="my-6 min-h-56 border">
-              <EmptyHeader>
-                <EmptyTitle>No persistent changes</EmptyTitle>
-                <EmptyDescription>
-                  The institution remained steady during this turn.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="flex min-h-full flex-col gap-6 pb-6">
-              {report.situationTransitions.length > 0 && (
-                <ReportSection
-                  id="turn-situations-title"
-                  title="Matters arisen"
-                >
-                  <ItemGroup>
-                    {report.situationTransitions.map((transition) => (
-                      <Item
-                        role="listitem"
-                        variant="outline"
-                        size="sm"
-                        key={transition.node.id}
-                      >
-                        <ItemContent>
-                          <ItemTitle>{transition.node.name}</ItemTitle>
-                        </ItemContent>
-                        <ItemActions>
-                          <Badge
-                            variant={
-                              transition.kind === "began"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {transition.kind === "began" ? "Began" : "Ended"}
-                          </Badge>
-                        </ItemActions>
-                      </Item>
-                    ))}
-                  </ItemGroup>
-                </ReportSection>
-              )}
-
-              {report.grudges.length > 0 && (
-                <ReportSection
-                  id="turn-effects-title"
-                  title="Temporary effects"
-                >
-                  <ItemGroup>
-                    {report.grudges.map((grudge) => (
-                      <Item
-                        role="listitem"
-                        variant="outline"
-                        size="sm"
-                        key={grudge.id}
-                      >
-                        <ItemContent>
-                          <ItemTitle>{grudge.label}</ItemTitle>
-                          <ItemDescription>
-                            Affecting {grudge.targetName}
-                          </ItemDescription>
-                        </ItemContent>
-                        <ItemActions>
-                          <Badge
-                            variant={
-                              grudge.magnitude > 0 ? "default" : "destructive"
-                            }
-                          >
-                            {formatSignedValue(
-                              grudge.magnitude,
-                              grudge.targetDomain,
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="min-h-full px-6 pb-6">
+            {!hasOutcomes ? (
+              <Empty className="my-6 min-h-56 border">
+                <EmptyHeader>
+                  <EmptyTitle>No persistent changes</EmptyTitle>
+                  <EmptyDescription>
+                    The institution remained steady during this turn.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="flex min-h-full flex-col gap-6 pb-6">
+                {report.crisisTransitions.length > 0 && (
+                  <ReportSection id="turn-crises-title" title="Crisis record">
+                    <div className="flex flex-col gap-3">
+                      {report.crisisTransitions.map((transition) => (
+                        <Alert
+                          variant={
+                            transition.kind === "stage"
+                              ? "destructive"
+                              : "default"
+                          }
+                          key={`${transition.definition.id}:${transition.kind}`}
+                        >
+                          {transition.kind === "stage" ? (
+                            <ShieldAlert aria-hidden="true" />
+                          ) : (
+                            <ShieldCheck aria-hidden="true" />
+                          )}
+                          <AlertTitle>
+                            {transition.kind === "stage"
+                              ? transition.stage?.title
+                              : transition.definition.recovery?.title}
+                          </AlertTitle>
+                          <AlertDescription>
+                            <p>
+                              {transition.kind === "stage"
+                                ? transition.stage?.description
+                                : transition.definition.recovery?.description}
+                            </p>
+                            {transition.kind === "stage" && (
+                              <p className="mt-2 font-mono text-xs">
+                                {transition.turnsRemaining} turn
+                                {transition.turnsRemaining === 1
+                                  ? ""
+                                  : "s"}{" "}
+                                remain before Game Over.
+                              </p>
                             )}
-                          </Badge>
-                        </ItemActions>
-                      </Item>
-                    ))}
-                  </ItemGroup>
-                </ReportSection>
-              )}
-
-              {visibleChanges.length > 0 && (
-                <section className="mt-auto flex flex-col gap-4">
+                          </AlertDescription>
+                        </Alert>
+                      ))}
+                    </div>
+                  </ReportSection>
+                )}
+                {report.situationTransitions.length > 0 && (
                   <ReportSection
-                    id="turn-highlights-title"
-                    title="Movements across the institution"
+                    id="turn-situations-title"
+                    title="Matters arisen"
                   >
-                    <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                      {visibleChanges.map((change) => (
-                        <ChangeItem change={change} key={change.node.id} />
+                    <ItemGroup>
+                      {report.situationTransitions.map((transition) => (
+                        <Item
+                          role="listitem"
+                          variant="outline"
+                          size="sm"
+                          key={transition.node.id}
+                        >
+                          <ItemContent>
+                            <ItemTitle>{transition.node.name}</ItemTitle>
+                          </ItemContent>
+                          <ItemActions>
+                            <Badge
+                              variant={
+                                transition.kind === "began"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                            >
+                              {transition.kind === "began" ? "Began" : "Ended"}
+                            </Badge>
+                          </ItemActions>
+                        </Item>
                       ))}
                     </ItemGroup>
                   </ReportSection>
+                )}
 
-                  {report.changes.length > visibleChanges.length && (
-                    <Collapsible
-                      open={showAllChanges}
-                      onOpenChange={setShowAllChanges}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          className="w-full"
-                          type="button"
+                {report.grudges.length > 0 && (
+                  <ReportSection
+                    id="turn-effects-title"
+                    title="Temporary effects"
+                  >
+                    <ItemGroup>
+                      {report.grudges.map((grudge) => (
+                        <Item
+                          role="listitem"
                           variant="outline"
+                          size="sm"
+                          key={grudge.id}
                         >
-                          Review all changes ({report.changes.length})
-                          <ChevronDown data-icon="inline-end" />
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-3">
-                        <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                          {report.changes.map((change) => (
-                            <ChangeItem change={change} key={change.node.id} />
-                          ))}
-                        </ItemGroup>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-                </section>
-              )}
-            </div>
-          )}
-        </div>
+                          <ItemContent>
+                            <ItemTitle>{grudge.label}</ItemTitle>
+                            <ItemDescription>
+                              Affecting {grudge.targetName}
+                            </ItemDescription>
+                          </ItemContent>
+                          <ItemActions>
+                            <Badge
+                              variant={
+                                grudge.magnitude > 0 ? "default" : "destructive"
+                              }
+                            >
+                              {formatSignedValue(
+                                grudge.magnitude,
+                                grudge.targetDomain,
+                              )}
+                            </Badge>
+                          </ItemActions>
+                        </Item>
+                      ))}
+                    </ItemGroup>
+                  </ReportSection>
+                )}
+
+                {visibleChanges.length > 0 && (
+                  <section className="mt-auto flex flex-col gap-4">
+                    <ReportSection
+                      id="turn-highlights-title"
+                      title="Movements across the institution"
+                    >
+                      <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                        {visibleChanges.map((change) => (
+                          <ChangeItem change={change} key={change.node.id} />
+                        ))}
+                      </ItemGroup>
+                    </ReportSection>
+
+                    {report.changes.length > visibleChanges.length && (
+                      <Collapsible
+                        open={showAllChanges}
+                        onOpenChange={setShowAllChanges}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            className="w-full"
+                            type="button"
+                            variant="outline"
+                          >
+                            Review all changes ({report.changes.length})
+                            <ChevronDown data-icon="inline-end" />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-3">
+                          <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                            {report.changes.map((change) => (
+                              <ChangeItem
+                                change={change}
+                                key={change.node.id}
+                              />
+                            ))}
+                          </ItemGroup>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </section>
+                )}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
         <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4">
           <DialogClose asChild>
             <Button type="button">Return to council</Button>

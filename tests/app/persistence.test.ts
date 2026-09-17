@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   clearSavedGame,
+  LEGACY_SAVE_STORAGE_KEY,
   loadSavedGame,
   SAVE_STORAGE_KEY,
   storeSavedGame,
@@ -46,7 +47,7 @@ assert.match(
 assert.match(
   loadScenarioCatalog([
     { contentVersion: 1, content: exampleScenario },
-    { contentVersion: 2, content: exampleScenario },
+    { contentVersion: 3, content: exampleScenario },
   ]).diagnostics[0],
   /duplicate Scenario id/,
 );
@@ -55,7 +56,7 @@ const state = advanceTurn(
   initializeScenario(catalog[0].scenario),
 ).state;
 const save: SavedGame = {
-  version: 1,
+  version: 2,
   scenarioId: exampleScenario.id,
   scenarioContentVersion: 3,
   playerName: "Avery Morgan",
@@ -64,6 +65,40 @@ const save: SavedGame = {
 };
 
 assert.ok(validateSavedGame(save, catalog), "A valid save should be accepted");
+
+const terminalDefinition = catalog[0].scenario.gameOvers![0];
+const terminalSave: SavedGame = {
+  ...save,
+  state: {
+    ...save.state,
+    gameOverProgress: {
+      ...save.state.gameOverProgress,
+      [terminalDefinition.id]: {
+        episode: 1,
+        consecutiveTurns: terminalDefinition.terminalAfterTurns,
+        matchedPrerequisiteGroupIds: [
+          terminalDefinition.prerequisiteGroups[0].id,
+        ],
+      },
+    },
+    outcome: {
+      kind: "game-over",
+      turn: save.state.turn,
+      causes: [
+        {
+          gameOverId: terminalDefinition.id,
+          matchedPrerequisiteGroupIds: [
+            terminalDefinition.prerequisiteGroups[0].id,
+          ],
+        },
+      ],
+    },
+  },
+};
+assert.ok(
+  validateSavedGame(terminalSave, catalog),
+  "A terminal Game Over save should be restorable",
+);
 
 const storage = new MemoryStorage();
 assert.equal(storeSavedGame(storage, save), undefined);
@@ -93,7 +128,7 @@ if (loaded.status === "ready") {
 }
 
 assert.equal(
-  validateSavedGame({ ...save, version: 2 }, catalog),
+  validateSavedGame({ ...save, version: 1 }, catalog),
   undefined,
   "Unknown save versions must be rejected",
 );
@@ -173,6 +208,27 @@ assert.equal(
   undefined,
   "Invalid inertia history lengths must be rejected",
 );
+assert.equal(
+  validateSavedGame(
+    {
+      ...save,
+      state: {
+        ...save.state,
+        gameOverProgress: {
+          ...save.state.gameOverProgress,
+          [terminalDefinition.id]: {
+            episode: 1,
+            consecutiveTurns: 1,
+            matchedPrerequisiteGroupIds: ["missing-group"],
+          },
+        },
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "Unknown prerequisite groups in crisis progress must be rejected",
+);
 
 storage.setItem(SAVE_STORAGE_KEY, "not json");
 const malformed = loadSavedGame(storage, catalog);
@@ -203,5 +259,15 @@ assert.match(clearSavedGame(failingStorage) ?? "", /could not be removed/);
 
 assert.equal(clearSavedGame(storage), undefined);
 assert.equal(storage.getItem(SAVE_STORAGE_KEY), null);
+
+storage.setItem(LEGACY_SAVE_STORAGE_KEY, JSON.stringify({ version: 1 }));
+const legacy = loadSavedGame(storage, catalog);
+assert.equal(legacy.status, "unavailable");
+if (legacy.status === "unavailable") {
+  assert.equal(legacy.discardInvalid, true);
+  assert.match(legacy.message, /older format/);
+}
+assert.equal(clearSavedGame(storage), undefined);
+assert.equal(storage.getItem(LEGACY_SAVE_STORAGE_KEY), null);
 
 console.log("Application persistence checks passed.");

@@ -73,6 +73,7 @@ export function assessStanceChange(
   stanceId: string,
   value: number,
 ): StanceChangeAssessment {
+  if (state.outcome) return reject("The game is over. Stances are read-only.");
   const stance = stanceFor(scenario, state, stanceId);
   if ("legal" in stance) return stance;
   const invalid = validValue(stance, value);
@@ -125,6 +126,7 @@ export function assessStanceEnactment(
   stanceId: string,
   value: number,
 ): StanceTransitionAssessment {
+  if (state.outcome) return reject("The game is over. Stances are read-only.");
   const stance = stanceFor(scenario, state, stanceId);
   if ("legal" in stance) return stance;
   const invalid = validValue(stance, value);
@@ -155,6 +157,7 @@ export function assessStanceRepeal(
   state: SimulationState,
   stanceId: string,
 ): StanceTransitionAssessment {
+  if (state.outcome) return reject("The game is over. Stances are read-only.");
   const stance = stanceFor(scenario, state, stanceId);
   if ("legal" in stance) return stance;
   const runtime = state.nodes[stanceId];

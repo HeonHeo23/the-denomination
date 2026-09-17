@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Minus, Plus, SlidersHorizontal } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import type {
   ScenarioDefinition,
   SimulationState,
@@ -10,7 +10,6 @@ import {
   assessStanceEnactment,
   assessStanceRepeal,
 } from "@/simulation";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldDescription } from "@/components/ui/field";
@@ -180,15 +179,6 @@ export function StanceEditor({
               </Select>
             )}
           </Field>
-          {!assessment.legal && (inactive || draft !== value) && (
-            <Alert className="mt-1.5" variant="destructive">
-              <SlidersHorizontal aria-hidden="true" />
-              <AlertTitle>
-                {inactive ? "Enactment unavailable" : "Change unavailable"}
-              </AlertTitle>
-              <AlertDescription>{assessment.message}</AlertDescription>
-            </Alert>
-          )}
         </CardContent>
       </Card>
       <div className="flex flex-wrap justify-end gap-2">

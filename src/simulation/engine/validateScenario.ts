@@ -122,7 +122,12 @@ export function validateScenario(input: unknown): readonly string[] {
   jsonValue(input, "$");
   if (errors.length) return errors;
   const nodes = new Map<string, ObjectValue>();
-  const refs: { value: unknown; path: string; resource?: boolean }[] = [];
+  const refs: {
+    value: unknown;
+    path: string;
+    resource?: boolean;
+    deactivate?: boolean;
+  }[] = [];
   if (
     !object(input, "$", [
       "schemaVersion",
@@ -135,11 +140,12 @@ export function validateScenario(input: unknown): readonly string[] {
       "effects",
       "events",
       "dilemmas",
+      "gameOvers",
     ])
   )
     return errors;
-  if (input.schemaVersion !== 2)
-    error("$.schemaVersion", "supported version is 2");
+  if (input.schemaVersion !== 3)
+    error("$.schemaVersion", "supported version is 3");
   id(input.id, "$.id");
   string(input.title, "$.title");
   string(input.description, "$.description");
@@ -420,6 +426,221 @@ export function validateScenario(input: unknown): readonly string[] {
         number(response[field], `${path}.response.${field}`);
     }
   });
+
+  function consequences(value: unknown, path: string) {
+    if (value === undefined) return;
+    array(value, path).forEach((consequence, index) => {
+      const p = `${path}[${index}]`;
+      if (
+        !object(consequence, p, [
+          "kind",
+          "target",
+          "amount",
+          "magnitude",
+          "decay",
+          "label",
+          "active",
+        ])
+      )
+        return;
+      if (consequence.kind === "resource") {
+        for (const key of Object.keys(consequence))
+          if (!["kind", "target", "amount"].includes(key))
+            error(`${p}.${key}`, "field is not valid for resource consequence");
+        refs.push({
+          value: consequence.target,
+          path: `${p}.target`,
+          resource: true,
+        });
+        number(consequence.amount, `${p}.amount`);
+      } else if (consequence.kind === "grudge") {
+        for (const key of Object.keys(consequence))
+          if (!["kind", "target", "magnitude", "decay", "label"].includes(key))
+            error(`${p}.${key}`, "field is not valid for grudge consequence");
+        refs.push({ value: consequence.target, path: `${p}.target` });
+        number(consequence.magnitude, `${p}.magnitude`);
+        if (
+          number(consequence.decay, `${p}.decay`) &&
+          (consequence.decay <= 0 || consequence.decay > 1)
+        )
+          error(`${p}.decay`, "must be greater than 0 and at most 1");
+        string(consequence.label, `${p}.label`);
+      } else if (consequence.kind === "activation") {
+        for (const key of Object.keys(consequence))
+          if (!["kind", "target", "active"].includes(key))
+            error(
+              `${p}.${key}`,
+              "field is not valid for activation consequence",
+            );
+        if (typeof consequence.active !== "boolean")
+          error(`${p}.active`, "expected a boolean");
+        refs.push({
+          value: consequence.target,
+          path: `${p}.target`,
+          deactivate: consequence.active === false,
+        });
+      } else error(`${p}.kind`, "unknown consequence kind");
+    });
+  }
+
+  if (input.gameOvers !== undefined) {
+    const gameOverIds = new Set<unknown>();
+    array(input.gameOvers, "$.gameOvers").forEach((definition, index) => {
+      const path = `$.gameOvers[${index}]`;
+      if (
+        !object(definition, path, [
+          "id",
+          "title",
+          "prerequisiteGroups",
+          "terminalAfterTurns",
+          "stages",
+          "recovery",
+          "report",
+        ])
+      )
+        return;
+      id(definition.id, `${path}.id`);
+      if (gameOverIds.has(definition.id))
+        error(`${path}.id`, "duplicate Game Over identifier");
+      gameOverIds.add(definition.id);
+      string(definition.title, `${path}.title`);
+      if (
+        number(definition.terminalAfterTurns, `${path}.terminalAfterTurns`) &&
+        (!Number.isInteger(definition.terminalAfterTurns) ||
+          definition.terminalAfterTurns < 2)
+      )
+        error(
+          `${path}.terminalAfterTurns`,
+          "expected an integer of at least 2",
+        );
+
+      const groupIds = new Set<unknown>();
+      const groups = array(
+        definition.prerequisiteGroups,
+        `${path}.prerequisiteGroups`,
+      );
+      if (groups.length === 0)
+        error(`${path}.prerequisiteGroups`, "expected at least one group");
+      groups.forEach((group, groupIndex) => {
+        const groupPath = `${path}.prerequisiteGroups[${groupIndex}]`;
+        if (!object(group, groupPath, ["id", "title", "allOf"])) return;
+        id(group.id, `${groupPath}.id`);
+        if (groupIds.has(group.id))
+          error(`${groupPath}.id`, "duplicate prerequisite group identifier");
+        groupIds.add(group.id);
+        string(group.title, `${groupPath}.title`);
+        const prerequisites = array(group.allOf, `${groupPath}.allOf`);
+        if (prerequisites.length === 0)
+          error(`${groupPath}.allOf`, "expected at least one prerequisite");
+        prerequisites.forEach((prerequisite, prerequisiteIndex) => {
+          const prerequisitePath = `${groupPath}.allOf[${prerequisiteIndex}]`;
+          if (
+            !object(prerequisite, prerequisitePath, [
+              "kind",
+              "nodeId",
+              "comparison",
+              "value",
+              "active",
+            ])
+          )
+            return;
+          refs.push({
+            value: prerequisite.nodeId,
+            path: `${prerequisitePath}.nodeId`,
+          });
+          if (prerequisite.kind === "node-value") {
+            for (const key of Object.keys(prerequisite))
+              if (!["kind", "nodeId", "comparison", "value"].includes(key))
+                error(
+                  `${prerequisitePath}.${key}`,
+                  "field is not valid for node-value prerequisite",
+                );
+            if (
+              !["at-most", "at-least"].includes(String(prerequisite.comparison))
+            )
+              error(`${prerequisitePath}.comparison`, "unknown comparison");
+            const target =
+              typeof prerequisite.nodeId === "string"
+                ? nodes.get(prerequisite.nodeId)
+                : undefined;
+            bounded(
+              prerequisite.value,
+              `${prerequisitePath}.value`,
+              (target?.domain as ObjectValue | undefined) ??
+                (Object.create(null) as ObjectValue),
+            );
+          } else if (prerequisite.kind === "node-activation") {
+            for (const key of Object.keys(prerequisite))
+              if (!["kind", "nodeId", "active"].includes(key))
+                error(
+                  `${prerequisitePath}.${key}`,
+                  "field is not valid for node-activation prerequisite",
+                );
+            if (typeof prerequisite.active !== "boolean")
+              error(`${prerequisitePath}.active`, "expected a boolean");
+          } else error(`${prerequisitePath}.kind`, "unknown prerequisite kind");
+        });
+      });
+
+      const stageIds = new Set<unknown>();
+      const stageTurns = new Set<unknown>();
+      const stages = array(definition.stages, `${path}.stages`);
+      stages.forEach((stage, stageIndex) => {
+        const stagePath = `${path}.stages[${stageIndex}]`;
+        if (
+          !object(stage, stagePath, [
+            "id",
+            "atTurn",
+            "title",
+            "description",
+            "consequences",
+          ])
+        )
+          return;
+        id(stage.id, `${stagePath}.id`);
+        if (stageIds.has(stage.id))
+          error(`${stagePath}.id`, "duplicate stage identifier");
+        stageIds.add(stage.id);
+        string(stage.title, `${stagePath}.title`);
+        string(stage.description, `${stagePath}.description`);
+        if (number(stage.atTurn, `${stagePath}.atTurn`)) {
+          if (!Number.isInteger(stage.atTurn) || stage.atTurn < 1)
+            error(`${stagePath}.atTurn`, "expected a positive integer");
+          if (
+            typeof definition.terminalAfterTurns === "number" &&
+            stage.atTurn >= definition.terminalAfterTurns
+          )
+            error(`${stagePath}.atTurn`, "must be before terminalAfterTurns");
+          if (stageTurns.has(stage.atTurn))
+            error(`${stagePath}.atTurn`, "duplicate stage turn");
+          stageTurns.add(stage.atTurn);
+        }
+        consequences(stage.consequences, `${stagePath}.consequences`);
+      });
+      if (!stageTurns.has(1))
+        error(`${path}.stages`, "must include a warning stage at turn 1");
+
+      if (
+        definition.recovery !== undefined &&
+        object(definition.recovery, `${path}.recovery`, [
+          "title",
+          "description",
+          "consequences",
+        ])
+      ) {
+        string(definition.recovery.title, `${path}.recovery.title`);
+        string(definition.recovery.description, `${path}.recovery.description`);
+        consequences(
+          definition.recovery.consequences,
+          `${path}.recovery.consequences`,
+        );
+      }
+      if (object(definition.report, `${path}.report`, ["title", "narrative"])) {
+        string(definition.report.title, `${path}.report.title`);
+        string(definition.report.narrative, `${path}.report.narrative`);
+      }
+    });
+  }
   for (const ref of refs) {
     id(ref.value, ref.path);
     const target =
@@ -427,6 +648,11 @@ export function validateScenario(input: unknown): readonly string[] {
     if (!target) error(ref.path, "node reference does not resolve");
     else if (ref.resource && target.type !== "resource")
       error(ref.path, "must reference a Resource");
+    else if (
+      ref.deactivate &&
+      (target.initial as ObjectValue | undefined)?.isForced === true
+    )
+      error(ref.path, "cannot deactivate a forced-active node");
   }
   return errors;
 }

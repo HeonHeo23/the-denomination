@@ -45,11 +45,11 @@ state keeps two separate facts: `isActive` records whether the node currently
 participates, while `isForced` records whether ordinary deactivation is
 forbidden. The valid runtime combinations are:
 
-| Runtime flags | Meaning |
-| --- | --- |
-| `isActive: true`, `isForced: false` | Normally active and participating. |
-| `isActive: false`, `isForced: false` | Normally inactive and not participating in outgoing Effects. |
-| `isActive: true`, `isForced: true` | Forced active and participating; normal deactivation cannot turn it off. |
+| Runtime flags                        | Meaning                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| `isActive: true`, `isForced: false`  | Normally active and participating.                                       |
+| `isActive: false`, `isForced: false` | Normally inactive and not participating in outgoing Effects.             |
+| `isActive: true`, `isForced: true`   | Forced active and participating; normal deactivation cannot turn it off. |
 
 Forced activation is therefore a constraint on deactivation, not a replacement
 for the active-state flag. A node can be active without being forced, and
@@ -270,9 +270,63 @@ A prerequisite is a categorical condition controlling eligibility or
 availability. It is not a node unless content separately models the same
 concept as continuous state.
 
-For the current implementation, prerequisites are static tags supplied by the
-Scenario. Dynamic prerequisites are deferred. Prerequisites may gate Stances,
-Situations, Events, Dilemmas, or other explicitly defined content.
+The existing `requires` mechanism uses static tags supplied by the Scenario.
+Deriving or changing those tags from runtime state remains deferred. Static
+requirements may gate Stances, Situations, Events, Dilemmas, or other explicitly
+defined content.
+
+Runtime prerequisites are separately authored predicates over canonical node
+state. A runtime prerequisite may compare one node value with an inclusive
+upper or lower threshold, or require a node to be active or inactive. A named
+prerequisite group is a conjunction: every predicate in the group must hold.
+Consumers that accept multiple groups treat them as alternatives. Runtime
+prerequisites are currently used by Game Over trajectories; their use by other
+systems must be explicitly specified rather than inferred.
+
+## Reusable consequences
+
+An authored occurrence may apply reusable immediate consequences. A Resource
+consequence changes both its current balance and underlying runtime balance so
+the transaction survives later persistent recalculation. A Grudge consequence
+creates the temporary contribution described above. An activation consequence
+changes ordinary activation but MUST NOT deactivate a forced-active node.
+
+Consequences are applied once for the occurrence that created them. A Grudge
+created after a completed turn begins contributing during the following turn.
+The same declarative consequence shapes may be consumed by crisis stages,
+recoveries, and future incident implementations without giving those systems
+identical triggering or ordering semantics.
+
+## Game Overs
+
+A Game Over is a Scenario-authored terminal trajectory, not a persistent node
+or an incident. Its prerequisite groups may refer to any Scenario nodes, so the
+content can express polity-specific failures through authority, legitimacy,
+Faction relationships, Resources, Situations, or other modeled institutional
+state.
+
+A trajectory gains one consecutive turn of progress whenever at least one of
+its prerequisite groups is satisfied after persistent evaluation. Changing
+from one satisfied group to another does not interrupt the trajectory. If no
+group is satisfied after progress began, the crisis fully resets and its
+optional recovery occurrence is applied once. A later breach begins a new
+episode and may recover again.
+
+Each trajectory has a terminal duration of at least two turns and MUST warn the
+player on its first qualifying turn. Authored stages before the terminal turn
+provide historical narrative and may apply reusable consequences once when
+reached. Stage consequences do not retroactively change the qualification that
+selected that stage.
+
+When the terminal duration is reached, the runtime records an irreversible
+Game Over. If several trajectories become terminal on the same turn, all are
+recorded as causes of one outcome. Further player commands and turn advancement
+are rejected. Game Over resolution MUST run before any normal Ending resolution
+and prevents an Ending from resolving on that turn or afterward.
+
+The final report combines the Scenario's historical narrative with mechanical
+evidence: matched prerequisite groups, current node readings, persistence
+duration, and relevant Effect and Grudge contributions.
 
 ## Scenario and runtime state
 
@@ -292,6 +346,8 @@ least:
 - active Grudges and their current magnitudes;
 - incident cooldown/recurrence state;
 - a pending Dilemma, if any;
+- per-trajectory Game Over episode and consecutive-turn progress;
+- a terminal Game Over outcome, if reached;
 - player-visible history where retained.
 
 Declared initial node values are authoritative at turn zero. Initialization
@@ -314,6 +370,9 @@ following partial ordering is authoritative:
 - each turn's persistent targets read one shared prior snapshot;
 - a newly active Situation exerts outgoing Effects starting next turn;
 - a Grudge contributes before it decays for that turn;
+- Game Over prerequisites read the post-persistent, post-decay snapshot before
+  newly reached stage or recovery consequences are applied;
+- Game Over resolution precedes and blocks normal Ending resolution;
 - a pending Dilemma prevents another turn from advancing;
 - no more than one incident is selected by one incident evaluation.
 
@@ -343,6 +402,8 @@ universal mechanics.
 14. Graph visibility never determines simulation participation.
 15. Effect declaration order does not determine simulation results.
 16. Categories are organizational metadata without implicit mechanics.
+17. Game Overs are Scenario-authored terminal trajectories, not nodes or incidents.
+18. Reusable prerequisites and consequences do not imply shared trigger timing across consumers.
 
 ## Deferred decisions
 
@@ -350,7 +411,7 @@ Do not infer or implement the following until this document is revised:
 
 - the complete within-turn phase order beyond the partial ordering above;
 - selection among multiple simultaneously eligible incidents;
-- dynamic or state-derived prerequisites;
+- runtime-prerequisite use outside explicitly supported consumers;
 - the supported scope and merge semantics of Scenario overrides;
 - complete Resource accumulation and baseline interaction rules;
 - additional response-function semantics, including exact constant-source and

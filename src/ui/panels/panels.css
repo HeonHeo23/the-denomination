@@ -120,7 +120,7 @@
   height: 1.25rem;
 }
 
-.slider-marker {
+.stance-slider [data-slot="slider-marker"] {
   position: absolute;
   top: 50%;
   z-index: 1;
@@ -132,7 +132,7 @@
   transform: translate(-50%, -50%);
 }
 
-.slider-marker__label {
+.stance-slider [data-slot="slider-marker-label"] {
   position: absolute;
   bottom: calc(100% + 0.3rem);
   left: 50%;
@@ -193,7 +193,6 @@
   border-inline-start-color: var(--game-decreasing);
 }
 
-.node-record__eyebrow,
 .effect-table__legend {
   color: var(--game-ink-subtle);
   font-family: var(--font-mono);

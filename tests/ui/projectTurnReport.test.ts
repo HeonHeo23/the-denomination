@@ -5,6 +5,10 @@ import {
 } from "../../src/simulation";
 import { projectTurnReport } from "../../src/ui/panels/projectTurnReport";
 import { institutionEra, isEtherealTurn } from "../../src/ui/institutionEra";
+import {
+  projectGameOverReport,
+  projectGameOverWarnings,
+} from "../../src/ui/game/projectGameOvers";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -111,5 +115,85 @@ export function runTurnReportProjectionTests() {
   assert(
     !isEtherealTurn(unchanged),
     "An unchanged turn should not receive the Ethereal treatment",
+  );
+
+  const gameOverDefinition = exampleScenario.gameOvers![0];
+  const warningState = {
+    ...initial,
+    turn: initial.turn + 1,
+    year: (initial.year ?? 0) + 1,
+    gameOverProgress: {
+      ...initial.gameOverProgress,
+      [gameOverDefinition.id]: {
+        episode: 1,
+        consecutiveTurns: 1,
+        matchedPrerequisiteGroupIds: [
+          gameOverDefinition.prerequisiteGroups[0].id,
+        ],
+      },
+    },
+  };
+  const warnings = projectGameOverWarnings(exampleScenario, warningState);
+  assert(
+    warnings[0]?.turnsRemaining === 3 &&
+      warnings[0].matchedGroups[0]?.prerequisites.length === 2,
+    "Game Over warnings should project countdowns and mechanical prerequisites",
+  );
+  const crisisReport = projectTurnReport(
+    exampleScenario,
+    initial,
+    warningState,
+  );
+  assert(
+    crisisReport.crisisTransitions[0]?.stage?.id === "assembly-inquiry",
+    "A newly reached crisis stage should appear in the turn report",
+  );
+  const recoveredState = {
+    ...warningState,
+    turn: warningState.turn + 1,
+    year: warningState.year + 1,
+    gameOverProgress: {
+      ...warningState.gameOverProgress,
+      [gameOverDefinition.id]: {
+        episode: 1,
+        consecutiveTurns: 0,
+        matchedPrerequisiteGroupIds: [],
+      },
+    },
+  };
+  assert(
+    projectTurnReport(exampleScenario, warningState, recoveredState)
+      .crisisTransitions[0]?.kind === "recovered",
+    "A cleared crisis should appear as a recovery in the turn report",
+  );
+
+  const terminalState = {
+    ...warningState,
+    gameOverProgress: {
+      ...warningState.gameOverProgress,
+      [gameOverDefinition.id]: {
+        ...warningState.gameOverProgress[gameOverDefinition.id],
+        consecutiveTurns: gameOverDefinition.terminalAfterTurns,
+      },
+    },
+    outcome: {
+      kind: "game-over" as const,
+      turn: warningState.turn,
+      causes: [
+        {
+          gameOverId: gameOverDefinition.id,
+          matchedPrerequisiteGroupIds: [
+            gameOverDefinition.prerequisiteGroups[0].id,
+          ],
+        },
+      ],
+    },
+  };
+  const gameOverReport = projectGameOverReport(exampleScenario, terminalState);
+  assert(
+    gameOverReport[0]?.definition.id === gameOverDefinition.id &&
+      gameOverReport[0].matchedGroups[0]?.group.id ===
+        gameOverDefinition.prerequisiteGroups[0].id,
+    "The terminal report should preserve authored narrative and matched causes",
   );
 }

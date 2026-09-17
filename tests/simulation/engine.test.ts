@@ -256,6 +256,233 @@ assert(
   "A Grudge should decay after contributing to a turn",
 );
 
+const terminalScenario: ScenarioDefinition = {
+  schemaVersion: 3,
+  id: "terminal-test",
+  title: "Terminal test",
+  description: "Exercises reusable prerequisites and consequences.",
+  start: { turn: 0 },
+  nodes: [
+    {
+      id: "risk",
+      type: "stance",
+      name: "Risk",
+      description: "Controllable risk.",
+      domain: { min: 0, max: 1, clamp: true },
+      initial: { value: 0.1, isActive: true, isForced: true },
+      control: { kind: "continuous" },
+    },
+    {
+      id: "reserve",
+      type: "resource",
+      name: "Reserve",
+      description: "Available reserve.",
+      domain: { min: 0, max: 10, clamp: true },
+      initial: { value: 10, isActive: true, isForced: true },
+      baseline: 10,
+    },
+    {
+      id: "confidence",
+      type: "indicator",
+      name: "Confidence",
+      description: "Public confidence.",
+      domain: { min: 0, max: 1, clamp: true },
+      initial: { value: 0.5, isActive: true, isForced: true },
+      baseline: 0.5,
+    },
+    {
+      id: "council",
+      type: "faction",
+      name: "Council",
+      description: "Governing council.",
+      valueMeaning: "support",
+      domain: { min: 0, max: 1, clamp: true },
+      initial: { value: 0.5, isActive: true, isForced: false },
+    },
+  ],
+  effects: [],
+  gameOvers: [
+    {
+      id: "collapse",
+      title: "Collapse",
+      prerequisiteGroups: [
+        {
+          id: "low-risk",
+          title: "Risk threshold",
+          allOf: [
+            {
+              kind: "node-value",
+              nodeId: "risk",
+              comparison: "at-most",
+              value: 0.2,
+            },
+          ],
+        },
+        {
+          id: "council-gone",
+          title: "Council inactive",
+          allOf: [
+            { kind: "node-activation", nodeId: "council", active: false },
+          ],
+        },
+      ],
+      terminalAfterTurns: 3,
+      stages: [
+        {
+          id: "warning",
+          atTurn: 1,
+          title: "Warning",
+          description: "The crisis begins.",
+          consequences: [
+            { kind: "resource", target: "reserve", amount: -3 },
+            {
+              kind: "grudge",
+              target: "confidence",
+              magnitude: -0.1,
+              decay: 0.5,
+              label: "Crisis shock",
+            },
+            { kind: "activation", target: "council", active: false },
+          ],
+        },
+        {
+          id: "final-warning",
+          atTurn: 2,
+          title: "Final warning",
+          description: "The crisis deepens.",
+        },
+      ],
+      recovery: {
+        title: "Recovered",
+        description: "The crisis clears.",
+        consequences: [{ kind: "resource", target: "reserve", amount: 2 }],
+      },
+      report: { title: "Removed", narrative: "The institution removes you." },
+    },
+  ],
+};
+
+let terminalState = advanceTurn(
+  terminalScenario,
+  initializeScenario(terminalScenario),
+).state;
+assert(
+  terminalState.gameOverProgress.collapse.consecutiveTurns === 1 &&
+    terminalState.nodes.reserve.value === 7 &&
+    terminalState.nodes.reserve.baseValue === 7 &&
+    !terminalState.nodes.council.isActive &&
+    terminalState.grudges.some(({ label }) => label === "Crisis shock"),
+  "A warning stage should apply every reusable consequence exactly once",
+);
+const safeRisk = executeCommand(terminalScenario, terminalState, {
+  type: "set-stance",
+  stanceId: "risk",
+  value: 0.8,
+});
+assert(safeRisk.accepted, "The player should be able to answer a crisis");
+terminalState = advanceTurn(terminalScenario, safeRisk.state).state;
+assert(
+  terminalState.gameOverProgress.collapse.consecutiveTurns === 2 &&
+    terminalState.gameOverProgress.collapse.matchedPrerequisiteGroupIds[0] ===
+      "council-gone",
+  "Switching between alternative prerequisite groups should preserve progress",
+);
+terminalState = advanceTurn(terminalScenario, terminalState).state;
+assert(
+  terminalState.outcome?.causes[0]?.gameOverId === "collapse",
+  "A persistent trajectory should become terminal on its authored turn",
+);
+assert(
+  advanceTurn(terminalScenario, terminalState).state === terminalState,
+  "A terminal turn advance must preserve the original snapshot",
+);
+assert(
+  !executeCommand(terminalScenario, terminalState, {
+    type: "set-stance",
+    stanceId: "risk",
+    value: 0.1,
+  }).accepted,
+  "Terminal snapshots must reject player commands",
+);
+
+const recoveryScenario: ScenarioDefinition = {
+  ...terminalScenario,
+  id: "recovery-test",
+  gameOvers: [
+    {
+      ...terminalScenario.gameOvers![0],
+      prerequisiteGroups: [
+        terminalScenario.gameOvers![0].prerequisiteGroups[0],
+      ],
+      stages: [
+        {
+          ...terminalScenario.gameOvers![0].stages[0],
+          consequences: [{ kind: "resource", target: "reserve", amount: -3 }],
+        },
+        terminalScenario.gameOvers![0].stages[1],
+      ],
+    },
+  ],
+};
+let recoveryState = advanceTurn(
+  recoveryScenario,
+  initializeScenario(recoveryScenario),
+).state;
+const recoveryAnswer = executeCommand(recoveryScenario, recoveryState, {
+  type: "set-stance",
+  stanceId: "risk",
+  value: 0.8,
+});
+recoveryState = advanceTurn(recoveryScenario, recoveryAnswer.state).state;
+assert(
+  recoveryState.gameOverProgress.collapse.consecutiveTurns === 0 &&
+    recoveryState.nodes.reserve.value === 9 &&
+    recoveryState.history.filter(({ title }) => title === "Recovered")
+      .length === 1,
+  "Recovery should reset progress and apply its reward once per episode",
+);
+recoveryState = advanceTurn(recoveryScenario, recoveryState).state;
+assert(
+  recoveryState.nodes.reserve.value === 9 &&
+    recoveryState.history.filter(({ title }) => title === "Recovered")
+      .length === 1,
+  "A cleared crisis must not repeat its recovery reward",
+);
+const repeatedBreach = executeCommand(recoveryScenario, recoveryState, {
+  type: "set-stance",
+  stanceId: "risk",
+  value: 0.1,
+});
+recoveryState = advanceTurn(recoveryScenario, repeatedBreach.state).state;
+assert(
+  recoveryState.gameOverProgress.collapse.episode === 2 &&
+    recoveryState.nodes.reserve.value === 6,
+  "A later breach should begin a new episode and may apply its stages again",
+);
+
+const simultaneousScenario: ScenarioDefinition = {
+  ...recoveryScenario,
+  id: "simultaneous-test",
+  gameOvers: [
+    recoveryScenario.gameOvers![0],
+    {
+      ...recoveryScenario.gameOvers![0],
+      id: "second-collapse",
+      title: "Second collapse",
+    },
+  ],
+};
+let simultaneousState = initializeScenario(simultaneousScenario);
+for (let index = 0; index < 3; index += 1)
+  simultaneousState = advanceTurn(
+    simultaneousScenario,
+    simultaneousState,
+  ).state;
+assert(
+  simultaneousState.outcome?.causes.length === 2,
+  "Every trajectory becoming terminal on the same turn should be reported",
+);
+
 runComplianceTests();
 runNodeEffectProjectionTests();
 runTurnReportProjectionTests();

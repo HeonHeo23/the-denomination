@@ -1,6 +1,7 @@
 import type {
   EffectDefinition,
   ScenarioDefinition,
+  StanceDefinition,
 } from "../domain/definitions";
 import type { CalculationTrace, StanceEffectPreview } from "../domain/results";
 import type {
@@ -9,7 +10,7 @@ import type {
   SimulationState,
 } from "../domain/runtime";
 import { responseValue } from "./responseValue";
-import { conditionsMet, clampValue } from "./shared";
+import { conditionsMet, clampValue, indexNodes } from "./shared";
 import { executeCommand } from "./playerActions";
 
 interface EvaluationResult {
@@ -180,20 +181,34 @@ export function previewStanceEffects(
     state.scenarioId !== scenario.id ||
     stance?.type !== "stance" ||
     !currentRuntime ||
-    !Number.isFinite(value)
+    !Number.isFinite(value) ||
+    value < stance.domain.min ||
+    value > stance.domain.max ||
+    (stance.control.kind === "discrete" &&
+      !stance.control.states.some((option) => option.value === value))
   ) {
     return [];
   }
 
   let candidateState = state;
+  let kind: StanceEffectPreview["kind"] = "settled";
   if (!currentRuntime.isActive || value !== currentRuntime.value) {
     const command = executeCommand(scenario, state, {
       type: currentRuntime.isActive ? "set-stance" : "enact-stance",
       stanceId,
       value,
     });
-    if (!command.accepted) return [];
-    candidateState = command.state;
+    if (command.accepted) {
+      candidateState = command.state;
+    } else {
+      candidateState = hypotheticalStanceCandidate(
+        scenario,
+        state,
+        stance,
+        value,
+      );
+      kind = "estimate";
+    }
   }
 
   // A full window of the same source value averages to that value, so evaluate
@@ -207,5 +222,49 @@ export function previewStanceEffects(
       contribution: candidateRuntime.isActive
         ? responseValue(effect.response, candidateRuntime.value, candidateState)
         : 0,
+      kind,
     }));
+}
+
+/**
+ * Creates the value-only candidate used to estimate a blocked Stance action.
+ * It mirrors command writes without checking legality or retaining any history.
+ */
+function hypotheticalStanceCandidate(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stance: StanceDefinition,
+  value: number,
+): SimulationState {
+  const isEnactment = !state.nodes[stance.id].isActive;
+  const cost = isEnactment
+    ? (stance.enactmentCost?.amount ?? 0)
+    : stance.cost
+      ? stance.cost.base +
+        stance.cost.perPoint * Math.abs(value - state.nodes[stance.id].value)
+      : 0;
+  const resourceId = isEnactment
+    ? stance.enactmentCost?.resourceId
+    : stance.cost?.resourceId;
+  const nodes = { ...state.nodes };
+  const definitions = indexNodes(scenario);
+  const resource = resourceId ? definitions[resourceId] : undefined;
+
+  if (resource?.type === "resource" && cost !== 0) {
+    const runtime = nodes[resource.id];
+    nodes[resource.id] = {
+      ...runtime,
+      baseValue: clampValue(runtime.baseValue - cost, resource),
+      value: clampValue(runtime.value - cost, resource),
+    };
+  }
+
+  nodes[stance.id] = {
+    ...nodes[stance.id],
+    value,
+    baseValue: value,
+    isActive: true,
+  };
+
+  return { ...state, nodes };
 }

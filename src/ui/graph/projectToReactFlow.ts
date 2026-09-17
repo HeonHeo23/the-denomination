@@ -21,6 +21,7 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly domain: NumericDomain;
   readonly active: boolean;
   readonly forced: boolean;
+  readonly focused?: boolean;
   readonly turnDelta?: number;
   readonly activationTransition?: "began" | "ended";
   readonly revealing?: boolean;
@@ -41,6 +42,25 @@ export interface GraphCategory {
   readonly id: string;
   readonly label: string;
   readonly nodeIds: readonly string[];
+  readonly nonFactionNodeCount: number;
+}
+
+export function isNodeOnGraph(
+  nodeId: string,
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  turnFeedback?: GraphTurnFeedback,
+  recentlyEndedNodeIds: readonly string[] = [],
+): boolean {
+  const definition = scenario.nodes.find((node) => node.id === nodeId);
+  if (!definition || definition.graphVisible === false) return false;
+  if (state.nodes[nodeId]?.isActive) return true;
+  return Boolean(
+    turnFeedback?.changes.some(
+      (change) =>
+        change.nodeId === nodeId && change.previousActive && !change.isActive,
+    ) || recentlyEndedNodeIds.includes(nodeId),
+  );
 }
 
 const nodeTypeOrder = [
@@ -50,11 +70,12 @@ const nodeTypeOrder = [
   "situation",
   "resource",
 ];
-const clusterWidth = 650;
-const clusterGap = 96;
+const clusterWidth = 512;
+const clusterGap = 48;
 const clusterMinimumHeight = 238;
 const nodeColumnGap = 244;
 const nodeRowGap = 126;
+const factionColumnGap = clusterGap * 2;
 
 const positiveEffectColor = "var(--game-increasing)";
 const negativeEffectColor = "var(--game-decreasing)";
@@ -71,10 +92,19 @@ export function projectEffectsToReactFlow(
   state: SimulationState,
   hoveredNodeId?: string,
   turnFeedback?: GraphTurnFeedback,
+  recentlyEndedNodeIds: readonly string[] = [],
 ): Edge[] {
   const visible = new Set(
     scenario.nodes
-      .filter((definition) => definition.graphVisible !== false)
+      .filter((definition) =>
+        isNodeOnGraph(
+          definition.id,
+          scenario,
+          state,
+          turnFeedback,
+          recentlyEndedNodeIds,
+        ),
+      )
       .map(({ id }) => id),
   );
 
@@ -150,10 +180,22 @@ export function projectEffectsToReactFlow(
 
 export function projectGraphCategories(
   scenario: ScenarioDefinition,
+  state: SimulationState,
+  turnFeedback?: GraphTurnFeedback,
+  recentlyEndedNodeIds: readonly string[] = [],
 ): GraphCategory[] {
   const groups = new Map<string, string[]>();
   for (const definition of scenario.nodes) {
-    if (definition.graphVisible === false) continue;
+    if (
+      !isNodeOnGraph(
+        definition.id,
+        scenario,
+        state,
+        turnFeedback,
+        recentlyEndedNodeIds,
+      )
+    )
+      continue;
     const label = definition.category ?? "Other concerns";
     const nodeIds = groups.get(label) ?? [];
     groups.set(label, [...nodeIds, definition.id]);
@@ -162,6 +204,11 @@ export function projectGraphCategories(
     id: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     label,
     nodeIds,
+    nonFactionNodeCount: nodeIds.filter(
+      (nodeId) =>
+        scenario.nodes.find(({ id }) => id === nodeId)?.type !== "faction" &&
+        state.nodes[nodeId].isActive,
+    ).length,
   }));
 }
 
@@ -170,11 +217,17 @@ export function projectToReactFlow(
   state: SimulationState,
   hoveredNodeId?: string,
   turnFeedback?: GraphTurnFeedback,
+  recentlyEndedNodeIds: readonly string[] = [],
 ): { nodes: Node<SimulationNodeData>[]; edges: Edge[] } {
   const turnChanges = new Map(
     turnFeedback?.changes.map((change) => [change.nodeId, change]) ?? [],
   );
-  const categories = projectGraphCategories(scenario);
+  const categories = projectGraphCategories(
+    scenario,
+    state,
+    turnFeedback,
+    recentlyEndedNodeIds,
+  );
   const definitionsById = new Map(
     scenario.nodes.map((definition) => [definition.id, definition]),
   );
@@ -197,7 +250,9 @@ export function projectToReactFlow(
   );
   const clusterColumns = Math.max(1, Math.ceil(Math.sqrt(groups.length)));
   const factionColumnX =
-    (clusterColumns - 1) * (clusterWidth + clusterGap) + nodeColumnGap * 2;
+    (clusterColumns - 1) * (clusterWidth + clusterGap) +
+    nodeColumnGap * 2 +
+    factionColumnGap;
   const clusterRowHeights = groups.reduce<number[]>(
     (heights, [, nodes], index) => {
       const row = Math.floor(index / clusterColumns);
@@ -273,6 +328,7 @@ export function projectToReactFlow(
             domain: definition.domain,
             active: runtime.isActive,
             forced: runtime.isForced,
+            focused: definition.id === hoveredNodeId,
             turnDelta: turnChange?.delta,
             activationTransition:
               turnChange && turnChange.previousActive !== turnChange.isActive
@@ -295,6 +351,7 @@ export function projectToReactFlow(
     state,
     hoveredNodeId,
     turnFeedback,
+    recentlyEndedNodeIds,
   );
 
   return { nodes, edges };

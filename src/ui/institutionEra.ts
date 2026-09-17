@@ -12,6 +12,7 @@ export function institutionEra(turn: number): InstitutionEra {
 export function isEtherealTurn(report: TurnReport): boolean {
   return (
     report.situationTransitions.length > 0 ||
+    report.crisisTransitions.length > 0 ||
     report.changes.some((change) => change.relativeMagnitude >= 0.08)
   );
 }

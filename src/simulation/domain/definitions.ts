@@ -158,17 +158,85 @@ export interface EffectDefinition {
   readonly label?: string;
 }
 
+/** A reusable predicate evaluated against one canonical runtime snapshot. */
+export type PrerequisiteDefinition =
+  | {
+      readonly kind: "node-value";
+      readonly nodeId: NodeId;
+      readonly comparison: "at-most" | "at-least";
+      readonly value: number;
+    }
+  | {
+      readonly kind: "node-activation";
+      readonly nodeId: NodeId;
+      readonly active: boolean;
+    };
+
+/** A named conjunction; consumers may treat several groups as alternatives. */
+export interface PrerequisiteGroupDefinition {
+  readonly id: string;
+  readonly title: string;
+  readonly allOf: readonly PrerequisiteDefinition[];
+}
+
+/** Reusable immediate state changes created by authored occurrences. */
+export type ConsequenceDefinition =
+  | {
+      readonly kind: "resource";
+      readonly target: NodeId;
+      readonly amount: number;
+    }
+  | {
+      readonly kind: "grudge";
+      readonly target: NodeId;
+      readonly magnitude: number;
+      readonly decay: number;
+      readonly label: string;
+    }
+  | {
+      readonly kind: "activation";
+      readonly target: NodeId;
+      readonly active: boolean;
+    };
+
+export interface GameOverStageDefinition {
+  readonly id: string;
+  readonly atTurn: number;
+  readonly title: string;
+  readonly description: string;
+  readonly consequences?: readonly ConsequenceDefinition[];
+}
+
+/** One recoverable, Scenario-authored trajectory toward a terminal outcome. */
+export interface GameOverDefinition {
+  readonly id: string;
+  readonly title: string;
+  readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
+  readonly terminalAfterTurns: number;
+  readonly stages: readonly GameOverStageDefinition[];
+  readonly recovery?: {
+    readonly title: string;
+    readonly description: string;
+    readonly consequences?: readonly ConsequenceDefinition[];
+  };
+  readonly report: {
+    readonly title: string;
+    readonly narrative: string;
+  };
+}
+
 /** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
   /** Incidents are not supported by this implementation yet. */
   readonly events?: readonly never[];
   readonly dilemmas?: readonly never[];
+  readonly gameOvers?: readonly GameOverDefinition[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];
 }

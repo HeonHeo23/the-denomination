@@ -25,8 +25,8 @@ export function runNodeEffectProjectionTests() {
     "A Situation should list both default and node incoming Effects",
   );
   assert(
-    tensionEffects.outgoing.length === 1,
-    "A Situation should list its outgoing Effect separately",
+    tensionEffects.outgoing.length === 0,
+    "Inactive sources should not list dormant outgoing Effects",
   );
   assert(
     tensionEffects.incoming.some(
@@ -39,13 +39,6 @@ export function runNodeEffectProjectionTests() {
       (effect) => effect.relatedName === "Default pressure",
     )?.relatedNodeId === undefined,
     "Default pressure should not link to a graph node",
-  );
-
-  const inactiveOutgoing = tensionEffects.outgoing[0];
-  assert(
-    inactiveOutgoing.contributionLabel === "0.0%" &&
-      inactiveOutgoing.contributionTone === "neutral",
-    "An inactive source should be identified and its missing contribution should remain neutral",
   );
 
   const stateWithNegativeContribution = {
@@ -108,6 +101,10 @@ export function runNodeEffectProjectionTests() {
     "A changed Stance should expose its projected outgoing contribution",
   );
   assert(
+    stancePreview?.previewKind === "settled",
+    "A legal Stance change should expose a settled target",
+  );
+  assert(
     Math.abs(
       stancePreview.previewContribution -
         afterInertiaWindow.effects["formation-to-quality"].lastContribution,
@@ -144,10 +141,89 @@ export function runNodeEffectProjectionTests() {
     "Inactive Stances should preview their enacted outgoing contribution",
   );
   assert(
+    inactivePreview?.kind === "settled",
+    "A legal enactment preview should be a settled target",
+  );
+  assert(
     initial.effects["digital-to-mission"].sourceHistory.every(
       (value) => value === 0,
     ),
     "Inactive Stance Effects should seed their inertia history with zero",
+  );
+
+  const inactiveStanceEffects = projectNodeEffects(
+    "community-partnerships",
+    exampleScenario,
+    initial,
+    0.5,
+  );
+  assert(
+    inactiveStanceEffects.outgoing.length === 4,
+    "An inactive Stance draft should list all of its outgoing Effects",
+  );
+  assert(
+    inactiveStanceEffects.outgoing.every(
+      (effect) => effect.previewContribution !== undefined,
+    ),
+    "Every drafted Stance Effect should display a proposed contribution",
+  );
+
+  const blockedEnactmentState = {
+    ...initial,
+    nodes: {
+      ...initial.nodes,
+      authority: {
+        ...initial.nodes.authority,
+        value: 3,
+        baseValue: 3,
+      },
+    },
+  };
+  const blockedEnactment = executeCommand(
+    exampleScenario,
+    blockedEnactmentState,
+    {
+      type: "enact-stance",
+      stanceId: "community-partnerships",
+      value: 0.5,
+    },
+  );
+  assert(
+    !blockedEnactment.accepted,
+    "The low-authority enactment should remain unavailable",
+  );
+  const blockedProductScenario: ScenarioDefinition = {
+    ...exampleScenario,
+    effects: exampleScenario.effects.map((effect) =>
+      effect.id === "partnerships-to-charity"
+        ? {
+            ...effect,
+            response: {
+              kind: "product",
+              coefficient: 1,
+              factors: ["authority"],
+            },
+          }
+        : effect,
+    ),
+  };
+  const blockedPreview = previewStanceEffects(
+    blockedProductScenario,
+    blockedEnactmentState,
+    "community-partnerships",
+    0.5,
+  ).find((effect) => effect.effectId === "partnerships-to-charity");
+  assert(
+    blockedPreview?.kind === "estimate",
+    "A blocked proposal should provide a clearly marked estimate",
+  );
+  assert(
+    blockedPreview?.contribution === 0,
+    "A blocked estimate should use the post-cost Resource value after clamping",
+  );
+  assert(
+    blockedEnactmentState.nodes.authority.value === 3,
+    "Projecting a blocked proposal must not mutate the live Resource value",
   );
 
   const productScenario: ScenarioDefinition = {

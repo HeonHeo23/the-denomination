@@ -19,6 +19,8 @@ import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
+import { GameOverReportDialog } from "./GameOverReportDialog";
+import { projectGameOverWarnings } from "./projectGameOvers";
 import "./game-shell.css";
 
 const TURN_REVEAL_DURATION_MS = 1000;
@@ -53,11 +55,15 @@ export function GameView({
   const { play } = useInterfaceSound();
   const session = useGameSession(entry.scenario, restoredState);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const [sheetHoveredNodeId, setSheetHoveredNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport>();
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
+  const [showGameOverReport, setShowGameOverReport] = useState(
+    Boolean(restoredState?.outcome),
+  );
   const [graphContextLabel, setGraphContextLabel] = useState(
     () =>
       entry.scenario.nodes.find((node) => node.graphVisible !== false)
@@ -117,17 +123,25 @@ export function GameView({
       setTurnReport(undefined);
       setToastMessage(undefined);
       if (reducedMotion) {
-        setTurnReport(report);
-        if (report.situationTransitions.some(({ kind }) => kind === "began")) {
+        if (session.state.outcome) {
+          // oxlint-disable-next-line react/set-state-in-effect -- the terminal overlay follows the completed engine transition.
+          setShowGameOverReport(true);
+        } else setTurnReport(report);
+        if (
+          report.situationTransitions.some(({ kind }) => kind === "began") ||
+          report.crisisTransitions.some(({ kind }) => kind === "stage")
+        ) {
           play("warning");
         }
       } else {
         setRevealingTurn(report);
         revealTimer.current = setTimeout(() => {
           setRevealingTurn(undefined);
-          setTurnReport(report);
+          if (session.state.outcome) setShowGameOverReport(true);
+          else setTurnReport(report);
           if (
-            report.situationTransitions.some(({ kind }) => kind === "began")
+            report.situationTransitions.some(({ kind }) => kind === "began") ||
+            report.crisisTransitions.some(({ kind }) => kind === "stage")
           ) {
             play("warning");
           }
@@ -177,6 +191,8 @@ export function GameView({
     : undefined;
   const visibleToast =
     toastMessage ?? (notice !== dismissedNotice ? notice : undefined);
+  const gameOverWarnings = projectGameOverWarnings(scenario, session.state);
+  const urgentGameOverWarning = gameOverWarnings[0];
 
   return (
     <div
@@ -195,6 +211,15 @@ export function GameView({
             (situation) => session.state.nodes[situation.id].isActive,
           ).length
         }
+        urgentGameOverWarning={
+          urgentGameOverWarning
+            ? {
+                title: urgentGameOverWarning.definition.title,
+                turnsRemaining: urgentGameOverWarning.turnsRemaining,
+              }
+            : undefined
+        }
+        gameOver={Boolean(session.state.outcome)}
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
         onAdvance={() => {
@@ -219,12 +244,13 @@ export function GameView({
           play("paper");
           setActivePanel("chronicle");
         }}
+        onOpenGameOver={() => setShowGameOverReport(true)}
         musicMuted={musicMuted}
         onToggleMusic={onToggleMusic}
       />
 
       <main
-        className="mx-auto grid min-h-0 w-full max-w-[1800px] flex-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-3 sm:p-4 xl:grid-cols-[20rem_minmax(0,1fr)] xl:p-0"
+        className="mx-auto grid min-h-0 w-full max-w-[1800px] flex-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)]"
         data-game-table
       >
         <ScrollArea
@@ -246,6 +272,10 @@ export function GameView({
               resources={resources}
               situations={situations}
               hideScenario
+              onSituationHover={setSheetHoveredNodeId}
+              onSituationSelect={setSelectedNodeId}
+              onResourceHover={setSheetHoveredNodeId}
+              onResourceSelect={setSelectedNodeId}
             />
           </div>
         </ScrollArea>
@@ -263,14 +293,12 @@ export function GameView({
               <span>
                 <i className="effect-key effect-key--negative" /> Decreasing
               </span>
-              <span>
-                <i className="effect-key effect-key--inactive" /> Inactive
-              </span>
             </div>
             <SimulationGraph
               scenario={scenario}
               state={session.state}
               onNodeSelect={setSelectedNodeId}
+              externalHoveredNodeId={sheetHoveredNodeId}
               onViewContextChange={setGraphContextLabel}
               turnFeedback={graphTurnFeedback}
             />
@@ -285,6 +313,10 @@ export function GameView({
         resources={resources}
         situations={situations}
         onClose={() => setActivePanel(undefined)}
+        onSituationHover={setSheetHoveredNodeId}
+        onSituationSelect={setSelectedNodeId}
+        onResourceHover={setSheetHoveredNodeId}
+        onResourceSelect={setSelectedNodeId}
       />
 
       {selectedDefinition && selectedRuntime && (
@@ -305,6 +337,23 @@ export function GameView({
         <TurnReportDialog
           report={turnReport}
           onClose={() => setTurnReport(undefined)}
+        />
+      )}
+
+      {showGameOverReport && session.state.outcome && (
+        <GameOverReportDialog
+          scenario={scenario}
+          state={session.state}
+          onReview={() => setShowGameOverReport(false)}
+          onRestart={() => {
+            setShowGameOverReport(false);
+            setSelectedNodeId(undefined);
+            session.reset();
+          }}
+          onMainMenu={() => {
+            setShowGameOverReport(false);
+            onMainMenu(session.state);
+          }}
         />
       )}
 

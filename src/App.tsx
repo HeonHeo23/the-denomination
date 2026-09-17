@@ -217,7 +217,7 @@ function Application({
     (state: SimulationState) => {
       if (!activeGame) return;
       const save: SavedGame = {
-        version: 1,
+        version: 2,
         scenarioId: activeGame.entry.scenario.id,
         scenarioContentVersion: activeGame.entry.contentVersion,
         playerName: activeGame.playerName,

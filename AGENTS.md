@@ -12,6 +12,7 @@ Use repository documentation according to the following ownership:
 - `GAME_DESIGN.md` — authoritative for game mechanics and simulation semantics.
 - `ARCHITECTURE.md` — authoritative for intended software structure, module responsibilities, and dependency boundaries.
 - `DATA_FORMAT.md` — authoritative for intended Scenario and game-content representation.
+- `UI_DESIGN_GUIDE.md` — authoritative for UI presentation principles, user experience, accessibility, and styling ownership.
 - `AGENTS.md` — authoritative for repository-level agent instructions.
 - `IMPLEMENTATION_STATUS.md` — non-authoritative inventory of current implementation status and known gaps.
 
@@ -22,7 +23,8 @@ If documents conflict:
 1. `GAME_DESIGN.md` governs intended game behavior.
 2. `ARCHITECTURE.md` governs implementation structure.
 3. `DATA_FORMAT.md` governs content representation.
-4. Existing code represents the current implementation, but does not override explicit documented semantics.
+4. `UI_DESIGN_GUIDE.md` governs presentation and interaction direction.
+5. Existing code represents the current implementation, but does not override explicit documented semantics.
 
 Report meaningful inconsistencies rather than silently reconciling them.
 

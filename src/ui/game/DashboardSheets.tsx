@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Clock3, History, ShieldCheck } from "lucide-react";
+import { Clock3, History, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type {
   NodeDefinition,
   ScenarioDefinition,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import {
   Sheet,
   SheetContent,
@@ -30,8 +32,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatSignedValue, formatValue } from "@/ui/formatValue";
-import { InstitutionOverview } from "./InstitutionOverview";
+import { formatSignedValue } from "@/ui/formatValue";
+import {
+  ActiveSituationItems,
+  InstitutionOverview,
+} from "./InstitutionOverview";
+import { projectGameOverWarnings } from "./projectGameOvers";
 
 export type DashboardPanel = "overview" | "situations" | "chronicle";
 
@@ -42,6 +48,10 @@ interface DashboardSheetsProps {
   readonly resources: readonly NodeDefinition[];
   readonly situations: readonly NodeDefinition[];
   readonly onClose: () => void;
+  readonly onSituationHover: (nodeId?: string) => void;
+  readonly onSituationSelect: (nodeId: string) => void;
+  readonly onResourceHover: (nodeId?: string) => void;
+  readonly onResourceSelect: (nodeId: string) => void;
 }
 
 interface DashboardSheetProps {
@@ -102,9 +112,17 @@ export function DashboardSheets({
   resources,
   situations,
   onClose,
+  onSituationHover,
+  onSituationSelect,
+  onResourceHover,
+  onResourceSelect,
 }: DashboardSheetsProps) {
   const nodeDomains = new Map(
     scenario.nodes.map((node) => [node.id, node.domain]),
+  );
+  const gameOverWarnings = projectGameOverWarnings(scenario, state);
+  const activeSituations = situations.filter(
+    (situation) => state.nodes[situation.id].isActive,
   );
 
   return (
@@ -125,6 +143,10 @@ export function DashboardSheets({
           situations={situations}
           compact
           hideScenario
+          onSituationHover={onSituationHover}
+          onSituationSelect={onSituationSelect}
+          onResourceHover={onResourceHover}
+          onResourceSelect={onResourceSelect}
         />
       </DashboardSheet>
 
@@ -132,41 +154,69 @@ export function DashboardSheets({
         open={activePanel === "situations"}
         title="Situations"
         description="Threshold-driven conditions currently being watched by the institution."
-        eyebrow={`${situations.filter((situation) => state.nodes[situation.id].isActive).length} active notices`}
+        eyebrow={`${activeSituations.length} active notices`}
         onClose={onClose}
       >
-        <ItemGroup>
-          {situations.map((situation) => {
-            const runtime = state.nodes[situation.id];
-            return (
-              <Item
-                role="listitem"
-                variant={runtime.isActive ? "outline" : "muted"}
-                key={situation.id}
-                data-game-situation-notice={
-                  runtime.isActive ? "active" : "inactive"
-                }
-              >
-                <ItemContent>
-                  <ItemTitle>{situation.name}</ItemTitle>
-                  <ItemDescription>{situation.description}</ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <div className="text-right">
-                    <strong className="block font-mono text-sm">
-                      {formatValue(runtime.value, situation.domain)}
-                    </strong>
-                    <Badge
-                      variant={runtime.isActive ? "destructive" : "secondary"}
-                    >
-                      {runtime.isActive ? "Active" : "Inactive"}
-                    </Badge>
+        {gameOverWarnings.length > 0 && (
+          <section
+            className="mb-5 flex flex-col gap-3"
+            aria-labelledby="active-crises-title"
+          >
+            <h3 id="active-crises-title" className="font-heading text-lg">
+              Active terminal crises
+            </h3>
+            {gameOverWarnings.map((warning) => (
+              <Alert variant="destructive" key={warning.definition.id}>
+                <ShieldAlert aria-hidden="true" />
+                <AlertTitle>{warning.definition.title}</AlertTitle>
+                <AlertDescription>
+                  <div className="flex flex-col gap-3">
+                    <p>
+                      {warning.turnsRemaining} turn
+                      {warning.turnsRemaining === 1 ? "" : "s"} remain before
+                      Game Over unless the prerequisites clear.
+                    </p>
+                    <Progress
+                      value={warning.progressPercent}
+                      aria-label={`${warning.definition.title}: ${warning.consecutiveTurns} of ${warning.definition.terminalAfterTurns} turns`}
+                    />
+                    {warning.matchedGroups.map(({ group, prerequisites }) => (
+                      <div key={group.id}>
+                        <strong>{group.title}</strong>
+                        <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
+                          {prerequisites.map((prerequisite) => (
+                            <li
+                              key={`${group.id}:${prerequisite.prerequisite.nodeId}`}
+                            >
+                              {prerequisite.description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-                </ItemActions>
-              </Item>
-            );
-          })}
-        </ItemGroup>
+                </AlertDescription>
+              </Alert>
+            ))}
+          </section>
+        )}
+        {activeSituations.length === 0 ? (
+          <Empty className="min-h-48 border">
+            <EmptyHeader>
+              <EmptyTitle>All is quiet</EmptyTitle>
+              <EmptyDescription>
+                No active situations require immediate attention.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ActiveSituationItems
+            situations={activeSituations}
+            state={state}
+            onSituationHover={onSituationHover}
+            onSituationSelect={onSituationSelect}
+          />
+        )}
       </DashboardSheet>
 
       <DashboardSheet

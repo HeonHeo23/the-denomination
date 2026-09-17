@@ -206,7 +206,11 @@ Turn advancement:
 
 ```text
 Scenario + prior snapshot + injected RNG
-    -> pure engine transition
+    -> persistent evaluation and Grudge decay
+    -> reusable prerequisite evaluation
+    -> Game Over stage/recovery consequences
+    -> terminal Game Over resolution
+    -> future normal Ending resolution only when nonterminal
     -> next snapshot + trace/messages
 ```
 
@@ -225,25 +229,34 @@ Incident candidate calculation and incident selection should be separable
 engine steps. This is required because the selection policy is still a design
 TBD, not because it warrants a general rules framework.
 
+Reusable runtime-prerequisite evaluation and consequence application belong in
+the simulation engine. Consumers such as Game Overs or future incidents own
+when they evaluate and why a consequence occurs; sharing these helpers MUST NOT
+collapse their distinct timing or selection semantics. Game Over evaluation
+reads the completed persistent snapshot, owns its episode counters, and records
+the sole terminal outcome before any future normal Ending resolver runs.
+
 ### Engine functions
 
 This is an implementation reference for `src/simulation/engine`, including
 private helpers. It describes current code rather than adding game semantics;
 `GAME_DESIGN.md` remains authoritative.
 
-| Function                                                  | Visibility      | Current flow                                                                                                                                       |
-| --------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `advanceTurn`<br>`advanceTurn.ts`                         | Public          | 1. Increment turn/year. <br>2. Evaluate persistence. <br>3. Decay and clean up Grudges. <br>4. Return state, message, and trace.                   |
-| `responseValue`<br>`evaluatePersistentState.ts`           | Private         | 1. Select response kind. <br>2. Calculate its contribution.                                                                                        |
-| `evaluateEffect`<br>`evaluatePersistentState.ts`          | Private         | 1. Read source. <br>2. Update inertia history. <br>3. Average and evaluate response.                                                               |
-| `evaluatePersistentState`<br>`evaluatePersistentState.ts` | Engine-internal | 1. Evaluate Effects from one snapshot. <br>2. Recalculate non-Stances. <br>3. Clamp and apply Situation hysteresis. <br>4. Return state and trace. |
-| `initializeScenario`<br>`initialize.ts`                   | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                            |
-| `validateScenario`<br>`validateScenario.ts`               | Public          | 1. Collect diagnostics. <br>2. Check IDs, domains, values, thresholds, references, and costs. <br>3. Return all errors.                            |
-| `reject`<br>`playerActions.ts`                            | Private         | 1. Create a rejected result. <br>2. Preserve the original state. <br>3. Include the message.                                                       |
-| `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal`<br>`playerActions.ts` | Public | Assess the semantic Stance action against one Scenario and runtime snapshot. |
-| `executeCommand`<br>`playerActions.ts`                    | Public          | Verify Scenario ownership, dispatch change/enact/repeal commands, debit authored costs, and return an immutable next snapshot. |
-| `indexNodes`<br>`shared.ts`                               | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                     |
-| `clampValue`<br>`shared.ts`                               | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                      |
+| Function                                                                                    | Visibility      | Current flow                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Return state, message, and trace. |
+| `evaluateGameOvers`<br>`evaluateGameOvers.ts`                                               | Engine-internal | Evaluate grouped prerequisites, advance or recover crisis episodes, apply stage consequences, and record all simultaneous terminal causes.                                        |
+| `applyConsequences`<br>`consequences.ts`                                                    | Engine-internal | Apply validated Resource, Grudge, and activation consequences immutably for one deterministic occurrence.                                                                         |
+| `responseValue`<br>`evaluatePersistentState.ts`                                             | Private         | 1. Select response kind. <br>2. Calculate its contribution.                                                                                                                       |
+| `evaluateEffect`<br>`evaluatePersistentState.ts`                                            | Private         | 1. Read source. <br>2. Update inertia history. <br>3. Average and evaluate response.                                                                                              |
+| `evaluatePersistentState`<br>`evaluatePersistentState.ts`                                   | Engine-internal | 1. Evaluate Effects from one snapshot. <br>2. Recalculate non-Stances. <br>3. Clamp and apply Situation hysteresis. <br>4. Return state and trace.                                |
+| `initializeScenario`<br>`initialize.ts`                                                     | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                                                           |
+| `validateScenario`<br>`validateScenario.ts`                                                 | Public          | 1. Collect diagnostics. <br>2. Check IDs, domains, values, thresholds, references, and costs. <br>3. Return all errors.                                                           |
+| `reject`<br>`playerActions.ts`                                                              | Private         | 1. Create a rejected result. <br>2. Preserve the original state. <br>3. Include the message.                                                                                      |
+| `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal`<br>`playerActions.ts` | Public          | Assess the semantic Stance action against one Scenario and runtime snapshot.                                                                                                      |
+| `executeCommand`<br>`playerActions.ts`                                                      | Public          | Verify Scenario ownership, dispatch change/enact/repeal commands, debit authored costs, and return an immutable next snapshot.                                                    |
+| `indexNodes`<br>`shared.ts`                                                                 | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                                                    |
+| `clampValue`<br>`shared.ts`                                                                 | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                                                     |
 
 `src/simulation/index.ts` declares no functions. It re-exports the public
 operations `advanceTurn`, `initializeScenario`, `executeCommand`, and

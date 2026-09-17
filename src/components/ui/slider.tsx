@@ -51,13 +51,13 @@ function Slider({
         {markerPosition !== undefined && (
           <span
             aria-hidden="true"
-            className="slider-marker"
+            data-slot="slider-marker"
             style={{
               left: `calc(${Math.min(100, Math.max(0, markerPosition))}% + ${markerOffsetRem}rem)`,
             }}
           >
             {markerLabel !== undefined && (
-              <span className="slider-marker__label">{markerLabel}</span>
+              <span data-slot="slider-marker-label">{markerLabel}</span>
             )}
           </span>
         )}

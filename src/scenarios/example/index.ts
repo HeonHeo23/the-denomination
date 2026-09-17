@@ -7,9 +7,264 @@ export const exampleScenario = {
   title: "The Connectional Fellowship",
   description:
     "Guide a growing fellowship through competing demands for institutional strength, local trust, ministry investment, and sustainable mission.",
-  schemaVersion: 2,
+  schemaVersion: 3,
   start: { turn: 0, year: 1980 },
   conditions: ["has-seminary", "has-general-assembly"],
+  gameOvers: [
+    {
+      id: "loss-of-connectional-mandate",
+      title: "Loss of connectional mandate",
+      prerequisiteGroups: [
+        {
+          id: "authority-and-trust-exhausted",
+          title: "Authority and trust exhausted",
+          allOf: [
+            {
+              kind: "node-value",
+              nodeId: "institutional-authority",
+              comparison: "at-most",
+              value: 0.12,
+            },
+            {
+              kind: "node-value",
+              nodeId: "leadership-trust",
+              comparison: "at-most",
+              value: 0.2,
+            },
+          ],
+        },
+      ],
+      terminalAfterTurns: 4,
+      stages: [
+        {
+          id: "assembly-inquiry",
+          atTurn: 1,
+          title: "The Assembly opens an inquiry",
+          description:
+            "Regional leaders formally question whether the central office still carries a connectional mandate.",
+          consequences: [{ kind: "resource", target: "authority", amount: -3 }],
+        },
+        {
+          id: "formal-investigation",
+          atTurn: 2,
+          title: "A formal investigation begins",
+          description:
+            "The inquiry widens as records, appointments, and disputed decisions are brought before the Assembly.",
+          consequences: [
+            {
+              kind: "grudge",
+              target: "institutional-authority",
+              magnitude: -0.04,
+              decay: 0.75,
+              label: "Assembly investigation",
+            },
+          ],
+        },
+        {
+          id: "deposition-hearing",
+          atTurn: 3,
+          title: "A deposition hearing is called",
+          description:
+            "A rival slate asks the Assembly to withdraw recognition from the present leadership.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -5 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: -0.05,
+              decay: 0.75,
+              label: "Public challenge to the leadership",
+            },
+          ],
+        },
+      ],
+      recovery: {
+        title: "The mandate is reaffirmed",
+        description:
+          "The Assembly's challenge recedes after confidence and practical authority are restored.",
+        consequences: [
+          { kind: "resource", target: "authority", amount: 4 },
+          {
+            kind: "grudge",
+            target: "leadership-trust",
+            magnitude: 0.03,
+            decay: 0.5,
+            label: "Reaffirmed mandate",
+          },
+        ],
+      },
+      report: {
+        title: "The Assembly withdraws your mandate",
+        narrative:
+          "After years of exhausted authority and public distrust, the General Assembly recognizes new leadership. Your commission to guide the fellowship has ended.",
+      },
+    },
+    {
+      id: "denominational-fracture",
+      title: "Denominational fracture",
+      prerequisiteGroups: [
+        {
+          id: "tension-without-cohesion",
+          title: "Governance fracture",
+          allOf: [
+            {
+              kind: "node-activation",
+              nodeId: "governance-tension",
+              active: true,
+            },
+            {
+              kind: "node-value",
+              nodeId: "congregational-cohesion",
+              comparison: "at-most",
+              value: 0.3,
+            },
+          ],
+        },
+      ],
+      terminalAfterTurns: 5,
+      stages: [
+        {
+          id: "public-dissent",
+          atTurn: 1,
+          title: "Regional dissent becomes public",
+          description:
+            "Congregations begin openly disputing the fellowship's ability to hold its common life together.",
+          consequences: [{ kind: "resource", target: "authority", amount: -2 }],
+        },
+        {
+          id: "withheld-cooperation",
+          atTurn: 2,
+          title: "Congregations withhold cooperation",
+          description:
+            "Shared ministries falter as regional networks stop cooperating with central initiatives.",
+          consequences: [
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: -0.03,
+              decay: 0.8,
+              label: "Withheld regional cooperation",
+            },
+          ],
+        },
+        {
+          id: "rival-organization",
+          atTurn: 3,
+          title: "A rival organization takes shape",
+          description:
+            "Dissenting districts establish their own council and begin speaking for the fellowship.",
+          consequences: [{ kind: "resource", target: "authority", amount: -4 }],
+        },
+        {
+          id: "separation-convention",
+          atTurn: 4,
+          title: "A separation convention is summoned",
+          description:
+            "Delegates gather to divide congregations, property, and ministries between competing bodies.",
+          consequences: [
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: -0.05,
+              decay: 0.8,
+              label: "Preparations for separation",
+            },
+          ],
+        },
+      ],
+      recovery: {
+        title: "The separation movement disperses",
+        description:
+          "Renewed cooperation deprives the rival council of the support needed to divide the fellowship.",
+        consequences: [
+          { kind: "resource", target: "authority", amount: 3 },
+          {
+            kind: "grudge",
+            target: "congregational-cohesion",
+            magnitude: 0.03,
+            decay: 0.5,
+            label: "Renewed connectional cooperation",
+          },
+        ],
+      },
+      report: {
+        title: "The fellowship divides",
+        narrative:
+          "The separation convention creates rival regional fellowships. The connectional body you led no longer exists as a single institution.",
+      },
+    },
+    {
+      id: "institutional-insolvency",
+      title: "Institutional insolvency",
+      prerequisiteGroups: [
+        {
+          id: "strain-without-reserves",
+          title: "Institutional financial crisis",
+          allOf: [
+            {
+              kind: "node-activation",
+              nodeId: "financial-strain",
+              active: true,
+            },
+            {
+              kind: "node-value",
+              nodeId: "money",
+              comparison: "at-most",
+              value: 10,
+            },
+          ],
+        },
+      ],
+      terminalAfterTurns: 3,
+      stages: [
+        {
+          id: "emergency-restrictions",
+          atTurn: 1,
+          title: "Emergency restrictions are imposed",
+          description:
+            "The treasury suspends ordinary commitments to preserve its remaining cash.",
+          consequences: [{ kind: "resource", target: "money", amount: -3 }],
+        },
+        {
+          id: "creditor-intervention",
+          atTurn: 2,
+          title: "Creditors intervene",
+          description:
+            "External claims now determine which ministries can continue and which obligations go unpaid.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "financial-stability",
+              magnitude: -0.05,
+              decay: 0.75,
+              label: "Creditor intervention",
+            },
+          ],
+        },
+      ],
+      recovery: {
+        title: "The emergency budget holds",
+        description:
+          "Restored reserves and operating stability allow the institution to resume control of its obligations.",
+        consequences: [
+          { kind: "resource", target: "money", amount: 4 },
+          {
+            kind: "grudge",
+            target: "financial-stability",
+            magnitude: 0.03,
+            decay: 0.5,
+            label: "Confidence in the emergency budget",
+          },
+        ],
+      },
+      report: {
+        title: "The institution enters external administration",
+        narrative:
+          "With obligations unmet and reserves exhausted, trustees surrender control to an external administrator. Your leadership can no longer direct the fellowship's work.",
+      },
+    },
+  ],
   nodes: [
     {
       id: "centralization",
@@ -320,8 +575,8 @@ export const exampleScenario = {
       domain: percentDomain,
       initial: { value: 0.22, isActive: false, isForced: false },
       baseline: 0,
-      startThreshold: 0.6,
-      stopThreshold: 0.38,
+      startThreshold: 0.4,
+      stopThreshold: 0.28,
     },
     {
       id: "community-partnerships",

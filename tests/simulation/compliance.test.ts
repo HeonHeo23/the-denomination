@@ -10,6 +10,7 @@ import {
   validateScenario,
   type ScenarioDefinition,
   type NodeDefinition,
+  type SimulationState,
 } from "../../src/simulation";
 import {
   createGameSession,
@@ -19,7 +20,12 @@ import {
   projectEffectsToReactFlow,
   projectGraphCategories,
   projectToReactFlow,
+  type GraphTurnFeedback,
 } from "../../src/ui/graph/projectToReactFlow";
+import {
+  filterNodeSearchEntries,
+  projectNodeSearchEntries,
+} from "../../src/ui/graph/projectNodeSearch";
 import { projectNodeReferenceMarkers } from "../../src/ui/referenceMarkers";
 import {
   formatContributionPercent,
@@ -51,7 +57,7 @@ export function runComplianceTests() {
   assert.deepEqual(loaded.scenario.events, []);
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
   const minimal: ScenarioDefinition = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: "minimal",
     title: "Minimal",
     description: "Empty content",
@@ -294,6 +300,67 @@ export function runComplianceTests() {
         ],
       },
       "$.effects[0].response.value",
+    ],
+    [
+      {
+        ...exampleScenario,
+        gameOvers: exampleScenario.gameOvers.map((gameOver, index) =>
+          index === 0 ? { ...gameOver, terminalAfterTurns: 1 } : gameOver,
+        ),
+      },
+      "$.gameOvers[0].terminalAfterTurns",
+    ],
+    [
+      {
+        ...exampleScenario,
+        gameOvers: exampleScenario.gameOvers.map((gameOver, index) =>
+          index === 0
+            ? {
+                ...gameOver,
+                prerequisiteGroups: [
+                  {
+                    ...gameOver.prerequisiteGroups[0],
+                    allOf: [
+                      {
+                        kind: "node-value",
+                        nodeId: "institutional-authority",
+                        comparison: "at-most",
+                        value: 2,
+                      },
+                    ],
+                  },
+                ],
+              }
+            : gameOver,
+        ),
+      },
+      "$.gameOvers[0].prerequisiteGroups[0].allOf[0].value",
+    ],
+    [
+      {
+        ...exampleScenario,
+        gameOvers: exampleScenario.gameOvers.map((gameOver, index) =>
+          index === 0
+            ? {
+                ...gameOver,
+                stages: [
+                  {
+                    ...gameOver.stages[0],
+                    consequences: [
+                      {
+                        kind: "activation",
+                        target: "leadership-trust",
+                        active: false,
+                      },
+                    ],
+                  },
+                  ...gameOver.stages.slice(1),
+                ],
+              }
+            : gameOver,
+        ),
+      },
+      "$.gameOvers[0].stages[0].consequences[0].target",
     ],
   ];
   for (const [input, path] of invalid) {
@@ -626,23 +693,25 @@ export function runComplianceTests() {
   assert.equal(meterPercent(100, domain), 100);
   assert.equal(formatValue(0.4, { min: 0, max: 1, clamp: true }), "40%");
   const graph = projectToReactFlow(exampleScenario, initial);
-  const graphCategories = projectGraphCategories(exampleScenario);
+  const graphCategories = projectGraphCategories(exampleScenario, initial);
   assert.deepEqual(
     graphCategories.map(({ label }) => label),
     [
       ...new Set(
         exampleScenario.nodes
           .filter(
-            (node) => !("graphVisible" in node) || node.graphVisible !== false,
+            (node) =>
+              (!("graphVisible" in node) || node.graphVisible !== false) &&
+              initial.nodes[node.id].isActive,
           )
           .map((node) => node.category ?? "Other concerns"),
       ),
     ],
-    "Graph categories should preserve first Scenario appearance order",
+    "Graph categories should preserve active Scenario appearance order",
   );
   assert.deepEqual(
     graphCategories,
-    projectGraphCategories(exampleScenario),
+    projectGraphCategories(exampleScenario, initial),
     "Graph category navigation should be stable",
   );
   assert.ok(
@@ -651,7 +720,28 @@ export function runComplianceTests() {
     ),
     "Every category focus should resolve to visible graph nodes",
   );
+  assert.ok(
+    graphCategories.every(
+      ({ nodeIds, nonFactionNodeCount }) =>
+        nonFactionNodeCount ===
+        nodeIds.filter(
+          (id) =>
+            exampleScenario.nodes.find((node) => node.id === id)?.type !==
+            "faction",
+        ).length,
+    ),
+    "Category counts should include only active non-Faction nodes",
+  );
   assert.ok(!graph.nodes.some((n) => n.id === "authority"));
+  assert.ok(!graph.nodes.some((n) => n.id === "governance-tension"));
+  const renderedNodeIds = new Set(graph.nodes.map(({ id }) => id));
+  assert.ok(
+    graph.edges.every(
+      ({ source, target }) =>
+        renderedNodeIds.has(source) && renderedNodeIds.has(target),
+    ),
+    "Graph Effects should connect only rendered active nodes",
+  );
   assert.deepEqual(graph.nodes[0].data.domain, exampleScenario.nodes[0].domain);
   const definitionsById = new Map<string, NodeDefinition>(
     exampleScenario.nodes.map((definition) => [definition.id, definition]),
@@ -743,6 +833,53 @@ export function runComplianceTests() {
     graph.nodes.some((node) => node.data.category === "Governance"),
     "Authored categories should be retained by the graph projection",
   );
+  const searchEntries = projectNodeSearchEntries(exampleScenario, initial);
+  assert.equal(
+    searchEntries.length,
+    exampleScenario.nodes.length,
+    "Search should index every Scenario node",
+  );
+  assert.ok(
+    searchEntries
+      .slice(0, graph.nodes.length)
+      .every(({ isOnBoard }) => Boolean(isOnBoard)),
+    "Search should order board nodes first",
+  );
+  for (const onBoard of [true, false]) {
+    const names = searchEntries
+      .filter((entry) => entry.isOnBoard === onBoard)
+      .map(({ name }) => name);
+    assert.deepEqual(
+      names,
+      [...names].sort((left, right) => left.localeCompare(right)),
+      "Search groups should be alphabetized",
+    );
+  }
+  assert.ok(
+    searchEntries.some(({ isForced }) => isForced),
+    "Search should expose forced activation status",
+  );
+  assert.equal(
+    searchEntries.find(({ id }) => id === "governance-tension")?.isActive,
+    false,
+    "Search should retain inactive nodes",
+  );
+  assert.equal(
+    searchEntries.find(({ id }) => id === "authority")?.isGraphVisible,
+    false,
+    "Search should retain graph-hidden nodes",
+  );
+  const inactiveSituations = filterNodeSearchEntries(
+    searchEntries,
+    "inactive situation",
+  );
+  assert.ok(inactiveSituations.length > 0);
+  assert.ok(
+    inactiveSituations.every(
+      (entry) => !entry.isActive && entry.nodeType === "situation",
+    ),
+    "Search should match multiple metadata and status terms",
+  );
   assert.ok(
     graph.edges.every((edge) => edge.label === undefined),
     "Unfocused Effects should not display labels",
@@ -773,9 +910,19 @@ export function runComplianceTests() {
     ),
     "Hovering a node should fade unrelated Effects",
   );
+  const feedbackState = {
+    ...initial,
+    nodes: {
+      ...initial.nodes,
+      "governance-tension": {
+        ...initial.nodes["governance-tension"],
+        isActive: true,
+      },
+    },
+  };
   const feedbackGraph = projectToReactFlow(
     exampleScenario,
-    initial,
+    feedbackState,
     undefined,
     {
       changes: [
@@ -806,6 +953,60 @@ export function runComplianceTests() {
       .activationTransition,
     "began",
     "Turn feedback should project activation transitions",
+  );
+  const endedState: SimulationState = {
+    ...initial,
+    nodes: {
+      ...initial.nodes,
+      centralization: {
+        ...initial.nodes.centralization,
+        isActive: false,
+      },
+    },
+  };
+  const endedFeedback: GraphTurnFeedback = {
+    changes: [
+      {
+        nodeId: "centralization",
+        delta: 0,
+        previousActive: true,
+        isActive: false,
+      },
+    ],
+    changedEffectIds: [],
+  };
+  assert.equal(
+    projectToReactFlow(
+      exampleScenario,
+      endedState,
+      undefined,
+      endedFeedback,
+    ).nodes.find(({ id }) => id === "centralization")?.data
+      .activationTransition,
+    "ended",
+    "A newly inactive node should remain for the turn reveal",
+  );
+  assert.ok(
+    projectToReactFlow(exampleScenario, endedState, undefined, undefined, [
+      "centralization",
+    ]).nodes.some(({ id }) => id === "centralization"),
+    "A newly inactive node should remain on the graph for the completed turn",
+  );
+  const carriedEndedCategory = projectGraphCategories(
+    exampleScenario,
+    endedState,
+    undefined,
+    ["centralization"],
+  ).find(({ nodeIds }) => nodeIds.includes("centralization"));
+  assert.ok(carriedEndedCategory);
+  assert.equal(
+    carriedEndedCategory.nonFactionNodeCount,
+    carriedEndedCategory.nodeIds.filter(
+      (nodeId) =>
+        exampleScenario.nodes.find(({ id }) => id === nodeId)?.type !==
+          "faction" && endedState.nodes[nodeId].isActive,
+    ).length,
+    "A carried ended node should not increase an active category count",
   );
   assert.equal(
     feedbackGraph.edges.find((edge) => edge.id === "centralization-to-reach")

@@ -93,7 +93,7 @@
 [data-game-menu-trigger],
 [data-game-overview-trigger] {
   color: var(--game-wood-foreground);
-  border-color: transparent;
+  border-color: color-mix(in oklch, var(--game-brass) 24%, transparent);
   background: transparent;
 }
 
@@ -195,6 +195,34 @@
 [data-game-situation-notice] {
   position: relative;
   border-radius: 2px;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+[data-game-situation-notice]:hover {
+  opacity: 1;
+  border-color: color-mix(in oklch, var(--game-brass) 52%, var(--border));
+  background: color-mix(in oklch, var(--game-brass) 8%, var(--game-paper));
+  box-shadow: 0 7px 16px color-mix(in oklch, var(--game-wood) 16%, transparent);
+  transform: translateY(-1px);
+}
+
+[data-game-situation-notice]:focus-visible {
+  opacity: 1;
+  outline: 3px solid color-mix(in oklch, var(--ring) 42%, transparent);
+  outline-offset: 2px;
+}
+
+[data-game-situation-notice="active"]:hover {
+  border-inline-start-color: var(--game-warning);
+  background: color-mix(in oklch, var(--game-warning) 13%, var(--game-paper));
+  box-shadow: 0 7px 16px
+    color-mix(in oklch, var(--game-warning) 20%, transparent);
 }
 
 [data-game-situation-notice="active"] {

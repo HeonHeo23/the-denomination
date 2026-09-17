@@ -27,7 +27,7 @@ Scenario is the sole top-level playable content object:
 
 ```ts
 interface ScenarioDefinition {
-  schemaVersion: 2;
+  schemaVersion: 3;
   id: string;
   title: string;
   description: string;
@@ -40,8 +40,12 @@ interface ScenarioDefinition {
   effects: EffectDefinition[];
   events?: EventDefinition[];
   dilemmas?: DilemmaDefinition[];
+  gameOvers?: GameOverDefinition[];
 }
 ```
+
+`gameOvers` is optional and normalizes to an empty array. A Scenario without
+Game Overs has no terminal-loss trajectory.
 
 `conditions` is the set of static categorical facts true for this Scenario.
 Required conditions on content use `requires`. This naming replaces the MVP's
@@ -137,7 +141,7 @@ change action, not the number of actions in a turn. `enactmentCost` and
 `repealCost` are optional fixed costs; an omitted transition cost permits that
 transition without a Resource debit.
 
-Version 2 Stances do not define a separate target position, implementation
+Version 3 Stances do not define a separate target position, implementation
 progress, or minister-like actor/assignment. Those belong to a deferred design
 direction for gradual Stance implementation. Do not add ad hoc fields for that
 system; its authored and runtime representation must be specified and
@@ -236,6 +240,65 @@ and contextual-factor activation, remain a game-design TBD. Do not add an
 arbitrary expression language or executable callbacks until those semantics
 are settled. Every `product.factors` entry must reference a node.
 
+## Runtime prerequisites
+
+Runtime prerequisites are reusable predicates over canonical node state. They
+are distinct from static `requires` tags.
+
+```ts
+type PrerequisiteDefinition =
+  | {
+      kind: "node-value";
+      nodeId: string;
+      comparison: "at-most" | "at-least";
+      value: number;
+    }
+  | { kind: "node-activation"; nodeId: string; active: boolean };
+
+interface PrerequisiteGroupDefinition {
+  id: string;
+  title: string;
+  allOf: PrerequisiteDefinition[];
+}
+```
+
+Every `nodeId` must resolve. A node-value threshold must lie within its node's
+domain. A group contains at least one prerequisite. IDs are unique within the
+consumer that owns the groups.
+
+## Game Overs
+
+```ts
+interface GameOverDefinition {
+  id: string;
+  title: string;
+  prerequisiteGroups: PrerequisiteGroupDefinition[];
+  terminalAfterTurns: number;
+  stages: GameOverStageDefinition[];
+  recovery?: {
+    title: string;
+    description: string;
+    consequences?: ConsequenceDefinition[];
+  };
+  report: { title: string; narrative: string };
+}
+
+interface GameOverStageDefinition {
+  id: string;
+  atTurn: number;
+  title: string;
+  description: string;
+  consequences?: ConsequenceDefinition[];
+}
+```
+
+Game Over IDs are unique within a Scenario. `terminalAfterTurns` is an integer
+of at least `2`. Stage IDs and `atTurn` values are unique within a trajectory;
+stage turns are positive and less than the terminal duration, and every
+trajectory has a warning stage at turn `1`. Omitted consequence arrays normalize
+to empty arrays. Stage declaration order has no meaning; trusted content sorts
+stages by `atTurn`.
+
 ## Incidents
 
 Events and Dilemmas share trigger fields:
@@ -290,7 +353,7 @@ interface DilemmaDefinition extends BaseIncidentDefinition {
 
 Choice IDs are unique within their Dilemma. A Dilemma has at least two choices.
 
-## Consequences and Grudge creation
+## Reusable consequences and Grudge creation
 
 ```ts
 type ConsequenceDefinition =
@@ -325,6 +388,10 @@ Rules:
 No generic permanent node-value consequence is defined. Adding one would
 require game-design approval.
 
+These definitions are shared content contracts. Game Over stages and recovery
+occurrences currently execute them; Events and Dilemmas retain the same shapes
+for their future engine implementation.
+
 ## Static definition versus runtime state
 
 Static definition data describes what may happen and the authoritative starting
@@ -337,6 +404,7 @@ conditions. Runtime state records what has happened:
 | Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
 | Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
 | Dilemma choices                                 | Pending Dilemma                                               |
+| Game Over definitions and warning stages        | Episode progress, matched groups, and terminal outcome        |
 | Scenario start                                  | Current turn and year                                         |
 
 A runtime snapshot is not Scenario content and must not be merged back into its
@@ -373,7 +441,7 @@ does not replace runtime validation for parsed content.
 
 ```ts
 {
-  schemaVersion: 2,
+  schemaVersion: 3,
   id: 'connectional-fellowship-1980',
   title: 'The Connectional Fellowship',
   description: 'A growing fellowship under institutional strain.',
@@ -419,7 +487,7 @@ required:
 
 | MVP                                     | Intended format                                                |
 | --------------------------------------- | -------------------------------------------------------------- |
-| no schema version                       | `schemaVersion: 2`                                             |
+| no schema version                       | `schemaVersion: 3`                                             |
 | `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
 | `initialValue`, activation state        | `initial.value`, `initial.isActive`, `initial.isForced`        |
 | `baselineValue`                         | `baseline`                                                     |

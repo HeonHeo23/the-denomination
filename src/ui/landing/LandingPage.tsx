@@ -273,7 +273,7 @@ export function LandingPage({
                           onChange={(event) =>
                             onPlayerNameChange(event.target.value)
                           }
-                          placeholder="Elias Ward"
+                          placeholder="Jesus Christ"
                           maxLength={40}
                           autoComplete="name"
                           aria-invalid={Boolean(errors.playerName)}
@@ -291,7 +291,7 @@ export function LandingPage({
                           onChange={(event) =>
                             onDenominationNameChange(event.target.value)
                           }
-                          placeholder="Covenant Fellowship"
+                          placeholder="The Church"
                           maxLength={60}
                           aria-invalid={Boolean(errors.denominationName)}
                           required
@@ -303,7 +303,7 @@ export function LandingPage({
                 </CardContent>
                 <CardFooter className="mt-5">
                   <Button className="w-full" type="submit" size="lg">
-                    Enter the first year
+                    Start a new game
                     <ArrowRight data-icon="inline-end" />
                   </Button>
                 </CardFooter>

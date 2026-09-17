@@ -28,9 +28,26 @@ export interface GrudgeRuntimeState {
 export interface HistoryEntry {
   readonly id: string;
   readonly turn: number;
-  readonly kind: "stance" | "situation";
+  readonly kind: "stance" | "situation" | "crisis" | "game-over";
   readonly title: string;
   readonly detail: string;
+}
+
+export interface GameOverProgressRuntimeState {
+  readonly episode: number;
+  readonly consecutiveTurns: number;
+  readonly matchedPrerequisiteGroupIds: readonly string[];
+}
+
+export interface GameOverOutcomeCause {
+  readonly gameOverId: string;
+  readonly matchedPrerequisiteGroupIds: readonly string[];
+}
+
+export interface GameOverOutcome {
+  readonly kind: "game-over";
+  readonly turn: number;
+  readonly causes: readonly GameOverOutcomeCause[];
 }
 
 /** Immutable canonical runtime snapshot for one Scenario session. */
@@ -42,4 +59,8 @@ export interface SimulationState {
   readonly effects: Readonly<Record<EffectId, EffectRuntimeState>>;
   readonly grudges: readonly GrudgeRuntimeState[];
   readonly history: readonly HistoryEntry[];
+  readonly gameOverProgress: Readonly<
+    Record<string, GameOverProgressRuntimeState>
+  >;
+  readonly outcome: GameOverOutcome | null;
 }

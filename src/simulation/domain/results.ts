@@ -47,4 +47,6 @@ export interface StanceTransitionAssessment {
 export interface StanceEffectPreview {
   readonly effectId: string;
   readonly contribution: number;
+  /** Whether the proposed contribution comes from a legal command candidate. */
+  readonly kind: "settled" | "estimate";
 }

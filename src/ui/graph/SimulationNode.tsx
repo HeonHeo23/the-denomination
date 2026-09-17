@@ -39,8 +39,9 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
       data-node-type={data.nodeType}
       data-inactive={!data.active}
       data-turn-change={data.revealing ? "true" : undefined}
+      data-focused={data.focused ? "true" : undefined}
       data-activation-transition={data.activationTransition}
-      title={`${data.description}\n${data.active ? "Active" : "Inactive"}${data.forced ? " · Forced active" : ""}`}
+      title={data.description}
       style={
         {
           "--reveal-index": Math.max(0, data.revealIndex ?? 0),

@@ -8,7 +8,7 @@ import {
   type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react";
-import { Grid2X2, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Search } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import type { ScenarioDefinition, SimulationState } from "../../simulation";
@@ -19,6 +19,8 @@ import {
   type GraphTurnFeedback,
   type SimulationNodeData,
 } from "./projectToReactFlow";
+import { projectNodeSearchEntries } from "./projectNodeSearch";
+import { NodeSearchDialog } from "./NodeSearchDialog";
 import { SimulationNode } from "./SimulationNode";
 import { useInterfaceSound } from "../sound/interfaceSoundContext";
 import "./simulation-graph.css";
@@ -30,6 +32,7 @@ interface SimulationGraphProps {
   readonly state: SimulationState;
   readonly onNodeSelect: (nodeId: string) => void;
   readonly onViewContextChange?: (label: string) => void;
+  readonly externalHoveredNodeId?: string;
   readonly turnFeedback?: GraphTurnFeedback;
 }
 
@@ -40,40 +43,93 @@ export function SimulationGraph({
   state,
   onNodeSelect,
   onViewContextChange,
+  externalHoveredNodeId,
   turnFeedback,
 }: SimulationGraphProps) {
   const { play } = useInterfaceSound();
   const [hoveredNodeId, setHoveredNodeId] = useState<string>();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [carriedEndedNodeIds, setCarriedEndedNodeIds] = useState<
+    readonly string[]
+  >([]);
+  const endedNodeIdsThisTurn = useMemo(
+    () =>
+      turnFeedback?.changes
+        .filter(({ previousActive, isActive }) => previousActive && !isActive)
+        .map(({ nodeId }) => nodeId),
+    [turnFeedback],
+  );
+  useEffect(() => {
+    if (!turnFeedback || !endedNodeIdsThisTurn) return;
+    // oxlint-disable-next-line react/set-state-in-effect -- retain ended nodes after the transient turn feedback clears.
+    setCarriedEndedNodeIds(endedNodeIdsThisTurn);
+  }, [endedNodeIdsThisTurn, turnFeedback]);
+  const recentlyEndedNodeIds = endedNodeIdsThisTurn ?? carriedEndedNodeIds;
+  const highlightedNodeId = externalHoveredNodeId ?? hoveredNodeId;
   const categories = useMemo(
-    () => projectGraphCategories(scenario),
-    [scenario],
+    () =>
+      projectGraphCategories(
+        scenario,
+        state,
+        turnFeedback,
+        recentlyEndedNodeIds,
+      ),
+    [recentlyEndedNodeIds, scenario, state, turnFeedback],
   );
   const [activeCategoryId, setActiveCategoryId] = useState(
     () => categories[0]?.id,
   );
   const [overview, setOverview] = useState(false);
+  const activeCategory = overview
+    ? undefined
+    : (categories.find(({ id }) => id === activeCategoryId) ?? categories[0]);
+  const showingOverview = overview || activeCategory === undefined;
   const instanceRef = useRef<GraphInstance | undefined>(undefined);
   const graph = useMemo(
-    () => projectToReactFlow(scenario, state, undefined, turnFeedback),
-    [scenario, state, turnFeedback],
+    () =>
+      projectToReactFlow(
+        scenario,
+        state,
+        highlightedNodeId,
+        turnFeedback,
+        recentlyEndedNodeIds,
+      ),
+    [highlightedNodeId, recentlyEndedNodeIds, scenario, state, turnFeedback],
+  );
+  const searchEntries = useMemo(
+    () => projectNodeSearchEntries(scenario, state),
+    [scenario, state],
   );
   const nodes = graph.nodes;
   const edges = useMemo(
     () =>
-      hoveredNodeId === undefined
+      highlightedNodeId === undefined
         ? graph.edges
         : projectEffectsToReactFlow(
             scenario,
             state,
-            hoveredNodeId,
+            highlightedNodeId,
             turnFeedback,
+            recentlyEndedNodeIds,
           ),
-    [graph.edges, hoveredNodeId, scenario, state, turnFeedback],
+    [
+      graph.edges,
+      highlightedNodeId,
+      recentlyEndedNodeIds,
+      scenario,
+      state,
+      turnFeedback,
+    ],
   );
   const fitNodes = useCallback(
-    (nodeIds: readonly string[], duration = 480) => {
+    (nodeIds: readonly string[], duration = 480, includeFactions = true) => {
       const instance = instanceRef.current;
-      const focusedNodes = nodes.filter((node) => nodeIds.includes(node.id));
+      const matchingNodes = nodes.filter((node) => nodeIds.includes(node.id));
+      const categoryNodes = includeFactions
+        ? matchingNodes
+        : matchingNodes.filter((node) => node.data.nodeType !== "faction");
+      const focusedNodes =
+        categoryNodes.length > 0 ? categoryNodes : matchingNodes;
       if (!instance || focusedNodes.length === 0) return;
       void instance.fitBounds(getNodesBounds(focusedNodes), {
         padding: 0.22,
@@ -90,7 +146,7 @@ export function SimulationGraph({
       setActiveCategoryId(category.id);
       setOverview(false);
       onViewContextChange?.(category.label);
-      fitNodes(category.nodeIds, duration);
+      fitNodes(category.nodeIds, duration, false);
     },
     [categories, fitNodes, onViewContextChange],
   );
@@ -109,22 +165,78 @@ export function SimulationGraph({
   );
 
   useEffect(() => {
+    const openSearch = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.key.toLowerCase() !== "k" ||
+        (!event.metaKey && !event.ctrlKey) ||
+        turnFeedback
+      )
+        return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.matches("input, textarea, select, [role='textbox']"))
+      )
+        return;
+      if (
+        document.querySelector(
+          '[data-slot="dialog-content"], [data-slot="alert-dialog-content"]',
+        )
+      )
+        return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener("keydown", openSearch);
+    return () => window.removeEventListener("keydown", openSearch);
+  }, [turnFeedback]);
+
+  const selectSearchEntry = useCallback(
+    (entry: (typeof searchEntries)[number]) => {
+      if (entry.isOnBoard) {
+        const category = categories.find(({ nodeIds }) =>
+          nodeIds.includes(entry.id),
+        );
+        if (category) {
+          setActiveCategoryId(category.id);
+          setOverview(false);
+          onViewContextChange?.(category.label);
+          fitNodes([entry.id]);
+        }
+      }
+      play("paper");
+      onNodeSelect(entry.id);
+    },
+    [categories, fitNodes, onNodeSelect, onViewContextChange, play],
+  );
+
+  useEffect(() => {
     if (turnFeedback) {
       const changed = turnFeedback.changes.map(({ nodeId }) => nodeId);
       if (changed.length > 0) fitNodes(changed, 260);
       return;
     }
-    if (overview) {
+    if (showingOverview) {
+      onViewContextChange?.("Overview");
       void instanceRef.current?.fitView({
         padding: 0.12,
         duration: 360,
         maxZoom: 0.9,
       });
-    } else if (activeCategoryId) {
-      const category = categories.find(({ id }) => id === activeCategoryId);
-      if (category) fitNodes(category.nodeIds, 360);
+    } else if (activeCategory) {
+      onViewContextChange?.(activeCategory.label);
+      fitNodes(activeCategory.nodeIds, 360, false);
     }
-  }, [activeCategoryId, categories, fitNodes, overview, turnFeedback]);
+  }, [
+    activeCategory,
+    fitNodes,
+    onViewContextChange,
+    showingOverview,
+    turnFeedback,
+  ]);
 
   const minimapColor = useCallback((node: Node<SimulationNodeData>) => {
     if (node.data.revealing) return "var(--game-brass)";
@@ -143,14 +255,19 @@ export function SimulationGraph({
   }, []);
 
   return (
-    <div
-      className="simulation-board"
-      data-game-graph-state={turnFeedback ? "resolving" : "ready"}
-    >
+    <div className="graph-workspace">
       <nav className="graph-category-rail" aria-label="Graph categories">
-        <span className="graph-category-rail__label">
-          <Grid2X2 aria-hidden="true" /> Board focus
-        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-game-node-search-trigger
+          aria-keyshortcuts="Control+K Meta+K"
+          disabled={Boolean(turnFeedback)}
+          onClick={() => setSearchOpen(true)}
+        >
+          <Search data-icon="inline-start" />
+        </Button>
         <div className="graph-category-rail__scroll" role="tablist">
           {categories.map((category) => (
             <Button
@@ -159,12 +276,16 @@ export function SimulationGraph({
               size="sm"
               variant="ghost"
               role="tab"
-              aria-selected={!overview && activeCategoryId === category.id}
-              data-active={!overview && activeCategoryId === category.id}
+              aria-selected={
+                !showingOverview && activeCategory?.id === category.id
+              }
+              data-active={
+                !showingOverview && activeCategory?.id === category.id
+              }
               onClick={() => showCategory(category.id)}
             >
               {category.label}
-              <span aria-hidden="true">{category.nodeIds.length}</span>
+              <span aria-hidden="true">{category.nonFactionNodeCount}</span>
             </Button>
           ))}
           <Button
@@ -172,64 +293,75 @@ export function SimulationGraph({
             size="sm"
             variant="ghost"
             role="tab"
-            aria-selected={overview}
-            data-active={overview}
+            aria-selected={showingOverview}
+            data-active={showingOverview}
             onClick={() => showOverview()}
           >
             <LayoutDashboard data-icon="inline-start" /> Overview
           </Button>
         </div>
       </nav>
-      {turnFeedback && (
-        <div className="turn-reveal-banner" role="status" aria-live="polite">
-          <span>Year resolved</span>
-          <strong>The board is responding</strong>
-        </div>
-      )}
-      <ReactFlow
-        key={scenario.id}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        minZoom={0.25}
-        maxZoom={1.7}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={!turnFeedback}
-        panOnDrag={!turnFeedback}
-        zoomOnScroll={!turnFeedback}
-        zoomOnPinch={!turnFeedback}
-        onInit={(instance) => {
-          instanceRef.current = instance;
-          const first = categories[0];
-          if (first) requestAnimationFrame(() => showCategory(first.id, 0));
-        }}
-        onNodeClick={(_event, node) => {
-          if (!turnFeedback) {
-            play("paper");
-            onNodeSelect(node.id);
-          }
-        }}
-        onNodeMouseEnter={(_event, node) => setHoveredNodeId(node.id)}
-        onNodeMouseLeave={(_event, node) =>
-          setHoveredNodeId((current) =>
-            current === node.id ? undefined : current,
-          )
-        }
-        onPaneMouseLeave={() => setHoveredNodeId(undefined)}
-        aria-label="Institutional simulation graph"
+      <div
+        className="simulation-board"
+        data-game-graph-state={turnFeedback ? "resolving" : "ready"}
       >
-        <Controls showInteractive={false} />
-        <MiniMap
-          ariaLabel="Institutional simulation graph overview"
-          nodeColor={minimapColor}
-          nodeStrokeColor="var(--game-paper)"
-          nodeStrokeWidth={2}
-          maskColor="color-mix(in oklch, var(--game-wood) 16%, transparent)"
-          pannable
-          zoomable
-        />
-      </ReactFlow>
+        {turnFeedback && (
+          <div className="turn-reveal-banner" role="status" aria-live="polite">
+            <span>Year resolved</span>
+            <strong>The board is responding</strong>
+          </div>
+        )}
+        <ReactFlow
+          key={scenario.id}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          minZoom={0.25}
+          maxZoom={1.7}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={!turnFeedback}
+          panOnDrag={!turnFeedback}
+          zoomOnScroll={!turnFeedback}
+          zoomOnPinch={!turnFeedback}
+          onInit={(instance) => {
+            instanceRef.current = instance;
+            const first = categories[0];
+            if (first) requestAnimationFrame(() => showCategory(first.id, 0));
+          }}
+          onNodeClick={(_event, node) => {
+            if (!turnFeedback) {
+              play("paper");
+              onNodeSelect(node.id);
+            }
+          }}
+          onNodeMouseEnter={(_event, node) => setHoveredNodeId(node.id)}
+          onNodeMouseLeave={(_event, node) =>
+            setHoveredNodeId((current) =>
+              current === node.id ? undefined : current,
+            )
+          }
+          onPaneMouseLeave={() => setHoveredNodeId(undefined)}
+          aria-label="Institutional simulation graph"
+        >
+          <Controls showInteractive={false} />
+          <MiniMap
+            ariaLabel="Institutional simulation graph overview"
+            nodeColor={minimapColor}
+            nodeStrokeColor="var(--game-paper)"
+            nodeStrokeWidth={2}
+            maskColor="color-mix(in oklch, var(--game-wood) 16%, transparent)"
+            pannable
+            zoomable
+          />
+        </ReactFlow>
+      </div>
+      <NodeSearchDialog
+        open={searchOpen}
+        entries={searchEntries}
+        onOpenChange={setSearchOpen}
+        onSelect={selectSearchEntry}
+      />
     </div>
   );
 }

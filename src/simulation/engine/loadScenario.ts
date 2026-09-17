@@ -13,6 +13,21 @@ export function loadScenario(input: unknown): ScenarioLoadResult {
     conditions: content.conditions ?? [],
     events: content.events ?? [],
     dilemmas: content.dilemmas ?? [],
+    gameOvers: (content.gameOvers ?? []).map((definition) => ({
+      ...definition,
+      stages: [...definition.stages]
+        .sort((left, right) => left.atTurn - right.atTurn)
+        .map((stage) => ({
+          ...stage,
+          consequences: stage.consequences ?? [],
+        })),
+      recovery: definition.recovery
+        ? {
+            ...definition.recovery,
+            consequences: definition.recovery.consequences ?? [],
+          }
+        : undefined,
+    })),
     nodes: content.nodes.map((node) => ({
       ...node,
       graphVisible: node.graphVisible ?? true,
