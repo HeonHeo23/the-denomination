@@ -319,6 +319,14 @@ export function GameView({
         onResourceSelect={setSelectedNodeId}
       />
 
+      {turnReport && (
+        <TurnReportDialog
+          report={turnReport}
+          onNodeSelect={setSelectedNodeId}
+          onClose={() => setTurnReport(undefined)}
+        />
+      )}
+
       {selectedDefinition && selectedRuntime && (
         <NodeDetailsDialog
           definition={selectedDefinition}
@@ -330,13 +338,6 @@ export function GameView({
           onRepeal={session.repealStance}
           onNodeSelect={setSelectedNodeId}
           onClose={() => setSelectedNodeId(undefined)}
-        />
-      )}
-
-      {turnReport && (
-        <TurnReportDialog
-          report={turnReport}
-          onClose={() => setTurnReport(undefined)}
         />
       )}
 

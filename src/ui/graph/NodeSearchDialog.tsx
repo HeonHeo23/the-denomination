@@ -19,6 +19,11 @@ interface NodeSearchDialogProps {
   readonly entries: readonly NodeSearchEntry[];
   readonly onOpenChange: (open: boolean) => void;
   readonly onSelect: (entry: NodeSearchEntry) => void;
+  readonly title?: string;
+  readonly description?: string;
+  readonly placeholder?: string;
+  readonly emptyMessage?: string;
+  readonly offBoardHeading?: string;
 }
 
 function SearchResult({ entry }: { readonly entry: NodeSearchEntry }) {
@@ -50,6 +55,11 @@ export function NodeSearchDialog({
   entries,
   onOpenChange,
   onSelect,
+  title = "Search nodes",
+  description = "Search every active, inactive, and off-board institutional node.",
+  placeholder = "Search nodes by name, category, type, or status…",
+  emptyMessage = "No institutional nodes found.",
+  offBoardHeading = "Institutional index",
 }: NodeSearchDialogProps) {
   const [query, setQuery] = useState("");
   const results = useMemo(
@@ -73,8 +83,8 @@ export function NodeSearchDialog({
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Search nodes"
-      description="Search every active, inactive, and off-board institutional node."
+      title={title}
+      description={description}
       className="w-[calc(100%-2rem)] sm:max-w-2xl"
       showCloseButton
     >
@@ -82,13 +92,11 @@ export function NodeSearchDialog({
         <CommandInput
           value={query}
           onValueChange={setQuery}
-          placeholder="Search nodes by name, category, type, or status…"
-          aria-label="Search institutional nodes"
+          placeholder={placeholder}
+          aria-label={title}
         />
         <CommandList className="max-h-96">
-          {results.length === 0 && (
-            <CommandEmpty>No institutional nodes found.</CommandEmpty>
-          )}
+          {results.length === 0 && <CommandEmpty>{emptyMessage}</CommandEmpty>}
           {onBoard.length > 0 && (
             <CommandGroup heading="On board">
               {onBoard.map((entry) => (
@@ -103,7 +111,7 @@ export function NodeSearchDialog({
             </CommandGroup>
           )}
           {offBoard.length > 0 && (
-            <CommandGroup heading="Institutional index">
+            <CommandGroup heading={offBoardHeading}>
               {offBoard.map((entry) => (
                 <CommandItem
                   key={entry.id}

@@ -37,6 +37,7 @@ The primary flow is:
   the next turn begins resolving.
 - Provide a searchable institutional index for every Scenario node, including
   inactive and graph-hidden nodes, with dossiers as the shared detail surface.
+- Provide a separate inactive-Stance index for reviewing potential enactments.
 - Use dossiers for analysis and Stance editing.
 - Use Sheets for overview, Situations, and Chronicle review, and more.
 - Keep feedback timely and purposeful.

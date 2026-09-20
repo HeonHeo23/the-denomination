@@ -8,7 +8,7 @@ import {
   type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react";
-import { LayoutDashboard, Search } from "lucide-react";
+import { CirclePlus, LayoutDashboard, Search } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import type { ScenarioDefinition, SimulationState } from "../../simulation";
@@ -19,7 +19,10 @@ import {
   type GraphTurnFeedback,
   type SimulationNodeData,
 } from "./projectToReactFlow";
-import { projectNodeSearchEntries } from "./projectNodeSearch";
+import {
+  projectInactiveStanceSearchEntries,
+  projectNodeSearchEntries,
+} from "./projectNodeSearch";
 import { NodeSearchDialog } from "./NodeSearchDialog";
 import { SimulationNode } from "./SimulationNode";
 import { useInterfaceSound } from "../sound/interfaceSoundContext";
@@ -49,6 +52,8 @@ export function SimulationGraph({
   const { play } = useInterfaceSound();
   const [hoveredNodeId, setHoveredNodeId] = useState<string>();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [inactiveStanceSearchOpen, setInactiveStanceSearchOpen] =
+    useState(false);
   const [carriedEndedNodeIds, setCarriedEndedNodeIds] = useState<
     readonly string[]
   >([]);
@@ -99,6 +104,10 @@ export function SimulationGraph({
   const searchEntries = useMemo(
     () => projectNodeSearchEntries(scenario, state),
     [scenario, state],
+  );
+  const inactiveStanceEntries = useMemo(
+    () => projectInactiveStanceSearchEntries(searchEntries),
+    [searchEntries],
   );
   const nodes = graph.nodes;
   const edges = useMemo(
@@ -262,11 +271,23 @@ export function SimulationGraph({
           size="sm"
           variant="outline"
           data-game-node-search-trigger
+          aria-label="Search nodes"
           aria-keyshortcuts="Control+K Meta+K"
           disabled={Boolean(turnFeedback)}
           onClick={() => setSearchOpen(true)}
         >
           <Search data-icon="inline-start" />
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-game-inactive-stance-search-trigger
+          aria-label="Find a stance to enact"
+          disabled={Boolean(turnFeedback)}
+          onClick={() => setInactiveStanceSearchOpen(true)}
+        >
+          <CirclePlus data-icon="inline-start" />
         </Button>
         <div className="graph-category-rail__scroll" role="tablist">
           {categories.map((category) => (
@@ -361,6 +382,17 @@ export function SimulationGraph({
         entries={searchEntries}
         onOpenChange={setSearchOpen}
         onSelect={selectSearchEntry}
+      />
+      <NodeSearchDialog
+        open={inactiveStanceSearchOpen}
+        entries={inactiveStanceEntries}
+        onOpenChange={setInactiveStanceSearchOpen}
+        onSelect={selectSearchEntry}
+        title="Enact a stance"
+        description="Find inactive Stances to review and enact."
+        placeholder="Search inactive Stances…"
+        emptyMessage="No inactive Stances are available."
+        offBoardHeading="Inactive Stances"
       />
     </div>
   );

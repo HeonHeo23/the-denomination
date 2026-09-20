@@ -180,11 +180,7 @@ export function LandingPage({
 
             <Card data-game-launch-document>
               <CardHeader>
-                <CardTitle>
-                  {savedGame
-                    ? "Found another institution"
-                    : "Found an institution"}
-                </CardTitle>
+                <CardTitle>Found an institution</CardTitle>
               </CardHeader>
               <Separator />
               <form onSubmit={onSubmit} noValidate>

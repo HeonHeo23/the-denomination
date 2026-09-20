@@ -58,13 +58,9 @@ export function projectNodeEffects(
   for (const effect of scenario.effects) {
     const previewingOwnEffect =
       previewStanceValue !== undefined && effect.source === nodeId;
-    if (
-      effect.source !== "_default_" &&
-      !state.nodes[effect.source].isActive &&
-      !previewingOwnEffect
-    )
-      continue;
     const contribution = state.effects[effect.id]?.lastContribution ?? 0;
+    const inactiveSource =
+      effect.source !== "_default_" && !state.nodes[effect.source].isActive;
     const view = (
       effectId: string,
       relatedName: string,
@@ -94,6 +90,10 @@ export function projectNodeEffects(
     };
 
     if (effect.target === nodeId) {
+      // An inactive source normally contributes zero. Keep its relationship
+      // visible only while the runtime snapshot still carries a live,
+      // non-zero Effect contribution (for example during a transition).
+      if (inactiveSource && Math.abs(contribution) <= 0.000001) continue;
       incoming.push(
         view(
           effect.id,
@@ -105,6 +105,16 @@ export function projectNodeEffects(
       );
     }
     if (effect.source === nodeId) {
+      // Outgoing effects follow the live graph projection: dormant sources and
+      // inactive targets are not actionable relationships. A Stance preview is
+      // the one exception, since its proposed value supplies a hypothetical
+      // outgoing contribution while it is being drafted.
+      if (
+        (!previewingOwnEffect && !state.nodes[nodeId].isActive) ||
+        (!previewingOwnEffect && !state.nodes[effect.target].isActive)
+      ) {
+        continue;
+      }
       outgoing.push(
         view(
           effect.id,

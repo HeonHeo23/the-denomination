@@ -47,6 +47,7 @@ import "./panels.css";
 
 interface TurnReportDialogProps {
   readonly report: TurnReport;
+  readonly onNodeSelect: (nodeId: string) => void;
   readonly onClose: () => void;
 }
 
@@ -55,13 +56,30 @@ function statusChange(change: TurnReportChange): string | undefined {
   return change.isActive ? "Became active" : "Became inactive";
 }
 
-function ChangeItem({ change }: { readonly change: TurnReportChange }) {
+function ChangeItem({
+  change,
+  onNodeSelect,
+}: {
+  readonly change: TurnReportChange;
+  readonly onNodeSelect: (nodeId: string) => void;
+}) {
   const status = statusChange(change);
+  const selectNode = () => onNodeSelect(change.node.id);
   return (
     <Item
-      role="listitem"
+      role="button"
+      tabIndex={0}
       variant="muted"
       size="sm"
+      className="cursor-pointer hover:bg-accent focus-visible:bg-accent"
+      aria-label={`Open ${change.node.name} dossier`}
+      onClick={selectNode}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectNode();
+        }
+      }}
       data-game-change={
         change.delta > 0
           ? "increasing"
@@ -112,7 +130,11 @@ function ReportSection({ id, title, className, children }: ReportSectionProps) {
   );
 }
 
-export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
+export function TurnReportDialog({
+  report,
+  onNodeSelect,
+  onClose,
+}: TurnReportDialogProps) {
   const [showAllChanges, setShowAllChanges] = useState(false);
   const heading =
     report.year === undefined ? `Turn ${report.turn}` : `Year ${report.year}`;
@@ -223,10 +245,20 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
                     <ItemGroup>
                       {report.situationTransitions.map((transition) => (
                         <Item
-                          role="listitem"
+                          role="button"
+                          tabIndex={0}
                           variant="outline"
                           size="sm"
                           key={transition.node.id}
+                          className="cursor-pointer hover:bg-accent focus-visible:bg-accent"
+                          aria-label={`Open ${transition.node.name} dossier`}
+                          onClick={() => onNodeSelect(transition.node.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onNodeSelect(transition.node.id);
+                            }
+                          }}
                         >
                           <ItemContent>
                             <ItemTitle>{transition.node.name}</ItemTitle>
@@ -256,10 +288,20 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
                     <ItemGroup>
                       {report.grudges.map((grudge) => (
                         <Item
-                          role="listitem"
+                          role="button"
+                          tabIndex={0}
                           variant="outline"
                           size="sm"
                           key={grudge.id}
+                          className="cursor-pointer hover:bg-accent focus-visible:bg-accent"
+                          aria-label={`Open ${grudge.targetName} dossier`}
+                          onClick={() => onNodeSelect(grudge.targetId)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onNodeSelect(grudge.targetId);
+                            }
+                          }}
                         >
                           <ItemContent>
                             <ItemTitle>{grudge.label}</ItemTitle>
@@ -293,7 +335,11 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
                     >
                       <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
                         {visibleChanges.map((change) => (
-                          <ChangeItem change={change} key={change.node.id} />
+                          <ChangeItem
+                            change={change}
+                            key={change.node.id}
+                            onNodeSelect={onNodeSelect}
+                          />
                         ))}
                       </ItemGroup>
                     </ReportSection>
@@ -319,6 +365,7 @@ export function TurnReportDialog({ report, onClose }: TurnReportDialogProps) {
                               <ChangeItem
                                 change={change}
                                 key={change.node.id}
+                                onNodeSelect={onNodeSelect}
                               />
                             ))}
                           </ItemGroup>

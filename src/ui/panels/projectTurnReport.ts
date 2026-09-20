@@ -28,6 +28,7 @@ export interface TurnReportSituationTransition {
 export interface TurnReportGrudge {
   readonly id: string;
   readonly label: string;
+  readonly targetId: string;
   readonly targetName: string;
   readonly targetDomain?: NumericDomain;
   readonly magnitude: number;
@@ -154,6 +155,7 @@ export function projectTurnReport(
       return {
         id: grudge.id,
         label: grudge.label,
+        targetId: grudge.target,
         targetName: target?.name ?? grudge.target,
         targetDomain: target?.domain,
         magnitude: grudge.magnitude,

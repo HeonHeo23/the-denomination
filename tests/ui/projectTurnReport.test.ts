@@ -81,7 +81,8 @@ export function runTurnReportProjectionTests() {
     "Report should identify changed Effects in Scenario order",
   );
   assert(
-    report.grudges[0]?.targetName === "Leadership Trust" &&
+    report.grudges[0]?.targetId === "leadership-trust" &&
+      report.grudges[0]?.targetName === "Leadership Trust" &&
       report.grudges[0]?.targetDomain ===
         exampleScenario.nodes.find((node) => node.id === "leadership-trust")
           ?.domain &&

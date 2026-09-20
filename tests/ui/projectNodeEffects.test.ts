@@ -75,6 +75,60 @@ export function runNodeEffectProjectionTests() {
     delayedEffect?.relatedNodeId === "localist-movement",
     "Relationship projections should identify the related graph node",
   );
+  const inactiveTargetState = {
+    ...stateWithNegativeContribution,
+    nodes: {
+      ...stateWithNegativeContribution.nodes,
+      "localist-movement": {
+        ...stateWithNegativeContribution.nodes["localist-movement"],
+        isActive: false,
+      },
+    },
+  };
+  const centralizationWithInactiveTarget = projectNodeEffects(
+    "centralization",
+    exampleScenario,
+    inactiveTargetState,
+  );
+  assert(
+    !centralizationWithInactiveTarget.outgoing.some(
+      (effect) => effect.id === "centralization-to-localists",
+    ),
+    "Regular outgoing Effects should hide inactive targets",
+  );
+  const inactiveSourceIncoming = projectNodeEffects(
+    "governance-tension",
+    exampleScenario,
+    inactiveTargetState,
+  );
+  assert(
+    inactiveSourceIncoming.incoming.some(
+      (effect) =>
+        effect.id === "localists-to-tension" &&
+        effect.relatedNodeId === "localist-movement",
+    ),
+    "Incoming Effects should still identify inactive source nodes",
+  );
+  const inactiveSourceWithZeroEffect = projectNodeEffects(
+    "governance-tension",
+    exampleScenario,
+    {
+      ...inactiveTargetState,
+      effects: {
+        ...inactiveTargetState.effects,
+        "localists-to-tension": {
+          ...inactiveTargetState.effects["localists-to-tension"],
+          lastContribution: 0,
+        },
+      },
+    },
+  );
+  assert(
+    !inactiveSourceWithZeroEffect.incoming.some(
+      (effect) => effect.id === "localists-to-tension",
+    ),
+    "Inactive source nodes with zero Effects should stay hidden",
+  );
 
   const stancePreview = projectNodeEffects(
     "clergy-formation",

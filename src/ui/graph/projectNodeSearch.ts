@@ -67,3 +67,12 @@ export function filterNodeSearchEntries(
     terms.every((term) => entry.searchText.includes(term)),
   );
 }
+
+/** Lists Stances that can be reviewed for potential enactment. */
+export function projectInactiveStanceSearchEntries(
+  entries: readonly NodeSearchEntry[],
+): NodeSearchEntry[] {
+  return entries.filter(
+    (entry) => entry.nodeType === "stance" && !entry.isActive,
+  );
+}

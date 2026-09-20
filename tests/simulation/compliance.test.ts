@@ -24,6 +24,7 @@ import {
 } from "../../src/ui/graph/projectToReactFlow";
 import {
   filterNodeSearchEntries,
+  projectInactiveStanceSearchEntries,
   projectNodeSearchEntries,
 } from "../../src/ui/graph/projectNodeSearch";
 import { projectNodeReferenceMarkers } from "../../src/ui/referenceMarkers";
@@ -879,6 +880,30 @@ export function runComplianceTests() {
       (entry) => !entry.isActive && entry.nodeType === "situation",
     ),
     "Search should match multiple metadata and status terms",
+  );
+  const inactiveStances = filterNodeSearchEntries(
+    searchEntries,
+    "inactive stance",
+  );
+  assert.ok(
+    inactiveStances.some((entry) => entry.id === "community-partnerships"),
+    "Search should include inactive Stances in the institutional index",
+  );
+  const inactiveCommunityPartnerships = inactiveStances.find(
+    (entry) => entry.id === "community-partnerships",
+  );
+  assert.equal(inactiveCommunityPartnerships?.isActive, false);
+  assert.equal(inactiveCommunityPartnerships?.nodeType, "stance");
+  const enactableStances = projectInactiveStanceSearchEntries(searchEntries);
+  assert.ok(
+    enactableStances.some((entry) => entry.id === "community-partnerships"),
+    "The enactment index should include inactive Stances",
+  );
+  assert.ok(
+    enactableStances.every(
+      (entry) => !entry.isActive && entry.nodeType === "stance",
+    ),
+    "The enactment index should include only inactive Stances",
   );
   assert.ok(
     graph.edges.every((edge) => edge.label === undefined),

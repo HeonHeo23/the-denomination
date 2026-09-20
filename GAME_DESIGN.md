@@ -13,8 +13,6 @@ changes Stances; other persistent state responds through Effects. Events and
 Dilemmas are discrete incidents whose consequences may include temporary
 Grudges or direct Resource changes.
 
-The persistent simulation has exactly five structural node types:
-
 | Type      | Meaning                                                                       | Default control                                | Default activation |
 | --------- | ----------------------------------------------------------------------------- | ---------------------------------------------- | ------------------ |
 | Stance    | Doctrinal, institutional, governance, or practical position                   | Primarily player-controlled                    | Configurable       |
@@ -299,11 +297,7 @@ identical triggering or ordering semantics.
 
 ## Game Overs
 
-A Game Over is a Scenario-authored terminal trajectory, not a persistent node
-or an incident. Its prerequisite groups may refer to any Scenario nodes, so the
-content can express polity-specific failures through authority, legitimacy,
-Faction relationships, Resources, Situations, or other modeled institutional
-state.
+A Game Over is a Scenario-authored terminal trajectory. Its prerequisite groups may refer to any Scenario nodes, so the content can express polity-specific failures through authority, legitimacy, Faction relationships, Resources, Situations, or other modeled institutional state.
 
 A trajectory gains one consecutive turn of progress whenever at least one of
 its prerequisite groups is satisfied after persistent evaluation. Changing
