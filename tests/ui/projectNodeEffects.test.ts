@@ -5,7 +5,10 @@ import {
   initializeScenario,
   previewStanceEffects,
 } from "../../src/simulation/index";
-import type { ScenarioDefinition } from "../../src/simulation/index";
+import type {
+  ScenarioDefinition,
+  SimulationState,
+} from "../../src/simulation/index";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -117,7 +120,9 @@ export function runNodeEffectProjectionTests() {
       effects: {
         ...inactiveTargetState.effects,
         "localists-to-tension": {
-          ...inactiveTargetState.effects["localists-to-tension"],
+          ...(inactiveTargetState.effects as SimulationState["effects"])[
+            "localists-to-tension"
+          ],
           lastContribution: 0,
         },
       },

@@ -146,6 +146,7 @@
 }
 
 [data-game-node-record],
+[data-game-crisis-dossier],
 [data-game-chronicle] {
   background:
     linear-gradient(
@@ -273,6 +274,18 @@
   border-radius: 2px;
   background: color-mix(in oklch, var(--game-raised-document) 74%, transparent);
   box-shadow: none;
+}
+
+[data-game-effect-table-interactive] {
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 10%, transparent);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+[data-game-effect-table-interactive]:hover {
+  box-shadow: 0 5px 12px color-mix(in oklch, var(--foreground) 18%, transparent);
+  transform: translateY(-0.125rem);
 }
 
 [data-game-effect-row] {

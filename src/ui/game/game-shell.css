@@ -192,7 +192,8 @@
     var(--game-paper-texture);
 }
 
-[data-game-situation-notice] {
+[data-game-situation-notice],
+[data-game-crisis-notice] {
   position: relative;
   border-radius: 2px;
   cursor: pointer;
@@ -204,7 +205,8 @@
     transform 160ms ease;
 }
 
-[data-game-situation-notice]:hover {
+[data-game-situation-notice]:hover,
+[data-game-crisis-notice]:hover {
   opacity: 1;
   border-color: color-mix(in oklch, var(--game-brass) 52%, var(--border));
   background: color-mix(in oklch, var(--game-brass) 8%, var(--game-paper));
@@ -212,24 +214,45 @@
   transform: translateY(-1px);
 }
 
-[data-game-situation-notice]:focus-visible {
+[data-game-situation-notice]:focus-visible,
+[data-game-crisis-notice]:focus-visible {
   opacity: 1;
   outline: 3px solid color-mix(in oklch, var(--ring) 42%, transparent);
   outline-offset: 2px;
 }
 
-[data-game-situation-notice="active"]:hover {
+[data-game-situation-notice="active"]:hover,
+[data-game-crisis-notice="active"]:hover,
+[data-game-overview] [data-game-crisis-notice="active"]:hover {
   border-inline-start-color: var(--game-warning);
   background: color-mix(in oklch, var(--game-warning) 13%, var(--game-paper));
   box-shadow: 0 7px 16px
     color-mix(in oklch, var(--game-warning) 20%, transparent);
 }
 
-[data-game-situation-notice="active"] {
+[data-game-situation-notice="active"],
+[data-game-crisis-notice="active"],
+[data-game-overview] [data-game-crisis-notice="active"] {
   border-inline-start: 4px solid var(--game-warning);
   background: color-mix(in oklch, var(--game-warning) 7%, var(--game-paper));
   box-shadow: 0 5px 14px
     color-mix(in oklch, var(--game-warning) 12%, transparent);
+}
+
+[data-game-crisis-notice="terminal"],
+[data-game-overview] [data-game-crisis-notice="terminal"] {
+  border-inline-start: 4px solid var(--destructive);
+  background: color-mix(in oklch, var(--destructive) 7%, var(--game-paper));
+  box-shadow: 0 5px 14px
+    color-mix(in oklch, var(--destructive) 12%, transparent);
+}
+
+[data-game-crisis-notice="terminal"]:hover,
+[data-game-overview] [data-game-crisis-notice="terminal"]:hover {
+  border-inline-start-color: var(--destructive);
+  background: color-mix(in oklch, var(--destructive) 12%, var(--game-paper));
+  box-shadow: 0 7px 16px
+    color-mix(in oklch, var(--destructive) 20%, transparent);
 }
 
 [data-game-situation-notice="inactive"] {

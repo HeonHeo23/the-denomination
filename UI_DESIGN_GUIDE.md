@@ -39,7 +39,8 @@ The primary flow is:
   inactive and graph-hidden nodes, with dossiers as the shared detail surface.
 - Provide a separate inactive-Stance index for reviewing potential enactments.
 - Use dossiers for analysis and Stance editing.
-- Use Sheets for overview, Situations, and Chronicle review, and more.
+- Use Sheets for overview, Crises, and Chronicle review, and more. Situations
+  remain available as canonical graph nodes and dossiers.
 - Keep feedback timely and purposeful.
 
 ## Visual Hierarchy

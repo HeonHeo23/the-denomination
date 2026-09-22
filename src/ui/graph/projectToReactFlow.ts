@@ -28,6 +28,22 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly revealIndex?: number;
 }
 
+/** Presentation shape retained for CrisisNode consumers; crises are not projected by the graph. */
+export interface CrisisGraphNodeData extends Record<string, unknown> {
+  readonly label: string;
+  readonly description: string;
+  readonly nodeType: "crisis";
+  readonly status: "warning" | "recovered" | "terminal";
+  readonly stageTitle?: string;
+  readonly consecutiveTurns: number;
+  readonly terminalAfterTurns: number;
+  readonly turnsRemaining: number;
+  readonly progressPercent: number;
+  readonly focused?: boolean;
+  readonly revealing?: boolean;
+  readonly revealIndex?: number;
+}
+
 export interface GraphTurnFeedback {
   readonly changes: readonly {
     readonly nodeId: string;

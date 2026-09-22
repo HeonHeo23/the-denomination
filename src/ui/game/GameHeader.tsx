@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpenText,
   Church,
+  FileText,
   Menu,
   PanelLeftOpen,
   RotateCcw,
@@ -29,15 +30,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatValue } from "@/ui/formatValue";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
+import { crisisTurnsLabel } from "./crisisPresentation";
 
 interface GameHeaderProps {
   readonly denominationName: string;
   readonly playerName: string;
-  readonly scenarioTitle: string;
-  readonly graphContextLabel: string;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
-  readonly activeSituationCount: number;
+  readonly activeCrisisCount: number;
   readonly urgentGameOverWarning?: {
     readonly title: string;
     readonly turnsRemaining: number;
@@ -51,12 +51,26 @@ interface GameHeaderProps {
   readonly onReset: () => void;
   readonly onMainMenu: () => void;
   readonly onOpenOverview: () => void;
-  readonly onOpenSituations: () => void;
+  readonly onOpenCrises: () => void;
   readonly onOpenChronicle: () => void;
+  readonly turnReportAvailable: boolean;
+  readonly onOpenTurnReport: () => void;
   readonly onOpenGameOver: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
 }
+
+type GameHeaderActions = Pick<
+  GameHeaderProps,
+  | "onSave"
+  | "onLoad"
+  | "onReset"
+  | "onMainMenu"
+  | "onOpenCrises"
+  | "onOpenChronicle"
+  | "turnReportAvailable"
+  | "onOpenTurnReport"
+>;
 
 function IdentityBlock({
   denominationName,
@@ -127,16 +141,20 @@ function ResourceStrip({
 }
 
 function PanelActions({
-  activeSituationCount,
+  activeCrisisCount,
   urgentGameOverWarning,
-  onOpenSituations,
+  onOpenCrises,
   onOpenChronicle,
+  turnReportAvailable,
+  onOpenTurnReport,
 }: Pick<
   GameHeaderProps,
-  | "activeSituationCount"
+  | "activeCrisisCount"
   | "urgentGameOverWarning"
-  | "onOpenSituations"
+  | "onOpenCrises"
   | "onOpenChronicle"
+  | "turnReportAvailable"
+  | "onOpenTurnReport"
 >) {
   return (
     <div
@@ -149,22 +167,21 @@ function PanelActions({
         size="lg"
         className="h-full rounded-none"
         data-game-header-button
-        onClick={onOpenSituations}
+        onClick={onOpenCrises}
         aria-label={
           urgentGameOverWarning
-            ? `Open situations, ${urgentGameOverWarning.title} has ${urgentGameOverWarning.turnsRemaining} turns remaining`
-            : `Open situations, ${activeSituationCount} active`
+            ? `Open crises, ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining`
+            : `Open crises, ${activeCrisisCount} active`
         }
       >
         <ShieldAlert data-icon="inline-start" />
-        <span>Situations</span>
+        <span>Crises</span>
         {urgentGameOverWarning ? (
           <Badge variant="destructive">
-            {urgentGameOverWarning.turnsRemaining} turn
-            {urgentGameOverWarning.turnsRemaining === 1 ? "" : "s"}
+            {crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)}
           </Badge>
-        ) : activeSituationCount > 0 ? (
-          <Badge variant="destructive">{activeSituationCount}</Badge>
+        ) : activeCrisisCount > 0 ? (
+          <Badge variant="destructive">{activeCrisisCount}</Badge>
         ) : null}
       </Button>
       <Button
@@ -178,6 +195,20 @@ function PanelActions({
         <BookOpenText data-icon="inline-start" />
         <span className="hidden lg:inline">Chronicle</span>
       </Button>
+      {turnReportAvailable && (
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-full rounded-none"
+          data-game-header-button
+          onClick={onOpenTurnReport}
+          aria-label="Review the completed turn report"
+        >
+          <FileText data-icon="inline-start" />
+          <span className="hidden lg:inline">Turn report</span>
+        </Button>
+      )}
     </div>
   );
 }
@@ -225,22 +256,18 @@ function GameActionsMenu({
   onLoad,
   onReset,
   onMainMenu,
-  onOpenSituations,
+  onOpenCrises,
   onOpenChronicle,
+  turnReportAvailable,
+  onOpenTurnReport,
   onSave,
   musicMuted,
   onToggleMusic,
   interfaceSoundsMuted,
   onToggleInterfaceSounds,
-}: {
+}: GameHeaderActions & {
   readonly compact: boolean;
   readonly canLoad: boolean;
-  readonly onLoad: () => void;
-  readonly onReset: () => void;
-  readonly onMainMenu: () => void;
-  readonly onOpenSituations: () => void;
-  readonly onOpenChronicle: () => void;
-  readonly onSave: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
   readonly interfaceSoundsMuted: boolean;
@@ -265,12 +292,17 @@ function GameActionsMenu({
           <>
             <DropdownMenuGroup className="md:hidden">
               <DropdownMenuLabel>Institution</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onOpenSituations}>
-                <ShieldAlert /> Situations
+              <DropdownMenuItem onSelect={onOpenCrises}>
+                <ShieldAlert /> Crises
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
               </DropdownMenuItem>
+              {turnReportAvailable && (
+                <DropdownMenuItem onSelect={onOpenTurnReport}>
+                  <FileText /> Turn report
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator className="md:hidden" />
           </>
@@ -320,7 +352,7 @@ export function GameHeader(props: GameHeaderProps) {
     playerName,
     state,
     resources,
-    activeSituationCount,
+    activeCrisisCount,
     urgentGameOverWarning,
     gameOver,
     canLoad,
@@ -331,8 +363,10 @@ export function GameHeader(props: GameHeaderProps) {
     onReset,
     onMainMenu,
     onOpenOverview,
-    onOpenSituations,
+    onOpenCrises,
     onOpenChronicle,
+    turnReportAvailable,
+    onOpenTurnReport,
     onOpenGameOver,
     musicMuted,
     onToggleMusic,
@@ -343,8 +377,10 @@ export function GameHeader(props: GameHeaderProps) {
     onLoad,
     onReset,
     onMainMenu,
-    onOpenSituations,
+    onOpenCrises,
     onOpenChronicle,
+    turnReportAvailable,
+    onOpenTurnReport,
     onSave,
     musicMuted,
     onToggleMusic,
@@ -374,10 +410,12 @@ export function GameHeader(props: GameHeaderProps) {
         <TurnDisplay state={state} />
         <ResourceStrip resources={resources} state={state} />
         <PanelActions
-          activeSituationCount={activeSituationCount}
+          activeCrisisCount={activeCrisisCount}
           urgentGameOverWarning={urgentGameOverWarning}
-          onOpenSituations={onOpenSituations}
+          onOpenCrises={onOpenCrises}
           onOpenChronicle={onOpenChronicle}
+          turnReportAvailable={turnReportAvailable}
+          onOpenTurnReport={onOpenTurnReport}
         />
         {urgentGameOverWarning && !gameOver && (
           <Button
@@ -386,8 +424,8 @@ export function GameHeader(props: GameHeaderProps) {
             size="lg"
             className="h-full rounded-none md:hidden"
             data-game-header-button
-            onClick={onOpenSituations}
-            aria-label={`${urgentGameOverWarning.title}: ${urgentGameOverWarning.turnsRemaining} turns remaining`}
+            onClick={onOpenCrises}
+            aria-label={`Open crises: ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining before Game Over`}
           >
             <ShieldAlert data-icon="inline-start" />
             <Badge variant="destructive">

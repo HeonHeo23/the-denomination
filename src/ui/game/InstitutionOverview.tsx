@@ -16,14 +16,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
+import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import type {
   NodeDefinition,
   ScenarioDefinition,
@@ -31,6 +26,8 @@ import type {
 } from "@/simulation";
 import { formatValue, meterPercent } from "@/ui/formatValue";
 import { institutionEra, type InstitutionEra } from "@/ui/institutionEra";
+import { projectCrises, type CrisisView } from "./projectGameOvers";
+import { CrisisSummaryCard } from "./CrisisSummaryCard";
 
 const eraImages: Record<InstitutionEra, string> = {
   humble: humbleImage,
@@ -48,62 +45,31 @@ interface InstitutionOverviewProps {
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
-  readonly situations: readonly NodeDefinition[];
   readonly compact?: boolean;
   readonly hideScenario?: boolean;
   readonly className?: string;
-  readonly onSituationHover: (nodeId?: string) => void;
-  readonly onSituationSelect: (nodeId: string) => void;
+  readonly onCrisisSelect: (crisisId: string) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
 
-interface ActiveSituationItemsProps {
-  readonly situations: readonly NodeDefinition[];
-  readonly state: SimulationState;
-  readonly onSituationHover: (nodeId?: string) => void;
-  readonly onSituationSelect: (nodeId: string) => void;
+interface ActiveCrisisItemsProps {
+  readonly crises: readonly CrisisView[];
+  readonly onCrisisSelect: (crisisId: string) => void;
 }
 
-export function ActiveSituationItems({
-  situations,
-  state,
-  onSituationHover,
-  onSituationSelect,
-}: ActiveSituationItemsProps) {
+function ActiveCrisisItems({ crises, onCrisisSelect }: ActiveCrisisItemsProps) {
   return (
-    <ItemGroup>
-      {situations.map((situation) => {
-        const runtime = state.nodes[situation.id];
-        return (
-          <Item
-            role="button"
-            tabIndex={0}
-            variant="outline"
-            key={situation.id}
-            data-game-situation-notice="active"
-            onMouseEnter={() => onSituationHover(situation.id)}
-            onMouseLeave={() => onSituationHover(undefined)}
-            onClick={() => onSituationSelect(situation.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onSituationSelect(situation.id);
-              }
-            }}
-          >
-            <ItemContent>
-              <ItemTitle>{situation.name}</ItemTitle>
-            </ItemContent>
-            <ItemActions>
-              <strong className="font-mono text-sm">
-                {formatValue(runtime.value, situation.domain)}
-              </strong>
-            </ItemActions>
-          </Item>
-        );
-      })}
-    </ItemGroup>
+    <div className="flex flex-col gap-2" aria-label="Active crises">
+      {crises.map((crisis) => (
+        <CrisisSummaryCard
+          key={crisis.definition.id}
+          variant="compact"
+          crisis={crisis}
+          onOpen={() => onCrisisSelect(crisis.definition.id)}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -111,19 +77,15 @@ export function InstitutionOverview({
   scenario,
   state,
   resources,
-  situations,
   compact = false,
   hideScenario = false,
   className,
-  onSituationHover,
-  onSituationSelect,
+  onCrisisSelect,
   onResourceHover,
   onResourceSelect,
 }: InstitutionOverviewProps) {
   const era = institutionEra(state.turn);
-  const activeSituations = situations.filter(
-    (situation) => state.nodes[situation.id].isActive,
-  );
+  const activeCrises = projectCrises(scenario, state);
 
   return (
     <aside
@@ -191,19 +153,14 @@ export function InstitutionOverview({
               return (
                 <Item
                   key={resource.id}
-                  role="button"
-                  tabIndex={0}
                   variant="muted"
                   data-game-stewardship-resource
                   onMouseEnter={() => onResourceHover(resource.id)}
                   onMouseLeave={() => onResourceHover(undefined)}
-                  onClick={() => onResourceSelect(resource.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onResourceSelect(resource.id);
-                    }
-                  }}
+                  {...getDossierTriggerProps(
+                    `Open ${resource.name} node dossier`,
+                    () => onResourceSelect(resource.id),
+                  )}
                 >
                   <ItemContent className="gap-2">
                     <div className="flex items-baseline justify-between gap-3">
@@ -224,29 +181,26 @@ export function InstitutionOverview({
         </CardContent>
       </Card>
 
-      <Card size="sm" data-game-document="notices">
+      <Card size="sm" data-game-document="crises">
         <CardHeader>
           <CardDescription className="flex items-center gap-2">
-            <ShieldAlert aria-hidden="true" /> Matters requiring notice
+            <ShieldAlert aria-hidden="true" /> Terminal trajectories
           </CardDescription>
-          <CardTitle>Active situations</CardTitle>
         </CardHeader>
         <CardContent>
-          {activeSituations.length === 0 ? (
+          {activeCrises.length === 0 ? (
             <Empty className="min-h-24">
               <EmptyHeader>
-                <EmptyTitle>All is quiet</EmptyTitle>
+                <EmptyTitle>No active crises</EmptyTitle>
                 <EmptyDescription>
-                  No active situations require immediate attention.
+                  No terminal trajectory currently requires intervention.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
-            <ActiveSituationItems
-              situations={activeSituations}
-              state={state}
-              onSituationHover={onSituationHover}
-              onSituationSelect={onSituationSelect}
+            <ActiveCrisisItems
+              crises={activeCrises}
+              onCrisisSelect={onCrisisSelect}
             />
           )}
         </CardContent>

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Clock3, History, ShieldAlert, ShieldCheck } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type {
   NodeDefinition,
   ScenarioDefinition,
@@ -24,7 +23,6 @@ import {
 } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import {
   Sheet,
   SheetContent,
@@ -33,23 +31,19 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { formatSignedValue } from "@/ui/formatValue";
-import {
-  ActiveSituationItems,
-  InstitutionOverview,
-} from "./InstitutionOverview";
-import { projectGameOverWarnings } from "./projectGameOvers";
+import { InstitutionOverview } from "./InstitutionOverview";
+import { CrisisSummaryCard } from "./CrisisSummaryCard";
+import { projectCrises } from "./projectGameOvers";
 
-export type DashboardPanel = "overview" | "situations" | "chronicle";
+export type DashboardPanel = "overview" | "crises" | "chronicle";
 
 interface DashboardSheetsProps {
   readonly activePanel?: DashboardPanel;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
-  readonly situations: readonly NodeDefinition[];
   readonly onClose: () => void;
-  readonly onSituationHover: (nodeId?: string) => void;
-  readonly onSituationSelect: (nodeId: string) => void;
+  readonly onCrisisSelect: (crisisId: string) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
@@ -110,27 +104,22 @@ export function DashboardSheets({
   scenario,
   state,
   resources,
-  situations,
   onClose,
-  onSituationHover,
-  onSituationSelect,
+  onCrisisSelect,
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
   const nodeDomains = new Map(
     scenario.nodes.map((node) => [node.id, node.domain]),
   );
-  const gameOverWarnings = projectGameOverWarnings(scenario, state);
-  const activeSituations = situations.filter(
-    (situation) => state.nodes[situation.id].isActive,
-  );
+  const crises = projectCrises(scenario, state);
 
   return (
     <>
       <DashboardSheet
         open={activePanel === "overview"}
         title={scenario.title}
-        description="Institutional overview, stewardship resources, and active situations."
+        description="Institutional overview, stewardship resources, and active crises."
         eyebrow="Scenario"
         side="left"
         headerBorder
@@ -140,82 +129,56 @@ export function DashboardSheets({
           scenario={scenario}
           state={state}
           resources={resources}
-          situations={situations}
           compact
           hideScenario
-          onSituationHover={onSituationHover}
-          onSituationSelect={onSituationSelect}
+          onCrisisSelect={onCrisisSelect}
           onResourceHover={onResourceHover}
           onResourceSelect={onResourceSelect}
         />
       </DashboardSheet>
 
       <DashboardSheet
-        open={activePanel === "situations"}
-        title="Situations"
-        description="Threshold-driven conditions currently being watched by the institution."
-        eyebrow={`${activeSituations.length} active notices`}
+        open={activePanel === "crises"}
+        title="Crises"
+        description="Recoverable trajectories that may become terminal Game Overs if their prerequisites persist."
+        eyebrow={`${crises.length} ${crises.length === 1 ? "crisis" : "crises"}`}
         onClose={onClose}
       >
-        {gameOverWarnings.length > 0 && (
-          <section
-            className="mb-5 flex flex-col gap-3"
-            aria-labelledby="active-crises-title"
-          >
-            <h3 id="active-crises-title" className="font-heading text-lg">
-              Active terminal crises
-            </h3>
-            {gameOverWarnings.map((warning) => (
-              <Alert variant="destructive" key={warning.definition.id}>
-                <ShieldAlert aria-hidden="true" />
-                <AlertTitle>{warning.definition.title}</AlertTitle>
-                <AlertDescription>
-                  <div className="flex flex-col gap-3">
-                    <p>
-                      {warning.turnsRemaining} turn
-                      {warning.turnsRemaining === 1 ? "" : "s"} remain before
-                      Game Over unless the prerequisites clear.
-                    </p>
-                    <Progress
-                      value={warning.progressPercent}
-                      aria-label={`${warning.definition.title}: ${warning.consecutiveTurns} of ${warning.definition.terminalAfterTurns} turns`}
-                    />
-                    {warning.matchedGroups.map(({ group, prerequisites }) => (
-                      <div key={group.id}>
-                        <strong>{group.title}</strong>
-                        <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
-                          {prerequisites.map((prerequisite) => (
-                            <li
-                              key={`${group.id}:${prerequisite.prerequisite.nodeId}`}
-                            >
-                              {prerequisite.description}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ))}
-          </section>
-        )}
-        {activeSituations.length === 0 ? (
+        {crises.length === 0 ? (
           <Empty className="min-h-48 border">
             <EmptyHeader>
-              <EmptyTitle>All is quiet</EmptyTitle>
+              <EmptyMedia variant="icon">
+                <ShieldCheck />
+              </EmptyMedia>
+              <EmptyTitle>No active crises</EmptyTitle>
               <EmptyDescription>
-                No active situations require immediate attention.
+                No terminal trajectory currently requires intervention.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <ActiveSituationItems
-            situations={activeSituations}
-            state={state}
-            onSituationHover={onSituationHover}
-            onSituationSelect={onSituationSelect}
-          />
+          <section
+            className="flex flex-col gap-3"
+            aria-labelledby="active-crises-title"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert aria-hidden="true" />
+              <h3 id="active-crises-title" className="font-heading text-lg">
+                Active terminal crises
+              </h3>
+            </div>
+            {crises.map((crisis) => (
+              <CrisisSummaryCard
+                key={crisis.definition.id}
+                variant="compact"
+                crisis={crisis}
+                onOpen={() => {
+                  onClose();
+                  onCrisisSelect(crisis.definition.id);
+                }}
+              />
+            ))}
+          </section>
         )}
       </DashboardSheet>
 

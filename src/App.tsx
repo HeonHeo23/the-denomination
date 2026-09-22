@@ -145,7 +145,8 @@ function Application({
   const [errors, setErrors] = useState<LandingErrors>({});
   const [activeGame, setActiveGame] = useState<ActiveGame>();
   const [confirmation, setConfirmation] = useState<ConfirmationRequest>();
-  const [pendingExitState, setPendingExitState] = useState<SimulationState>();
+  const [pendingExitState, setPendingExitState] =
+    useState<SimulationState>();
   const runKey = useRef(0);
 
   useEffect(() => {

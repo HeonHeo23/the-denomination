@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toPercent } from "@/ui/formatValue";
+import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import type { NodeEffectView } from "./projectNodeEffects";
 
 interface NodeEffectCardProps {
@@ -20,6 +21,16 @@ interface NodeEffectCardProps {
   readonly effects: readonly NodeEffectView[];
   readonly onNodeSelect: (nodeId: string) => void;
   readonly layout?: "standard" | "stance";
+}
+
+interface EffectTableCardProps {
+  readonly title: string;
+  readonly legend: ReactNode;
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly headerClassName?: string;
+  readonly ariaLabel?: string;
+  readonly onOpen?: () => void;
 }
 
 function effectBarMagnitudePercent(contribution: number): number {
@@ -31,7 +42,7 @@ function effectBarSpanPercent(contribution: number): number {
   return effectBarMagnitudePercent(contribution) / 2;
 }
 
-function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
+export function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
   const currentSpan = effectBarSpanPercent(effect.contribution);
   const previewContribution = effect.previewContribution ?? effect.contribution;
   const previewSpan = effectBarSpanPercent(previewContribution);
@@ -101,53 +112,49 @@ function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
   );
 }
 
-function EffectRow({
+export function EffectRow({
   effect,
   direction,
   layout,
   onNodeSelect,
+  showInertia = true,
+  stopPropagation = false,
 }: {
   readonly effect: NodeEffectView;
   readonly direction: NodeEffectCardProps["direction"];
-  readonly layout: NonNullable<NodeEffectCardProps["layout"]>;
+  readonly layout?: NonNullable<NodeEffectCardProps["layout"]>;
   readonly onNodeSelect: NodeEffectCardProps["onNodeSelect"];
+  readonly showInertia?: boolean;
+  readonly stopPropagation?: boolean;
 }) {
   const Icon = direction === "incoming" ? ArrowDownRight : ArrowUpRight;
-  const linked = effect.relatedNodeId !== undefined;
+  const relatedNodeId = effect.relatedNodeId;
+  const linked = relatedNodeId !== undefined;
   const inertiaTurns = effect.inertiaTurns ?? 1;
   const relationshipLabel = effect.label ?? "Persistent causal relationship";
-  const activateRelatedNode = () => {
-    if (effect.relatedNodeId) onNodeSelect(effect.relatedNodeId);
-  };
+  const trigger =
+    relatedNodeId === undefined
+      ? undefined
+      : getDossierTriggerProps(
+          `Open ${effect.relatedName} node${effect.label ? `: ${effect.label}` : ""}`,
+          () => onNodeSelect(relatedNodeId),
+          stopPropagation,
+        );
 
   return (
     <Item
-      aria-label={
-        linked
-          ? `Open ${effect.relatedName} node${effect.label ? `: ${effect.label}` : ""}`
-          : (effect.label ?? effect.relatedName)
-      }
+      aria-label={effect.label ?? effect.relatedName}
       className={cn(
         "gap-2 py-1.5",
         layout === "stance" && "flex-nowrap px-2 py-2",
         linked && "cursor-pointer hover:bg-accent focus-visible:bg-accent",
       )}
-      onClick={linked ? activateRelatedNode : undefined}
-      onKeyDown={
-        linked
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                activateRelatedNode();
-              }
-            }
-          : undefined
-      }
-      role={linked ? "button" : "listitem"}
-      tabIndex={linked ? 0 : undefined}
+      role="listitem"
       size="sm"
       variant="muted"
       data-game-effect-row
+      data-game-crisis-contribution-row={!showInertia ? true : undefined}
+      {...trigger}
     >
       <Icon aria-hidden="true" />
       <ItemContent
@@ -195,12 +202,52 @@ function EffectRow({
           }
         >
           <EffectBar effect={effect} />
-          <span className="shrink-0 font-mono text-[0.65rem] text-muted-foreground">
-            ({inertiaTurns})
-          </span>
+          {showInertia && (
+            <span className="shrink-0 font-mono text-[0.65rem] text-muted-foreground">
+              ({inertiaTurns})
+            </span>
+          )}
         </div>
       </ItemContent>
     </Item>
+  );
+}
+
+export function EffectTableCard({
+  title,
+  legend,
+  children,
+  className,
+  headerClassName,
+  ariaLabel,
+  onOpen,
+}: EffectTableCardProps) {
+  const interactive = onOpen !== undefined && ariaLabel !== undefined;
+  const trigger = interactive
+    ? getDossierTriggerProps(ariaLabel, onOpen)
+    : undefined;
+
+  return (
+    <Card
+      className={cn(
+        "h-full min-h-0 max-h-full",
+        interactive &&
+          "cursor-pointer border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        className,
+      )}
+      size="sm"
+      data-game-effect-table
+      data-game-effect-table-interactive={interactive ? true : undefined}
+      {...trigger}
+    >
+      <CardHeader className={cn("shrink-0", headerClassName)}>
+        <div className="flex items-end justify-between gap-3">
+          <CardTitle>{title}</CardTitle>
+          <span className="effect-table__legend">{legend}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="min-h-0 flex-1 p-2">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -212,38 +259,24 @@ export function NodeEffectCard({
   layout = "standard",
 }: NodeEffectCardProps) {
   return (
-    <Card
-      className="h-full min-h-0 max-h-full"
-      size="sm"
-      data-game-effect-table
-    >
-      <CardHeader className="shrink-0">
-        <div className="flex items-end justify-between gap-3">
-          <CardTitle>{title}</CardTitle>
-          <span className="effect-table__legend">{effects.length} effects</span>
-        </div>
-      </CardHeader>
-      <CardContent className="min-h-0 flex-1 p-2">
-        {effects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No {direction} Effects.
-          </p>
-        ) : (
-          <ScrollArea className="h-full max-h-full pr-1">
-            <ItemGroup className="gap-1">
-              {effects.map((effect) => (
-                <EffectRow
-                  key={effect.id}
-                  effect={effect}
-                  direction={direction}
-                  layout={layout}
-                  onNodeSelect={onNodeSelect}
-                />
-              ))}
-            </ItemGroup>
-          </ScrollArea>
-        )}
-      </CardContent>
-    </Card>
+    <EffectTableCard title={title} legend={`${effects.length} effects`}>
+      {effects.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No {direction} Effects.</p>
+      ) : (
+        <ScrollArea className="h-full max-h-full pr-1">
+          <ItemGroup className="gap-1">
+            {effects.map((effect) => (
+              <EffectRow
+                key={effect.id}
+                effect={effect}
+                direction={direction}
+                layout={layout}
+                onNodeSelect={onNodeSelect}
+              />
+            ))}
+          </ItemGroup>
+        </ScrollArea>
+      )}
+    </EffectTableCard>
   );
 }

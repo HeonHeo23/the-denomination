@@ -51,10 +51,8 @@ assert.match(
   ]).diagnostics[0],
   /duplicate Scenario id/,
 );
-const state = advanceTurn(
-  catalog[0].scenario,
-  initializeScenario(catalog[0].scenario),
-).state;
+const initialState = initializeScenario(catalog[0].scenario);
+const state = advanceTurn(catalog[0].scenario, initialState).state;
 const save: SavedGame = {
   version: 2,
   scenarioId: exampleScenario.id,
@@ -65,7 +63,6 @@ const save: SavedGame = {
 };
 
 assert.ok(validateSavedGame(save, catalog), "A valid save should be accepted");
-
 const terminalDefinition = catalog[0].scenario.gameOvers![0];
 const terminalSave: SavedGame = {
   ...save,
@@ -99,7 +96,6 @@ assert.ok(
   validateSavedGame(terminalSave, catalog),
   "A terminal Game Over save should be restorable",
 );
-
 const storage = new MemoryStorage();
 assert.equal(storeSavedGame(storage, save), undefined);
 const loaded = loadSavedGame(storage, catalog);

@@ -10,6 +10,7 @@ import { SimulationGraph } from "@/ui/graph/SimulationGraph";
 import type { GraphTurnFeedback } from "@/ui/graph/projectToReactFlow";
 import { ToastNotification } from "@/components/ToastNotification";
 import { NodeDetailsDialog } from "@/ui/panels/NodeDetailsDialog";
+import { CrisisDetailsDialog } from "@/ui/panels/CrisisDetailsDialog";
 import { TurnReportDialog } from "@/ui/panels/TurnReportDialog";
 import {
   projectTurnReport,
@@ -20,7 +21,8 @@ import { GameHeader } from "./GameHeader";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { GameOverReportDialog } from "./GameOverReportDialog";
-import { projectGameOverWarnings } from "./projectGameOvers";
+import { projectCrises, projectGameOverWarnings } from "./projectGameOvers";
+import { useDossierNavigation } from "./useDossierNavigation";
 import "./game-shell.css";
 
 const TURN_REVEAL_DURATION_MS = 1000;
@@ -54,21 +56,15 @@ export function GameView({
 }: GameViewProps) {
   const { play } = useInterfaceSound();
   const session = useGameSession(entry.scenario, restoredState);
-  const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const navigation = useDossierNavigation(Boolean(restoredState?.outcome));
+  const openReport = navigation.openReport;
   const [sheetHoveredNodeId, setSheetHoveredNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport>();
+  const [turnReportOpen, setTurnReportOpen] = useState(false);
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
-  const [showGameOverReport, setShowGameOverReport] = useState(
-    Boolean(restoredState?.outcome),
-  );
-  const [graphContextLabel, setGraphContextLabel] = useState(
-    () =>
-      entry.scenario.nodes.find((node) => node.graphVisible !== false)
-        ?.category ?? "Overview",
-  );
   const previousState = useRef<SimulationState | undefined>(undefined);
   const previousMessage = useRef<string | undefined>(undefined);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -121,12 +117,16 @@ export function GameView({
       }
       setRevealingTurn(undefined);
       setTurnReport(undefined);
+      setTurnReportOpen(false);
       setToastMessage(undefined);
       if (reducedMotion) {
         if (session.state.outcome) {
           // oxlint-disable-next-line react/set-state-in-effect -- the terminal overlay follows the completed engine transition.
-          setShowGameOverReport(true);
-        } else setTurnReport(report);
+          openReport();
+        } else {
+          setTurnReport(report);
+          setTurnReportOpen(true);
+        }
         if (
           report.situationTransitions.some(({ kind }) => kind === "began") ||
           report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -137,8 +137,12 @@ export function GameView({
         setRevealingTurn(report);
         revealTimer.current = setTimeout(() => {
           setRevealingTurn(undefined);
-          if (session.state.outcome) setShowGameOverReport(true);
-          else setTurnReport(report);
+          if (session.state.outcome) {
+            openReport();
+          } else {
+            setTurnReport(report);
+            setTurnReportOpen(true);
+          }
           if (
             report.situationTransitions.some(({ kind }) => kind === "began") ||
             report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -155,12 +159,13 @@ export function GameView({
       }
       setRevealingTurn(undefined);
       setTurnReport(undefined);
+      setTurnReportOpen(false);
     } else if (before && messageChanged) {
       setToastMessage(session.message);
     }
     previousState.current = session.state;
     previousMessage.current = session.message;
-  }, [play, session]);
+  }, [play, session, openReport]);
 
   if (!session.ok) {
     return (
@@ -182,18 +187,24 @@ export function GameView({
 
   const scenario = session.scenario;
   const resources = scenario.nodes.filter((node) => node.type === "resource");
-  const situations = scenario.nodes.filter((node) => node.type === "situation");
   const selectedDefinition = scenario.nodes.find(
-    ({ id }) => id === selectedNodeId,
+    ({ id }) => id === navigation.selectedNodeId,
   );
   const selectedRuntime = selectedDefinition
     ? session.state.nodes[selectedDefinition.id]
     : undefined;
+  const crisisItems = projectCrises(scenario, session.state);
+  const selectedCrisis = crisisItems.find(
+    ({ definition }) => definition.id === navigation.selectedCrisisId,
+  );
+  const selectNode = navigation.openNode;
+  const selectCrisis = navigation.openCrisis;
   const visibleToast =
     toastMessage ?? (notice !== dismissedNotice ? notice : undefined);
   const gameOverWarnings = projectGameOverWarnings(scenario, session.state);
-  const urgentGameOverWarning = gameOverWarnings[0];
-
+  const urgentGameOverWarning = session.state.outcome
+    ? undefined
+    : gameOverWarnings[0];
   return (
     <div
       className="game-enter flex h-dvh min-h-0 flex-col overflow-hidden bg-background"
@@ -202,15 +213,9 @@ export function GameView({
       <GameHeader
         denominationName={denominationName}
         playerName={playerName}
-        scenarioTitle={scenario.title}
-        graphContextLabel={graphContextLabel}
         state={session.state}
         resources={resources}
-        activeSituationCount={
-          situations.filter(
-            (situation) => session.state.nodes[situation.id].isActive,
-          ).length
-        }
+        activeCrisisCount={gameOverWarnings.length}
         urgentGameOverWarning={
           urgentGameOverWarning
             ? {
@@ -236,15 +241,22 @@ export function GameView({
           play("paper");
           setActivePanel("overview");
         }}
-        onOpenSituations={() => {
+        onOpenCrises={() => {
           play("paper");
-          setActivePanel("situations");
+          setActivePanel("crises");
         }}
         onOpenChronicle={() => {
           play("paper");
           setActivePanel("chronicle");
         }}
-        onOpenGameOver={() => setShowGameOverReport(true)}
+        turnReportAvailable={turnReport !== undefined}
+        onOpenTurnReport={() => {
+          if (turnReport) {
+            play("paper");
+            setTurnReportOpen(true);
+          }
+        }}
+        onOpenGameOver={navigation.openReport}
         musicMuted={musicMuted}
         onToggleMusic={onToggleMusic}
       />
@@ -270,12 +282,10 @@ export function GameView({
               scenario={scenario}
               state={session.state}
               resources={resources}
-              situations={situations}
               hideScenario
-              onSituationHover={setSheetHoveredNodeId}
-              onSituationSelect={setSelectedNodeId}
+              onCrisisSelect={selectCrisis}
               onResourceHover={setSheetHoveredNodeId}
-              onResourceSelect={setSelectedNodeId}
+              onResourceSelect={selectNode}
             />
           </div>
         </ScrollArea>
@@ -286,7 +296,7 @@ export function GameView({
           aria-label="Institutional causal graph"
         >
           <div className="graph-canvas relative size-full min-h-0">
-            <div className="graph-legend" aria-label="Effect legend">
+            <div className="graph-legend" aria-label="Graph legend">
               <span>
                 <i className="effect-key effect-key--positive" /> Increasing
               </span>
@@ -297,9 +307,8 @@ export function GameView({
             <SimulationGraph
               scenario={scenario}
               state={session.state}
-              onNodeSelect={setSelectedNodeId}
+              onNodeSelect={selectNode}
               externalHoveredNodeId={sheetHoveredNodeId}
-              onViewContextChange={setGraphContextLabel}
               turnFeedback={graphTurnFeedback}
             />
           </div>
@@ -311,19 +320,29 @@ export function GameView({
         scenario={scenario}
         state={session.state}
         resources={resources}
-        situations={situations}
         onClose={() => setActivePanel(undefined)}
-        onSituationHover={setSheetHoveredNodeId}
-        onSituationSelect={setSelectedNodeId}
+        onCrisisSelect={selectCrisis}
         onResourceHover={setSheetHoveredNodeId}
-        onResourceSelect={setSelectedNodeId}
+        onResourceSelect={selectNode}
       />
 
       {turnReport && (
         <TurnReportDialog
+          key={turnReport.turn}
           report={turnReport}
-          onNodeSelect={setSelectedNodeId}
-          onClose={() => setTurnReport(undefined)}
+          open={turnReportOpen}
+          onNodeSelect={selectNode}
+          onOpenChange={setTurnReportOpen}
+        />
+      )}
+
+      {selectedCrisis && (
+        <CrisisDetailsDialog
+          crisis={selectedCrisis}
+          scenario={scenario}
+          state={session.state}
+          onNodeSelect={navigation.openNodeFromCrisis}
+          onClose={navigation.closeCrisis}
         />
       )}
 
@@ -336,23 +355,23 @@ export function GameView({
           onApply={session.setStance}
           onEnact={session.enactStance}
           onRepeal={session.repealStance}
-          onNodeSelect={setSelectedNodeId}
-          onClose={() => setSelectedNodeId(undefined)}
+          onNodeSelect={selectNode}
+          onClose={navigation.closeNode}
         />
       )}
 
-      {showGameOverReport && session.state.outcome && (
+      {navigation.reportOpen && session.state.outcome && (
         <GameOverReportDialog
           scenario={scenario}
           state={session.state}
-          onReview={() => setShowGameOverReport(false)}
+          onCrisisSelect={navigation.openCrisisFromReport}
+          onReview={navigation.reviewFinalState}
           onRestart={() => {
-            setShowGameOverReport(false);
-            setSelectedNodeId(undefined);
+            navigation.reset();
             session.reset();
           }}
           onMainMenu={() => {
-            setShowGameOverReport(false);
+            navigation.reset();
             onMainMenu(session.state);
           }}
         />
