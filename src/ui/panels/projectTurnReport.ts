@@ -7,6 +7,10 @@ import type {
   GameOverDefinition,
   GameOverStageDefinition,
 } from "../../simulation";
+import type {
+  SavedTurnReport,
+  SavedTurnReportChange,
+} from "../../app/persistence";
 
 const CHANGE_EPSILON = 1e-9;
 
@@ -162,6 +166,99 @@ export function projectTurnReport(
       };
     }),
     crisisTransitions,
+  };
+}
+
+export function serializeTurnReport(report: TurnReport): SavedTurnReport {
+  return {
+    turn: report.turn,
+    ...(report.year === undefined ? {} : { year: report.year }),
+    changes: report.changes.map<SavedTurnReportChange>((change) => ({
+      nodeId: change.node.id,
+      previousValue: change.previousValue,
+      value: change.value,
+      delta: change.delta,
+      relativeMagnitude: change.relativeMagnitude,
+      previousActive: change.previousActive,
+      isActive: change.isActive,
+    })),
+    changedEffectIds: [...report.changedEffectIds],
+    situationTransitions: report.situationTransitions.map((transition) => ({
+      nodeId: transition.node.id,
+      kind: transition.kind,
+    })),
+    grudges: report.grudges.map((grudge) => ({
+      id: grudge.id,
+      label: grudge.label,
+      targetId: grudge.targetId,
+      targetName: grudge.targetName,
+      magnitude: grudge.magnitude,
+    })),
+    crisisTransitions: report.crisisTransitions.map((transition) => ({
+      kind: transition.kind,
+      gameOverId: transition.definition.id,
+      ...(transition.stage === undefined
+        ? {}
+        : { stageAtTurn: transition.stage.atTurn }),
+      consecutiveTurns: transition.consecutiveTurns,
+      turnsRemaining: transition.turnsRemaining,
+    })),
+  };
+}
+
+export function restoreTurnReport(
+  scenario: ScenarioDefinition,
+  saved: SavedTurnReport,
+): TurnReport {
+  const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
+  const gameOvers = new Map(
+    (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
+  );
+  const changes = saved.changes.map((change) => ({
+    node: nodes.get(change.nodeId)!,
+    previousValue: change.previousValue,
+    value: change.value,
+    delta: change.delta,
+    relativeMagnitude: change.relativeMagnitude,
+    previousActive: change.previousActive,
+    isActive: change.isActive,
+  }));
+
+  return {
+    turn: saved.turn,
+    ...(saved.year === undefined ? {} : { year: saved.year }),
+    highlights: [...changes]
+      .sort((left, right) => right.relativeMagnitude - left.relativeMagnitude)
+      .slice(0, 4),
+    changes,
+    changedEffectIds: saved.changedEffectIds,
+    situationTransitions: saved.situationTransitions.map((transition) => ({
+      node: nodes.get(transition.nodeId)!,
+      kind: transition.kind,
+    })),
+    grudges: saved.grudges.map((grudge) => ({
+      id: grudge.id,
+      label: grudge.label,
+      targetId: grudge.targetId,
+      targetName: grudge.targetName,
+      targetDomain: nodes.get(grudge.targetId)!.domain,
+      magnitude: grudge.magnitude,
+    })),
+    crisisTransitions: saved.crisisTransitions.map((transition) => {
+      const definition = gameOvers.get(transition.gameOverId)!;
+      return {
+        kind: transition.kind,
+        definition,
+        stage:
+          transition.stageAtTurn === undefined
+            ? undefined
+            : definition.stages.find(
+                (stage) => stage.atTurn === transition.stageAtTurn,
+              ),
+        consecutiveTurns: transition.consecutiveTurns,
+        turnsRemaining: transition.turnsRemaining,
+      };
+    }),
   };
 }
 

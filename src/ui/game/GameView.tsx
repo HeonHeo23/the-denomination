@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import type { SavedGame } from "@/app/persistence";
+import type { SavedGame, SavedTurnReport } from "@/app/persistence";
 import type { LoadedScenarioCatalogEntry } from "@/app/scenarioCatalog";
 import { useGameSession } from "@/app/useGameSession";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +14,8 @@ import { CrisisDetailsDialog } from "@/ui/panels/CrisisDetailsDialog";
 import { TurnReportDialog } from "@/ui/panels/TurnReportDialog";
 import {
   projectTurnReport,
+  restoreTurnReport,
+  serializeTurnReport,
   type TurnReport,
 } from "@/ui/panels/projectTurnReport";
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
@@ -32,11 +34,15 @@ interface GameViewProps {
   readonly playerName: string;
   readonly denominationName: string;
   readonly restoredState?: SimulationState;
+  readonly restoredTurnReport?: SavedTurnReport;
   readonly notice?: string;
   readonly savedGame?: SavedGame;
-  readonly onSave: (state: SimulationState) => void;
+  readonly onSave: (state: SimulationState, report?: SavedTurnReport) => void;
   readonly onLoad: () => void;
-  readonly onMainMenu: (state: SimulationState) => void;
+  readonly onMainMenu: (
+    state: SimulationState,
+    report?: SavedTurnReport,
+  ) => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
 }
@@ -46,6 +52,7 @@ export function GameView({
   playerName,
   denominationName,
   restoredState,
+  restoredTurnReport,
   notice,
   savedGame,
   onSave,
@@ -59,7 +66,11 @@ export function GameView({
   const navigation = useDossierNavigation(Boolean(restoredState?.outcome));
   const openReport = navigation.openReport;
   const [sheetHoveredNodeId, setSheetHoveredNodeId] = useState<string>();
-  const [turnReport, setTurnReport] = useState<TurnReport>();
+  const [turnReport, setTurnReport] = useState<TurnReport | undefined>(() =>
+    restoredTurnReport
+      ? restoreTurnReport(entry.scenario, restoredTurnReport)
+      : undefined,
+  );
   const [turnReportOpen, setTurnReportOpen] = useState(false);
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
@@ -205,6 +216,10 @@ export function GameView({
   const urgentGameOverWarning = session.state.outcome
     ? undefined
     : gameOverWarnings[0];
+  const savedTurnReport = turnReport
+    ? serializeTurnReport(turnReport)
+    : undefined;
+
   return (
     <div
       className="game-enter flex h-dvh min-h-0 flex-col overflow-hidden bg-background"
@@ -233,10 +248,10 @@ export function GameView({
             session.nextTurn();
           }
         }}
-        onSave={() => onSave(session.state)}
+        onSave={() => onSave(session.state, savedTurnReport)}
         onLoad={onLoad}
         onReset={session.reset}
-        onMainMenu={() => onMainMenu(session.state)}
+        onMainMenu={() => onMainMenu(session.state, savedTurnReport)}
         onOpenOverview={() => {
           play("paper");
           setActivePanel("overview");
@@ -372,7 +387,7 @@ export function GameView({
           }}
           onMainMenu={() => {
             navigation.reset();
-            onMainMenu(session.state);
+            onMainMenu(session.state, savedTurnReport);
           }}
         />
       )}

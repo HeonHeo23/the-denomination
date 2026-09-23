@@ -267,6 +267,8 @@ operations `advanceTurn`, `initializeScenario`, `executeCommand`, and
 React renders the current application snapshot and dispatches commands. Hooks
 may memoize projections but must not become an alternate simulation store.
 
+local dossier-navigation state controls overlapping dialogs and is never persisted.
+
 The graph adapter maps visible simulation nodes and Effects to React Flow data:
 
 - definition data supplies labels and visibility;
@@ -293,12 +295,16 @@ Browser persistence belongs behind the application/session layer and stores:
 - Scenario identity and compatible content version;
 - canonical runtime state;
 - player and denomination display identity;
+- the validated player-facing Turn report record for the saved turn, when one
+  is available;
 - deterministic replay data only if replay is supported.
 
-Do not persist React state, React Flow objects, cached projections, or function
-references. Loading must validate and, when necessary, explicitly migrate saved
-data before passing it to the engine. The engine itself remains independent of
-storage technology.
+Do not persist React state, React Flow objects, arbitrary cached projections, or
+function references. The Turn report record is an explicit player-facing save
+record, keyed by Scenario IDs and rehydrated into a UI projection after load.
+Loading must validate and, when necessary, explicitly migrate saved data before
+passing the runtime state to the engine. The engine itself remains independent
+of storage technology.
 
 The current browser adapter owns one versioned local save slot. It validates
 the save format, identity limits, Scenario and catalog-version compatibility,

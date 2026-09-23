@@ -11,6 +11,7 @@ import {
   loadSavedGame,
   storeSavedGame,
   type SavedGame,
+  type SavedTurnReport,
   type SaveStorage,
 } from "@/app/persistence";
 import {
@@ -32,6 +33,7 @@ interface ActiveGame {
   readonly playerName: string;
   readonly denominationName: string;
   readonly restoredState?: SimulationState;
+  readonly restoredTurnReport?: SavedTurnReport;
 }
 
 interface LaunchRequest {
@@ -39,6 +41,12 @@ interface LaunchRequest {
   readonly playerName: string;
   readonly denominationName: string;
   readonly restoredState?: SimulationState;
+  readonly restoredTurnReport?: SavedTurnReport;
+}
+
+interface PendingExit {
+  readonly state: SimulationState;
+  readonly turnReport?: SavedTurnReport;
 }
 
 type ConfirmationRequest =
@@ -145,8 +153,7 @@ function Application({
   const [errors, setErrors] = useState<LandingErrors>({});
   const [activeGame, setActiveGame] = useState<ActiveGame>();
   const [confirmation, setConfirmation] = useState<ConfirmationRequest>();
-  const [pendingExitState, setPendingExitState] =
-    useState<SimulationState>();
+  const [pendingExit, setPendingExit] = useState<PendingExit>();
   const runKey = useRef(0);
 
   useEffect(() => {
@@ -211,11 +218,12 @@ function Application({
       playerName: savedGame.playerName,
       denominationName: savedGame.denominationName,
       restoredState: savedGame.state,
+      restoredTurnReport: savedGame.turnReport,
     });
   };
 
   const saveActiveState = useCallback(
-    (state: SimulationState) => {
+    (state: SimulationState, turnReport?: SavedTurnReport) => {
       if (!activeGame) return;
       const save: SavedGame = {
         version: 2,
@@ -224,6 +232,7 @@ function Application({
         playerName: activeGame.playerName,
         denominationName: activeGame.denominationName,
         state,
+        ...(turnReport ? { turnReport } : {}),
       };
       const warning = storeSavedGame(storage, save);
       if (warning) {
@@ -269,6 +278,7 @@ function Application({
       playerName: result.save.playerName,
       denominationName: result.save.denominationName,
       restoredState: result.save.state,
+      restoredTurnReport: result.save.turnReport,
     });
     setNotice("Saved game loaded.");
   }, [entries, startMusic, storage]);
@@ -283,20 +293,23 @@ function Application({
       launch(confirmation.launch);
       return;
     }
-    setPendingExitState(undefined);
+    setPendingExit(undefined);
     setActiveGame(undefined);
   };
 
   const saveAndReturnToMainMenu = () => {
-    if (!activeGame || !pendingExitState) return;
-    saveActiveState(pendingExitState);
-    setPendingExitState(undefined);
+    if (!activeGame || !pendingExit) return;
+    saveActiveState(pendingExit.state, pendingExit.turnReport);
+    setPendingExit(undefined);
     setConfirmation(undefined);
     setActiveGame(undefined);
   };
 
-  const requestMainMenu = (state: SimulationState) => {
-    setPendingExitState(state);
+  const requestMainMenu = (
+    state: SimulationState,
+    turnReport?: SavedTurnReport,
+  ) => {
+    setPendingExit({ state, turnReport });
     setConfirmation({ kind: "main-menu" });
   };
 
@@ -317,6 +330,7 @@ function Application({
           playerName={activeGame.playerName}
           denominationName={activeGame.denominationName}
           restoredState={activeGame.restoredState}
+          restoredTurnReport={activeGame.restoredTurnReport}
           notice={notice}
           savedGame={savedGame}
           onSave={saveActiveState}

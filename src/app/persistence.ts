@@ -10,6 +10,41 @@ export interface SaveStorage {
   removeItem(key: string): void;
 }
 
+export interface SavedTurnReportChange {
+  readonly nodeId: string;
+  readonly previousValue: number;
+  readonly value: number;
+  readonly delta: number;
+  readonly relativeMagnitude: number;
+  readonly previousActive: boolean;
+  readonly isActive: boolean;
+}
+
+export interface SavedTurnReport {
+  readonly turn: number;
+  readonly year?: number;
+  readonly changes: readonly SavedTurnReportChange[];
+  readonly changedEffectIds: readonly string[];
+  readonly situationTransitions: readonly {
+    readonly nodeId: string;
+    readonly kind: "began" | "ended";
+  }[];
+  readonly grudges: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly targetId: string;
+    readonly targetName: string;
+    readonly magnitude: number;
+  }[];
+  readonly crisisTransitions: readonly {
+    readonly kind: "stage" | "recovered";
+    readonly gameOverId: string;
+    readonly stageAtTurn?: number;
+    readonly consecutiveTurns: number;
+    readonly turnsRemaining: number;
+  }[];
+}
+
 export interface SavedGame {
   readonly version: 2;
   readonly scenarioId: string;
@@ -17,6 +52,7 @@ export interface SavedGame {
   readonly playerName: string;
   readonly denominationName: string;
   readonly state: SimulationState;
+  readonly turnReport?: SavedTurnReport;
 }
 
 export type SavedGameLoadResult =
@@ -284,19 +320,164 @@ function validRuntimeState(
   return true;
 }
 
+function validSavedTurnReport(
+  value: unknown,
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+): value is SavedTurnReport {
+  if (
+    !exactObject(
+      value,
+      [
+        "turn",
+        "changes",
+        "changedEffectIds",
+        "situationTransitions",
+        "grudges",
+        "crisisTransitions",
+      ],
+      ["year"],
+    ) ||
+    !finite(value.turn) ||
+    !Number.isInteger(value.turn) ||
+    value.turn !== state.turn ||
+    value.year !== state.year ||
+    !Array.isArray(value.changes) ||
+    !Array.isArray(value.changedEffectIds) ||
+    !Array.isArray(value.situationTransitions) ||
+    !Array.isArray(value.grudges) ||
+    !Array.isArray(value.crisisTransitions)
+  )
+    return false;
+
+  const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
+  const effectIds = new Set(scenario.effects.map((effect) => effect.id));
+  const gameOvers = new Map(
+    (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
+  );
+
+  const changeIds = new Set<string>();
+  for (const change of value.changes) {
+    if (
+      !exactObject(change, [
+        "nodeId",
+        "previousValue",
+        "value",
+        "delta",
+        "relativeMagnitude",
+        "previousActive",
+        "isActive",
+      ]) ||
+      typeof change.nodeId !== "string" ||
+      !nodes.has(change.nodeId) ||
+      changeIds.has(change.nodeId) ||
+      !finite(change.previousValue) ||
+      !finite(change.value) ||
+      !finite(change.delta) ||
+      !finite(change.relativeMagnitude) ||
+      typeof change.previousActive !== "boolean" ||
+      typeof change.isActive !== "boolean"
+    )
+      return false;
+    changeIds.add(change.nodeId);
+  }
+
+  const changedEffectIds = new Set<string>();
+  if (
+    value.changedEffectIds.some(
+      (id) =>
+        typeof id !== "string" ||
+        !effectIds.has(id) ||
+        changedEffectIds.has(id),
+    )
+  )
+    return false;
+  value.changedEffectIds.forEach((id) => changedEffectIds.add(id));
+
+  const situationIds = new Set<string>();
+  for (const transition of value.situationTransitions) {
+    if (
+      !exactObject(transition, ["nodeId", "kind"]) ||
+      typeof transition.nodeId !== "string" ||
+      situationIds.has(transition.nodeId) ||
+      nodes.get(transition.nodeId)?.type !== "situation" ||
+      (transition.kind !== "began" && transition.kind !== "ended")
+    )
+      return false;
+    situationIds.add(transition.nodeId);
+  }
+
+  const grudgeIds = new Set<string>();
+  for (const grudge of value.grudges) {
+    if (
+      !exactObject(grudge, [
+        "id",
+        "label",
+        "targetId",
+        "targetName",
+        "magnitude",
+      ]) ||
+      !nonempty(grudge.id) ||
+      grudgeIds.has(grudge.id) ||
+      !nonempty(grudge.label) ||
+      typeof grudge.targetId !== "string" ||
+      !nodes.has(grudge.targetId) ||
+      grudge.targetName !== nodes.get(grudge.targetId)?.name ||
+      !finite(grudge.magnitude)
+    )
+      return false;
+    grudgeIds.add(grudge.id);
+  }
+
+  const crisisIds = new Set<string>();
+  for (const transition of value.crisisTransitions) {
+    if (
+      !exactObject(
+        transition,
+        ["kind", "gameOverId", "consecutiveTurns", "turnsRemaining"],
+        ["stageAtTurn"],
+      ) ||
+      typeof transition.gameOverId !== "string" ||
+      crisisIds.has(transition.gameOverId) ||
+      !gameOvers.has(transition.gameOverId) ||
+      (transition.kind !== "stage" && transition.kind !== "recovered") ||
+      !finite(transition.consecutiveTurns) ||
+      !Number.isInteger(transition.consecutiveTurns) ||
+      transition.consecutiveTurns < 0 ||
+      !finite(transition.turnsRemaining) ||
+      !Number.isInteger(transition.turnsRemaining) ||
+      transition.turnsRemaining < 0 ||
+      (transition.stageAtTurn !== undefined &&
+        (!finite(transition.stageAtTurn) ||
+          !Number.isInteger(transition.stageAtTurn) ||
+          !gameOvers
+            .get(transition.gameOverId)
+            ?.stages.some((stage) => stage.atTurn === transition.stageAtTurn)))
+    )
+      return false;
+    crisisIds.add(transition.gameOverId);
+  }
+
+  return true;
+}
+
 export function validateSavedGame(
   value: unknown,
   catalog: readonly LoadedScenarioCatalogEntry[],
 ): SavedGame | undefined {
   if (
-    !exactObject(value, [
-      "version",
-      "scenarioId",
-      "scenarioContentVersion",
-      "playerName",
-      "denominationName",
-      "state",
-    ]) ||
+    !exactObject(
+      value,
+      [
+        "version",
+        "scenarioId",
+        "scenarioContentVersion",
+        "playerName",
+        "denominationName",
+        "state",
+      ],
+      ["turnReport"],
+    ) ||
     value.version !== 2 ||
     typeof value.scenarioId !== "string" ||
     !finite(value.scenarioContentVersion) ||
@@ -316,6 +497,11 @@ export function validateSavedGame(
       contentVersion === value.scenarioContentVersion,
   );
   if (!entry || !validRuntimeState(value.state, entry.scenario))
+    return undefined;
+  if (
+    value.turnReport !== undefined &&
+    !validSavedTurnReport(value.turnReport, entry.scenario, value.state)
+  )
     return undefined;
   return value as unknown as SavedGame;
 }

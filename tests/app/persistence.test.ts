@@ -16,7 +16,11 @@ import {
 import { loadScenarioCatalog } from "../../src/app/scenarioCatalog";
 import { exampleScenario } from "../../src/scenarios/example";
 import { advanceTurn, initializeScenario } from "../../src/simulation";
-import { projectTurnReport } from "../../src/ui/panels/projectTurnReport";
+import {
+  projectTurnReport,
+  restoreTurnReport,
+  serializeTurnReport,
+} from "../../src/ui/panels/projectTurnReport";
 
 class MemoryStorage implements SaveStorage {
   readonly values = new Map<string, string>();
@@ -53,6 +57,8 @@ assert.match(
 );
 const initialState = initializeScenario(catalog[0].scenario);
 const state = advanceTurn(catalog[0].scenario, initialState).state;
+const turnReport = projectTurnReport(catalog[0].scenario, initialState, state);
+const savedTurnReport = serializeTurnReport(turnReport);
 const save: SavedGame = {
   version: 2,
   scenarioId: exampleScenario.id,
@@ -63,6 +69,17 @@ const save: SavedGame = {
 };
 
 assert.ok(validateSavedGame(save, catalog), "A valid save should be accepted");
+const reportSave: SavedGame = { ...save, turnReport: savedTurnReport };
+assert.ok(
+  validateSavedGame(reportSave, catalog),
+  "A save with a turn report should be accepted",
+);
+assert.deepEqual(
+  restoreTurnReport(catalog[0].scenario, savedTurnReport),
+  turnReport,
+  "A saved turn report should restore its scenario references",
+);
+
 const terminalDefinition = catalog[0].scenario.gameOvers![0];
 const terminalSave: SavedGame = {
   ...save,
@@ -121,6 +138,17 @@ if (loaded.status === "ready") {
   const reset = reduceGameSession(session, { type: "reset" });
   assert.ok(reset.ok);
   assert.equal(reset.state.turn, exampleScenario.start.turn);
+}
+
+assert.equal(storeSavedGame(storage, reportSave), undefined);
+const loadedReport = loadSavedGame(storage, catalog);
+assert.equal(loadedReport.status, "ready");
+if (loadedReport.status === "ready") {
+  assert.deepEqual(
+    loadedReport.save.turnReport,
+    savedTurnReport,
+    "A saved turn report must round-trip without loss",
+  );
 }
 
 assert.equal(
