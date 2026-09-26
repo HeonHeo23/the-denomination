@@ -7,15 +7,12 @@ import type {
 } from "@/simulation";
 import { Badge } from "@/components/ui/badge";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { formatValue, meterPercent } from "@/ui/formatValue";
-import { projectNodeReferenceMarkers } from "@/ui/referenceMarkers";
 import { NodeEffectCard } from "./NodeEffectCard";
+import { NodeValueHistoryChart } from "./NodeValueHistoryChart";
 import { DossierDialogFrame } from "./DossierDialogFrame";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
-import "../reference-markers.css";
 import "./panels.css";
 
 interface NodeDetailsDialogProps {
@@ -62,18 +59,8 @@ export function NodeDetailsDialog({
     state,
     previewValue,
   );
-  const referenceMarkers = projectNodeReferenceMarkers(definition);
-  const referenceDescription = referenceMarkers
-    .map(
-      ({ label, value }) => `${label} ${formatValue(value, definition.domain)}`,
-    )
-    .join("; ");
-  const referenceAriaDescription = referenceDescription
-    ? `; ${referenceDescription}`
-    : "";
-
-  // Reserved facts-table template. Value metadata is currently conveyed by
-  // the reading meter/reference markers and faction header annotation.
+  // Reserved facts-table template. Value metadata appears in the chart or
+  // header badges, alongside the faction header annotation.
   const details: readonly [string, string][] = [];
 
   return (
@@ -85,7 +72,7 @@ export function NodeDetailsDialog({
       }}
       header={
         <>
-          <div className="mb-2 flex gap-2">
+          <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
             <Badge variant="secondary">
               {definition.category ?? "Uncategorized"}
             </Badge>
@@ -93,22 +80,26 @@ export function NodeDetailsDialog({
               {definition.type}
             </Badge>
             <Badge variant="outline">{activationLabel(runtime)}</Badge>
-          </div>
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,24rem)] lg:items-end lg:gap-6">
-            <div className="min-w-0">
-              <DialogTitle>{definition.name}</DialogTitle>
-              <DialogDescription>{definition.description}</DialogDescription>
-            </div>
-            {definition.type === "faction" && (
-              <div className="min-w-0 lg:justify-self-end lg:text-right">
-                <span className="font-mono text-[0.58rem] tracking-[0.14em] text-muted-foreground uppercase">
-                  Value meaning
-                </span>
-                <p className="mt-1 truncate text-xs leading-relaxed text-muted-foreground">
-                  {definition.valueMeaning}
-                </p>
-              </div>
+            {definition.type === "stance" && (
+              <Badge variant="outline">
+                {definition.domain.clamp ? "Clamped" : "Unclamped"}
+              </Badge>
             )}
+            {definition.type === "faction" && (
+              <Badge
+                className="ml-auto max-w-full min-w-0"
+                variant="outline"
+                title={`Value meaning: ${definition.valueMeaning}`}
+              >
+                <span className="truncate">
+                  Value meaning: {definition.valueMeaning}
+                </span>
+              </Badge>
+            )}
+          </div>
+          <div className="min-w-0">
+            <DialogTitle>{definition.name}</DialogTitle>
+            <DialogDescription>{definition.description}</DialogDescription>
           </div>
         </>
       }
@@ -117,66 +108,24 @@ export function NodeDetailsDialog({
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col px-6",
-            definition.type === "stance" ? "gap-2 pb-4" : "gap-5 pb-6",
+            definition.type === "stance"
+              ? "gap-2 pb-4"
+              : "overflow-y-auto pb-6",
           )}
         >
-          <section
-            className="node-record__reading"
-            aria-label="Current reading"
-          >
-            <div>
-              <span>Current value</span>
-              <strong>{formatValue(runtime.value, definition.domain)}</strong>
-              <small>{activationLabel(runtime)}</small>
-            </div>
-            <div className="node-record__meter">
-              <Progress
-                value={meterPercent(runtime.value, definition.domain)}
-                aria-label={`${definition.name}: current ${formatValue(runtime.value, definition.domain)}${referenceAriaDescription}`}
+          {definition.type !== "stance" && (
+            <section
+              className="node-record__reading node-record__reading--history"
+              aria-label="Value history"
+            >
+              <NodeValueHistoryChart
+                key={definition.id}
+                definition={definition}
+                scenario={scenario}
+                state={state}
               />
-              {referenceMarkers.map((marker) => (
-                <span
-                  className="reference-meter-marker"
-                  data-reference-edge={
-                    marker.positionPercent === 0
-                      ? "start"
-                      : marker.positionPercent === 100
-                        ? "end"
-                        : undefined
-                  }
-                  key={marker.kind}
-                  style={{
-                    left: `${marker.positionPercent}%`,
-                  }}
-                  title={`${marker.label} ${formatValue(marker.value, definition.domain)}`}
-                  aria-hidden="true"
-                >
-                  <span className="reference-meter-marker__label">
-                    {marker.kind === "start-threshold"
-                      ? "Starts"
-                      : marker.kind === "stop-threshold"
-                        ? "Stops"
-                        : marker.label}
-                  </span>
-                  <span
-                    className="reference-meter-tick"
-                    data-reference-kind={marker.kind}
-                  />
-                  <span className="reference-meter-marker__value">
-                    {formatValue(marker.value, definition.domain)}
-                  </span>
-                </span>
-              ))}
-            </div>
-            <div>
-              <span>Numeric domain</span>
-              <strong>
-                {formatValue(definition.domain.min, definition.domain)}–
-                {formatValue(definition.domain.max, definition.domain)}
-              </strong>
-              <small>{definition.domain.clamp ? "Clamped" : "Unclamped"}</small>
-            </div>
-          </section>
+            </section>
+          )}
           {details.length > 0 && (
             <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {details.map(([label, value]) => (
@@ -203,24 +152,26 @@ export function NodeDetailsDialog({
               layout="stance"
             />
           ) : (
-            <div className="grid h-full min-h-0 flex-1 gap-4 lg:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:min-h-[8rem] md:flex-1 md:grid-cols-2 md:items-stretch">
               <NodeEffectCard
                 title="Incoming effects"
                 direction="incoming"
                 effects={effects.incoming}
                 onNodeSelect={onNodeSelect}
+                fitContent
               />
               <NodeEffectCard
                 title="Outgoing effects"
                 direction="outgoing"
                 effects={effects.outgoing}
                 onNodeSelect={onNodeSelect}
+                fitContent
               />
             </div>
           )}
         </div>
 
-        {definition.type === "stance" && !state.outcome && (
+        {definition.type === "stance" && (
           <div className="shrink-0 bg-background px-6 py-2">
             <StanceEditor
               key={definition.id}

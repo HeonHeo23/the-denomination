@@ -157,6 +157,38 @@ assert.equal(
   "Unknown save versions must be rejected",
 );
 assert.equal(
+  validateSavedGame(
+    { ...save, state: { ...save.state, nodeValueHistory: [] } },
+    catalog,
+  ),
+  undefined,
+  "Missing turn readings must be rejected",
+);
+assert.equal(
+  validateSavedGame(
+    {
+      ...save,
+      state: {
+        ...save.state,
+        nodeValueHistory: save.state.nodeValueHistory.map((point, index) =>
+          index === 1
+            ? {
+                ...point,
+                values: {
+                  ...point.values,
+                  money: { value: Number.NaN, isActive: true },
+                },
+              }
+            : point,
+        ),
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "Non-finite historical readings must be rejected",
+);
+assert.equal(
   validateSavedGame({ ...save, scenarioId: "another-scenario" }, catalog),
   undefined,
   "Scenario mismatches must be rejected",

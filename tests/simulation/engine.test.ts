@@ -11,6 +11,7 @@ import {
 import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
+import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -485,6 +486,7 @@ assert(
 
 runComplianceTests();
 runNodeEffectProjectionTests();
+runNodeValueHistoryProjectionTests();
 runTurnReportProjectionTests();
 runInterfaceSoundTests();
 

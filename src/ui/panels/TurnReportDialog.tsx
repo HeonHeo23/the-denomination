@@ -1,12 +1,5 @@
-import { useState, type ReactNode } from "react";
-import {
-  BookOpenText,
-  ChevronDown,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useState } from "react";
+import { BookOpenText, ChevronDown, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +33,7 @@ interface TurnReportDialogProps {
   readonly report: TurnReport;
   readonly open: boolean;
   readonly onNodeSelect: (nodeId: string) => void;
+  readonly onCrisisSelect: (crisisId: string) => void;
   readonly onOpenChange: (open: boolean) => void;
 }
 
@@ -89,28 +83,11 @@ function ChangeItem({
   );
 }
 
-interface ReportSectionProps {
-  readonly id: string;
-  readonly title: string;
-  readonly className?: string;
-  readonly children: ReactNode;
-}
-
-function ReportSection({ id, title, className, children }: ReportSectionProps) {
-  return (
-    <section aria-labelledby={id} className={className}>
-      <h3 id={id} className="mb-3 font-heading text-base">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
 export function TurnReportDialog({
   report,
   open,
   onNodeSelect,
+  onCrisisSelect,
   onOpenChange,
 }: TurnReportDialogProps) {
   const [showAllChanges, setShowAllChanges] = useState(false);
@@ -173,126 +150,98 @@ export function TurnReportDialog({
             </Empty>
           ) : (
             <div className="flex min-h-full flex-col gap-6 pb-6">
-              {report.crisisTransitions.length > 0 && (
-                <ReportSection id="turn-crises-title" title="Crisis record">
-                  <div className="flex flex-col gap-3">
-                    {report.crisisTransitions.map((transition) => (
-                      <Alert
-                        variant={
-                          transition.kind === "stage"
-                            ? "destructive"
-                            : "default"
-                        }
-                        key={`${transition.definition.id}:${transition.kind}`}
-                      >
-                        {transition.kind === "stage" ? (
-                          <ShieldAlert aria-hidden="true" />
-                        ) : (
-                          <ShieldCheck aria-hidden="true" />
-                        )}
-                        <AlertTitle>
+              {(report.crisisTransitions.length > 0 ||
+                report.grudges.length > 0) && (
+                <ItemGroup>
+                  {report.crisisTransitions.map((transition) => (
+                    <DossierItemButton
+                      variant="outline"
+                      size="sm"
+                      className="active:translate-y-px active:bg-accent"
+                      key={`${transition.definition.id}:${transition.kind}`}
+                      aria-label={`Open ${transition.definition.title} crisis dossier`}
+                      onSelect={() => onCrisisSelect(transition.definition.id)}
+                      title={
+                        transition.kind === "stage"
+                          ? transition.stage?.title
+                          : transition.definition.recovery?.title
+                      }
+                      description={
+                        transition.kind === "stage"
+                          ? transition.stage?.description
+                          : transition.definition.recovery?.description
+                      }
+                      trailing={
+                        <Badge variant="outline">
                           {transition.kind === "stage"
-                            ? transition.stage?.title
-                            : transition.definition.recovery?.title}
-                        </AlertTitle>
-                        <AlertDescription>
-                          <p>
-                            {transition.kind === "stage"
-                              ? transition.stage?.description
-                              : transition.definition.recovery?.description}
-                          </p>
-                          {transition.kind === "stage" && (
-                            <p className="mt-2 font-mono text-xs">
-                              {crisisTurnsLabel(transition.turnsRemaining)}{" "}
-                              remain before Game Over.
-                            </p>
+                            ? `${crisisTurnsLabel(transition.turnsRemaining)} to Game Over`
+                            : "Recovered"}
+                        </Badge>
+                      }
+                    />
+                  ))}
+                  {report.grudges.map((grudge) => (
+                    <DossierItemButton
+                      variant="outline"
+                      size="sm"
+                      key={grudge.id}
+                      aria-label={`Open ${grudge.targetName} dossier`}
+                      onSelect={() => onNodeSelect(grudge.targetId)}
+                      title={grudge.label}
+                      description={`Affecting ${grudge.targetName}`}
+                      trailing={
+                        <Badge
+                          variant={
+                            grudge.magnitude > 0 ? "default" : "destructive"
+                          }
+                        >
+                          {formatSignedValue(
+                            grudge.magnitude,
+                            grudge.targetDomain,
                           )}
-                        </AlertDescription>
-                      </Alert>
-                    ))}
-                  </div>
-                </ReportSection>
+                        </Badge>
+                      }
+                    />
+                  ))}
+                </ItemGroup>
               )}
               {report.situationTransitions.length > 0 && (
-                <ReportSection
-                  id="turn-situations-title"
-                  title="Matters arisen"
-                >
-                  <ItemGroup>
-                    {report.situationTransitions.map((transition) => (
-                      <DossierItemButton
-                        variant="outline"
-                        size="sm"
-                        key={transition.node.id}
-                        aria-label={`Open ${transition.node.name} dossier`}
-                        onSelect={() => onNodeSelect(transition.node.id)}
-                        title={transition.node.name}
-                        trailing={
-                          <Badge
-                            variant={
-                              transition.kind === "began"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {transition.kind === "began" ? "Began" : "Ended"}
-                          </Badge>
-                        }
-                      />
-                    ))}
-                  </ItemGroup>
-                </ReportSection>
-              )}
-
-              {report.grudges.length > 0 && (
-                <ReportSection
-                  id="turn-effects-title"
-                  title="Temporary effects"
-                >
-                  <ItemGroup>
-                    {report.grudges.map((grudge) => (
-                      <DossierItemButton
-                        variant="outline"
-                        size="sm"
-                        key={grudge.id}
-                        aria-label={`Open ${grudge.targetName} dossier`}
-                        onSelect={() => onNodeSelect(grudge.targetId)}
-                        title={grudge.label}
-                        description={`Affecting ${grudge.targetName}`}
-                        trailing={
-                          <Badge
-                            variant={
-                              grudge.magnitude > 0 ? "default" : "destructive"
-                            }
-                          >
-                            {formatSignedValue(
-                              grudge.magnitude,
-                              grudge.targetDomain,
-                            )}
-                          </Badge>
-                        }
-                      />
-                    ))}
-                  </ItemGroup>
-                </ReportSection>
+                <ItemGroup>
+                  {report.situationTransitions.map((transition) => (
+                    <DossierItemButton
+                      variant="outline"
+                      size="sm"
+                      key={transition.node.id}
+                      aria-label={`Open ${transition.node.name} dossier`}
+                      onSelect={() => onNodeSelect(transition.node.id)}
+                      title={transition.node.name}
+                      trailing={
+                        <Badge
+                          variant={
+                            transition.kind === "began"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {transition.kind === "began" ? "Began" : "Ended"}
+                        </Badge>
+                      }
+                    />
+                  ))}
+                </ItemGroup>
               )}
 
               {visibleChanges.length > 0 && (
                 <section className="mt-auto flex flex-col gap-4">
-                  <ReportSection
-                    id="turn-highlights-title"
-                    title="Movements across the institution"
-                  >
-                    <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                      {visibleChanges.map((change) => (
-                        <ChangeItem
-                          change={change}
-                          key={change.node.id}
-                          onNodeSelect={onNodeSelect}
-                        />
-                      ))}
-                    </ItemGroup>
-                  </ReportSection>
+                  <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    {visibleChanges.map((change) => (
+                      <ChangeItem
+                        change={change}
+                        key={change.node.id}
+                        onNodeSelect={onNodeSelect}
+                      />
+                    ))}
+                  </ItemGroup>
 
                   {report.changes.length > visibleChanges.length && (
                     <Collapsible

@@ -371,7 +371,7 @@ export const exampleScenario = {
         "Institutional latitude available for changing established Stances.",
       category: "Governance",
       domain: { min: 0, max: 100, clamp: true },
-      initial: { value: 39.25, isActive: true, isForced: true },
+      initial: { value: 40, isActive: true, isForced: true },
       baseline: 25,
       graphVisible: false,
     },

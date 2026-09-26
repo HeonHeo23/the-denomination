@@ -34,6 +34,14 @@ export interface HistoryEntry {
   readonly detail: string;
 }
 
+/** Completed-turn readings for every Scenario node, including Stances. */
+export interface NodeValueHistoryPoint {
+  readonly turn: number;
+  readonly values: Readonly<
+    Record<NodeId, { readonly value: number; readonly isActive: boolean }>
+  >;
+}
+
 export interface GameOverProgressRuntimeState {
   readonly episode: number;
   readonly consecutiveTurns: number;
@@ -60,6 +68,7 @@ export interface SimulationState {
   readonly effects: Readonly<Record<EffectId, EffectRuntimeState>>;
   readonly grudges: readonly GrudgeRuntimeState[];
   readonly history: readonly HistoryEntry[];
+  readonly nodeValueHistory: readonly NodeValueHistoryPoint[];
   readonly gameOverProgress: Readonly<
     Record<string, GameOverProgressRuntimeState>
   >;

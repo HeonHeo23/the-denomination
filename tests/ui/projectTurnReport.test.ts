@@ -368,12 +368,12 @@ export function runTurnReportProjectionTests() {
 
   let navigation: DossierNavigationState = { reportOpen: true };
   navigation = moveDossierNavigation(navigation, {
-    type: "open-crisis-from-report",
+    type: "open-crisis",
     crisisId: gameOverDefinition.id,
   });
   assert(
-    navigation.crisis?.returnToReport && !navigation.reportOpen,
-    "Opening a terminal crisis should hide the report and remember its return path",
+    navigation.crisis?.id === gameOverDefinition.id && navigation.reportOpen,
+    "Opening a terminal crisis should keep the report open underneath",
   );
   navigation = moveDossierNavigation(navigation, {
     type: "open-node-from-crisis",
@@ -393,7 +393,7 @@ export function runTurnReportProjectionTests() {
   navigation = moveDossierNavigation(navigation, { type: "close-crisis" });
   assert(
     navigation.crisis === undefined && navigation.reportOpen,
-    "Closing a crisis opened from Game Over should restore the report",
+    "Closing a crisis opened from Game Over should reveal the open report",
   );
   navigation = moveDossierNavigation(navigation, { type: "review-final-state" });
   navigation = moveDossierNavigation(navigation, {

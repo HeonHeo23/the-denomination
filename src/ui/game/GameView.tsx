@@ -204,7 +204,17 @@ export function GameView({
   const selectedRuntime = selectedDefinition
     ? session.state.nodes[selectedDefinition.id]
     : undefined;
-  const crisisItems = projectCrises(scenario, session.state);
+  const crisisItems = projectCrises(
+    scenario,
+    session.state,
+    turnReport?.crisisTransitions.map((transition) => ({
+      kind: transition.kind,
+      gameOverId: transition.definition.id,
+      stageAtTurn: transition.stage?.atTurn,
+      consecutiveTurns: transition.consecutiveTurns,
+      turnsRemaining: transition.turnsRemaining,
+    })),
+  );
   const selectedCrisis = crisisItems.find(
     ({ definition }) => definition.id === navigation.selectedCrisisId,
   );
@@ -347,7 +357,25 @@ export function GameView({
           report={turnReport}
           open={turnReportOpen}
           onNodeSelect={selectNode}
+          onCrisisSelect={selectCrisis}
           onOpenChange={setTurnReportOpen}
+        />
+      )}
+
+      {navigation.reportOpen && session.state.outcome && (
+        <GameOverReportDialog
+          scenario={scenario}
+          state={session.state}
+          onCrisisSelect={selectCrisis}
+          onReview={navigation.reviewFinalState}
+          onRestart={() => {
+            navigation.reset();
+            session.reset();
+          }}
+          onMainMenu={() => {
+            navigation.reset();
+            onMainMenu(session.state, savedTurnReport);
+          }}
         />
       )}
 
@@ -372,23 +400,6 @@ export function GameView({
           onRepeal={session.repealStance}
           onNodeSelect={selectNode}
           onClose={navigation.closeNode}
-        />
-      )}
-
-      {navigation.reportOpen && session.state.outcome && (
-        <GameOverReportDialog
-          scenario={scenario}
-          state={session.state}
-          onCrisisSelect={navigation.openCrisisFromReport}
-          onReview={navigation.reviewFinalState}
-          onRestart={() => {
-            navigation.reset();
-            session.reset();
-          }}
-          onMainMenu={() => {
-            navigation.reset();
-            onMainMenu(session.state, savedTurnReport);
-          }}
         />
       )}
 

@@ -205,7 +205,7 @@ UI intent -> semantic command -> validate against Scenario and state
 Turn advancement:
 
 ```text
-Scenario + prior snapshot + injected RNG
+Scenario + prior snapshot (future incident evaluation may use injected RNG)
     -> persistent evaluation and Grudge decay
     -> reusable prerequisite evaluation
     -> Game Over stage/recovery consequences
@@ -244,10 +244,10 @@ private helpers. It describes current code rather than adding game semantics;
 
 | Function                                                                                    | Visibility      | Current flow                                                                                                                                                                      |
 | ------------------------------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Return state, message, and trace. |
+| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Record completed-turn node values and return state, message, and trace. |
 | `evaluateGameOvers`<br>`evaluateGameOvers.ts`                                               | Engine-internal | Evaluate grouped prerequisites, advance or recover crisis episodes, apply stage consequences, and record all simultaneous terminal causes.                                        |
 | `applyConsequences`<br>`consequences.ts`                                                    | Engine-internal | Apply validated Resource, Grudge, and activation consequences immutably for one deterministic occurrence.                                                                         |
-| `responseValue`<br>`evaluatePersistentState.ts`                                             | Private         | 1. Select response kind. <br>2. Calculate its contribution.                                                                                                                       |
+| `responseValue`<br>`responseValue.ts`                                                       | Engine-internal | 1. Select response kind. <br>2. Calculate its contribution.                                                                                                                       |
 | `evaluateEffect`<br>`evaluatePersistentState.ts`                                            | Private         | 1. Read source. <br>2. Update inertia history. <br>3. Average and evaluate response.                                                                                              |
 | `evaluatePersistentState`<br>`evaluatePersistentState.ts`                                   | Engine-internal | 1. Evaluate Effects from one snapshot. <br>2. Recalculate non-Stances. <br>3. Clamp and apply Situation hysteresis. <br>4. Return state and trace.                                |
 | `initializeScenario`<br>`initialize.ts`                                                     | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                                                           |
@@ -258,9 +258,8 @@ private helpers. It describes current code rather than adding game semantics;
 | `indexNodes`<br>`shared.ts`                                                                 | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                                                    |
 | `clampValue`<br>`shared.ts`                                                                 | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                                                     |
 
-`src/simulation/index.ts` declares no functions. It re-exports the public
-operations `advanceTurn`, `initializeScenario`, `executeCommand`, and
-`validateScenario`, along with domain contracts.
+`src/simulation/index.ts` re-exports the public engine operations and domain
+contracts, including loading, Stance assessment, and Effect preview helpers.
 
 ## React and React Flow
 
@@ -332,26 +331,14 @@ Retain:
 - the domain/engine/UI separation;
 - pure snapshot-returning engine functions;
 - the narrow simulation entry point;
-- injected RNG support;
 - Scenario content outside the engine;
 - projection of React Flow data from canonical state;
 - engine tests that run without a browser.
 
 Improve as relevant work reaches these areas:
 
-- initialization currently recalculates nodes immediately, conflicting with
-  authoritative turn-zero values;
-- incident evaluation currently fires every eligible Event and then the first
-  eligible Dilemma, conflicting with the one-incident rule and unresolved
-  selection policy;
-- deterministic RNG construction is embedded in a React hook rather than
-  supplied by an application runtime dependency;
-- reusable UI contains Scenario-specific assumptions about year and Resource
-  count;
-- the public simulation barrel exposes internal runtime and definition details
-  broadly; keep exports intentional as the codebase grows;
-- engine tests compile but their emitted extensionless ESM imports do not
-  execute under the current Node configuration.
+- incident execution and injection of RNG are not yet implemented;
+- keep public simulation exports intentional as the codebase grows.
 
 These gaps document migration direction. They do not authorize unrelated
 refactors or resolution of mechanics marked TBD.

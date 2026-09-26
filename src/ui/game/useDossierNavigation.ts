@@ -2,7 +2,7 @@ import { useCallback, useReducer } from "react";
 
 export interface DossierNavigationState {
   readonly selectedNodeId?: string;
-  readonly crisis?: { readonly id: string; readonly returnToReport: boolean };
+  readonly crisis?: { readonly id: string };
   readonly reportOpen: boolean;
 }
 
@@ -11,7 +11,6 @@ export type DossierNavigationAction =
   | { readonly type: "open-node-from-crisis"; readonly nodeId: string }
   | { readonly type: "close-node" }
   | { readonly type: "open-crisis"; readonly crisisId: string }
-  | { readonly type: "open-crisis-from-report"; readonly crisisId: string }
   | { readonly type: "close-crisis" }
   | { readonly type: "open-report" }
   | { readonly type: "review-final-state" }
@@ -33,21 +32,10 @@ export function moveDossierNavigation(
       return {
         ...state,
         selectedNodeId: undefined,
-        crisis: { id: action.crisisId, returnToReport: false },
-      };
-    case "open-crisis-from-report":
-      return {
-        ...state,
-        selectedNodeId: undefined,
-        reportOpen: false,
-        crisis: { id: action.crisisId, returnToReport: true },
+        crisis: { id: action.crisisId },
       };
     case "close-crisis":
-      return {
-        ...state,
-        crisis: undefined,
-        reportOpen: state.reportOpen || Boolean(state.crisis?.returnToReport),
-      };
+      return { ...state, crisis: undefined };
     case "open-report":
       return {
         ...state,
@@ -79,8 +67,6 @@ export function useDossierNavigation(initialReportOpen: boolean) {
     closeNode: () => dispatch({ type: "close-node" }),
     openCrisis: (crisisId: string) =>
       dispatch({ type: "open-crisis", crisisId }),
-    openCrisisFromReport: (crisisId: string) =>
-      dispatch({ type: "open-crisis-from-report", crisisId }),
     closeCrisis: () => dispatch({ type: "close-crisis" }),
     openReport,
     reviewFinalState: () => dispatch({ type: "review-final-state" }),

@@ -100,7 +100,7 @@ export function CrisisDetailsDialog({
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-5 px-6 pb-6">
           <section
-            className="node-record__reading"
+            className="node-record__reading node-record__reading--crisis"
             aria-label="Crisis progress"
           >
             <div>

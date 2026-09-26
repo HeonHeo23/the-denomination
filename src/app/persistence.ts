@@ -132,6 +132,7 @@ function validRuntimeState(
         "effects",
         "grudges",
         "history",
+        "nodeValueHistory",
         "gameOverProgress",
         "outcome",
       ],
@@ -151,6 +152,7 @@ function validRuntimeState(
     ) ||
     !Array.isArray(value.grudges) ||
     !Array.isArray(value.history) ||
+    !Array.isArray(value.nodeValueHistory) ||
     !exactObject(
       value.gameOverProgress,
       (scenario.gameOvers ?? []).map(({ id }) => id),
@@ -175,6 +177,40 @@ function validRuntimeState(
     )
   )
     return false;
+
+  const trackedNodes = scenario.nodes;
+  const historyLength = value.turn - scenario.start.turn + 1;
+  if (value.nodeValueHistory.length !== historyLength) return false;
+  for (let index = 0; index < historyLength; index += 1) {
+    const point = value.nodeValueHistory[index];
+    if (
+      !exactObject(point, ["turn", "values"]) ||
+      point.turn !== scenario.start.turn + index ||
+      !exactObject(
+        point.values,
+        trackedNodes.map((node) => node.id),
+      )
+    )
+      return false;
+    for (const node of trackedNodes) {
+      const reading = point.values[node.id];
+      if (
+        !exactObject(reading, ["value", "isActive"]) ||
+        !finite(reading.value) ||
+        typeof reading.isActive !== "boolean" ||
+        (node.domain.clamp &&
+          (reading.value < node.domain.min ||
+            reading.value > node.domain.max)) ||
+        (index === 0 &&
+          (reading.value !== node.initial.value ||
+            reading.isActive !== node.initial.isActive)) ||
+        (index === historyLength - 1 &&
+          (reading.value !== (nodes[node.id] as ObjectValue).value ||
+            reading.isActive !== (nodes[node.id] as ObjectValue).isActive))
+      )
+        return false;
+    }
+  }
 
   const gameOvers = new Map(
     (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),

@@ -12,6 +12,7 @@ import type { SimulationState } from "../domain/runtime";
 import { clampValue, conditionsMet, indexNodes } from "./shared";
 
 type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
+const GAME_OVER_STANCE_MESSAGE = "The game is over. Stances are read-only.";
 
 function reject(message: string, cost = 0): Assessment {
   return { legal: false, cost, message };
@@ -73,21 +74,26 @@ export function assessStanceChange(
   stanceId: string,
   value: number,
 ): StanceChangeAssessment {
-  if (state.outcome) return reject("The game is over. Stances are read-only.");
+  const gameOver = state.outcome !== null;
   const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance) return stance;
+  if ("legal" in stance)
+    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
   const invalid = validValue(stance, value);
-  if (invalid) return invalid;
+  if (invalid) return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : invalid;
   const runtime = state.nodes[stanceId];
+  const amountChanged = Math.abs(value - runtime.value);
+  const cost =
+    amountChanged === 0
+      ? 0
+      : stance.cost
+        ? stance.cost.base + stance.cost.perPoint * amountChanged
+        : 0;
+  if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   if (!runtime.isActive)
     return reject(`Enact ${stance.name} before changing it.`);
   if (!conditionsMet(scenario, stance.requires))
     return reject(`The prerequisites for ${stance.name} are not met.`);
-  const amountChanged = Math.abs(value - runtime.value);
   if (amountChanged === 0) return reject("That Stance is already selected.");
-  const cost = stance.cost
-    ? stance.cost.base + stance.cost.perPoint * amountChanged
-    : 0;
   if (!Number.isFinite(cost))
     return reject("The configured Stance cost is not finite.");
   const tolerance =
@@ -126,16 +132,18 @@ export function assessStanceEnactment(
   stanceId: string,
   value: number,
 ): StanceTransitionAssessment {
-  if (state.outcome) return reject("The game is over. Stances are read-only.");
+  const gameOver = state.outcome !== null;
   const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance) return stance;
+  if ("legal" in stance)
+    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
   const invalid = validValue(stance, value);
-  if (invalid) return invalid;
+  if (invalid) return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : invalid;
+  const cost = stance.enactmentCost?.amount ?? 0;
+  if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   if (state.nodes[stanceId].isActive)
     return reject(`${stance.name} is already enacted.`);
   if (!conditionsMet(scenario, stance.requires))
     return reject(`The prerequisites for ${stance.name} are not met.`);
-  const cost = stance.enactmentCost?.amount ?? 0;
   const affordability = assessTransitionCost(
     scenario,
     state,
@@ -157,14 +165,16 @@ export function assessStanceRepeal(
   state: SimulationState,
   stanceId: string,
 ): StanceTransitionAssessment {
-  if (state.outcome) return reject("The game is over. Stances are read-only.");
+  const gameOver = state.outcome !== null;
   const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance) return stance;
+  if ("legal" in stance)
+    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
+  const cost = stance.repealCost?.amount ?? 0;
+  if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   const runtime = state.nodes[stanceId];
   if (!runtime.isActive) return reject(`${stance.name} is not enacted.`);
   if (runtime.isForced)
     return reject(`${stance.name} is forced active and cannot be repealed.`);
-  const cost = stance.repealCost?.amount ?? 0;
   const affordability = assessTransitionCost(
     scenario,
     state,

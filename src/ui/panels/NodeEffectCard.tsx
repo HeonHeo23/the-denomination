@@ -21,6 +21,7 @@ interface NodeEffectCardProps {
   readonly effects: readonly NodeEffectView[];
   readonly onNodeSelect: (nodeId: string) => void;
   readonly layout?: "standard" | "stance";
+  readonly fitContent?: boolean;
 }
 
 interface EffectTableCardProps {
@@ -31,6 +32,7 @@ interface EffectTableCardProps {
   readonly headerClassName?: string;
   readonly ariaLabel?: string;
   readonly onOpen?: () => void;
+  readonly fitContent?: boolean;
 }
 
 function effectBarMagnitudePercent(contribution: number): number {
@@ -227,6 +229,7 @@ export function EffectTableCard({
   headerClassName,
   ariaLabel,
   onOpen,
+  fitContent = false,
 }: EffectTableCardProps) {
   const interactive = onOpen !== undefined && ariaLabel !== undefined;
   const trigger = interactive
@@ -236,7 +239,9 @@ export function EffectTableCard({
   return (
     <Card
       className={cn(
-        "h-full min-h-0 max-h-full",
+        fitContent
+          ? "min-w-0 max-w-full md:h-full md:min-h-0"
+          : "h-full min-h-0 max-h-full",
         interactive &&
           "cursor-pointer border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         className,
@@ -252,7 +257,15 @@ export function EffectTableCard({
           <span className="effect-table__legend">{legend}</span>
         </div>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1 p-2">{children}</CardContent>
+      <CardContent
+        className={
+          fitContent
+            ? "min-w-0 p-2 md:flex md:min-h-0 md:flex-1 md:flex-col"
+            : "min-h-0 flex-1 p-2"
+        }
+      >
+        {children}
+      </CardContent>
     </Card>
   );
 }
@@ -263,11 +276,33 @@ export function NodeEffectCard({
   effects,
   onNodeSelect,
   layout = "standard",
+  fitContent = false,
 }: NodeEffectCardProps) {
   return (
-    <EffectTableCard title={title} legend={`${effects.length} effects`}>
+    <EffectTableCard
+      title={title}
+      legend={`${effects.length} effects`}
+      fitContent={fitContent}
+    >
       {effects.length === 0 ? (
         <p className="text-sm text-muted-foreground">No {direction} Effects.</p>
+      ) : fitContent ? (
+        <div
+          className="pr-1 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain"
+          aria-label={`${title} effects`}
+        >
+          <ItemGroup className="gap-1">
+            {effects.map((effect) => (
+              <EffectRow
+                key={effect.id}
+                effect={effect}
+                direction={direction}
+                layout={layout}
+                onNodeSelect={onNodeSelect}
+              />
+            ))}
+          </ItemGroup>
+        </div>
       ) : (
         <ScrollArea className="h-full max-h-full pr-1">
           <ItemGroup className="gap-1">

@@ -56,6 +56,20 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     effects,
     grudges: [],
     history: [],
+    nodeValueHistory: [
+      {
+        turn: scenario.start.turn,
+        values: Object.fromEntries(
+          scenario.nodes.map((node) => [
+            node.id,
+            {
+              value: nodes[node.id].value,
+              isActive: nodes[node.id].isActive,
+            },
+          ]),
+        ),
+      },
+    ],
     gameOverProgress: Object.fromEntries(
       (scenario.gameOvers ?? []).map((definition) => [
         definition.id,

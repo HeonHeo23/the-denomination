@@ -39,8 +39,26 @@ export function advanceTurn(
       ),
   };
   const resolved = evaluateGameOvers(scenario, decayed);
+  const completed = {
+    ...resolved,
+    nodeValueHistory: [
+      ...resolved.nodeValueHistory,
+      {
+        turn,
+        values: Object.fromEntries(
+          scenario.nodes.map((node) => [
+            node.id,
+            {
+              value: resolved.nodes[node.id].value,
+              isActive: resolved.nodes[node.id].isActive,
+            },
+          ]),
+        ),
+      },
+    ],
+  };
   return {
-    state: resolved,
+    state: completed,
     message: resolved.outcome
       ? "Game over. The institution can no longer continue under your leadership."
       : `Advanced to turn ${turn}.`,
