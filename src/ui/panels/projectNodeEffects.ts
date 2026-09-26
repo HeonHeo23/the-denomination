@@ -1,11 +1,12 @@
 import type { ScenarioDefinition, SimulationState } from "../../simulation";
 import { previewStanceEffects } from "../../simulation";
-import { formatContributionPercent } from "../formatValue";
+import { formatContributionPercent, formatSignedValue } from "../formatValue";
 
 export type EffectContributionTone = "positive" | "negative" | "neutral";
 
 export interface NodeEffectView {
   readonly id: string;
+  readonly kind: "effect" | "grudge";
   readonly relatedNodeId?: string;
   readonly relatedName: string;
   readonly label?: string;
@@ -31,8 +32,8 @@ function contributionTone(value: number): EffectContributionTone {
 }
 
 /**
- * Derives the authored relationships attached to one node for detail display.
- * This remains presentation data: it never changes Effect semantics or state.
+ * Derives persistent relationships and temporary incoming contributions for
+ * one node's detail display. This presentation projection never changes state.
  */
 export function projectNodeEffects(
   nodeId: string,
@@ -69,6 +70,7 @@ export function projectNodeEffects(
       const preview = previewByEffect.get(effectId);
       return {
         id: effect.id,
+        kind: "effect",
         relatedNodeId,
         relatedName,
         label: effect.label,
@@ -122,6 +124,22 @@ export function projectNodeEffects(
           effect.target,
         ),
       );
+    }
+  }
+
+  const target = scenario.nodes.find(({ id }) => id === nodeId);
+  if (target) {
+    for (const grudge of state.grudges) {
+      if (grudge.target !== nodeId) continue;
+      incoming.push({
+        id: grudge.id,
+        kind: "grudge",
+        relatedName: "Grudge",
+        label: grudge.label,
+        contribution: grudge.magnitude,
+        contributionLabel: formatSignedValue(grudge.magnitude, target.domain),
+        contributionTone: contributionTone(grudge.magnitude),
+      });
     }
   }
 

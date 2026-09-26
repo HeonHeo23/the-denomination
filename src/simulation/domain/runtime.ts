@@ -28,7 +28,8 @@ export interface GrudgeRuntimeState {
 export interface HistoryEntry {
   readonly id: string;
   readonly turn: number;
-  readonly kind: "stance" | "situation" | "crisis" | "game-over";
+  readonly kind:
+    "stance" | "situation" | "crisis" | "consequence" | "game-over";
   readonly title: string;
   readonly detail: string;
 }

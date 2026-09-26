@@ -44,6 +44,44 @@ export function runNodeEffectProjectionTests() {
     "Default pressure should not link to a graph node",
   );
 
+  const grudgeState: SimulationState = {
+    ...initial,
+    grudges: [
+      {
+        id: "assembly-investigation:grudge:0",
+        label: "Assembly investigation",
+        target: "governance-tension",
+        magnitude: -0.04,
+        decay: 0.75,
+        createdTurn: initial.turn,
+      },
+    ],
+  };
+  const tensionWithGrudge = projectNodeEffects(
+    "governance-tension",
+    exampleScenario,
+    grudgeState,
+  );
+  const grudge = tensionWithGrudge.incoming.find(
+    (effect) => effect.id === "assembly-investigation:grudge:0",
+  );
+  assert(grudge?.kind === "grudge", "Grudges should be incoming node effects");
+  assert(
+    grudge.relatedNodeId === undefined &&
+      grudge.relatedName === "Grudge" &&
+      grudge.label === "Assembly investigation",
+    "A Grudge should use the Effect row without inventing a source node",
+  );
+  assert(
+    grudge.contributionLabel === "-4.0%" &&
+      grudge.contributionTone === "negative",
+    "A Grudge should preserve its signed, domain-aware magnitude",
+  );
+  assert(
+    tensionWithGrudge.outgoing.every((effect) => effect.kind === "effect"),
+    "Grudges should not appear as outgoing Effects",
+  );
+
   const stateWithNegativeContribution = {
     ...initial,
     effects: {

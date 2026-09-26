@@ -197,40 +197,15 @@ result.
 ## Inertia
 
 Inertia delays one Effect's response when its causal input changes. It belongs
-to the Effect, not its source or target, so Effects sharing a source may respond
-at different rates.
+to the Effect and sharing a source may respond at different rates.
 
-The current required behavior is a moving average of recent source values over
-that Effect's configured number of turns. The averaged source value is passed
-to the response function. An Effect with no explicit Inertia uses one sample
-and therefore responds without added delay.
+A moving average of recent source values over the Effect's configured window. The average is passed to the response function.Without explicit Inertia, an Effect uses one sample and responds without added
+delay.
 
 At Scenario initialization, each Effect's history is seeded across its full
 window with the source's authoritative turn-zero value. A stable source thus
 starts at its steady contribution. Inertia history is runtime state, not static
 content.
-
-Inertia delays an ongoing causal relationship. It is not a Grudge.
-
-## Grudges
-
-A Grudge is a temporary, hidden contribution created by a discrete occurrence.
-It is not a node and does not permanently change its target's baseline.
-
-A Grudge has a target, current magnitude, and per-turn decay factor. During a
-turn it contributes its current magnitude first, then its magnitude is
-multiplied by its decay factor:
-
-```text
-next magnitude = contributed magnitude * decay
-```
-
-A factor closer to `1` lasts longer; `1` may deliberately represent no decay.
-Negligible Grudges should be removed without materially changing gameplay.
-Creation metadata may be retained for identity, history, and presentation.
-
-A Grudge represents fading aftermath of an occurrence. It MUST NOT be modeled
-as an Effect with large Inertia, and Inertia MUST NOT be modeled as a Grudge.
 
 ## Incidents
 
@@ -264,33 +239,36 @@ an unrelated node's underlying baseline.
 
 ## Prerequisites
 
-A prerequisite is a categorical condition controlling eligibility or
-availability. The supported forms are:
+A prerequisite controls eligibility; it does not change state. The supported
+forms are:
 
-| Form                 | Definition                                         | Semantics                                                                                                                                          |
-| -------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Static requirement   | A tag supplied by the Scenario through `requires`. | Gates explicitly supported content, including Stances, Situations, Events, and Dilemmas. Deriving or changing tags from runtime state is deferred. |
-| Runtime prerequisite | An authored predicate over canonical node state.   | Compares a node value with an inclusive upper or lower threshold, or requires a node to be active or inactive.                                     |
-| Prerequisite group   | A named set of runtime prerequisites.              | Conjunction: every predicate in the group MUST hold.                                                                                               |
-| Multiple groups      | A consumer's set of prerequisite groups.           | Alternatives: any satisfied group qualifies the consumer.                                                                                          |
+| Form                  | Input                           | Semantics                                                                                                                                       |
+| --------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Static `requires` tag | Immutable Scenario `conditions` | Every required tag MUST be present. It gates supported Stances, Situations, Events, and Dilemmas; runtime-derived or mutable tags are deferred. |
+| Runtime predicate     | Canonical node snapshot         | Inclusive `at-most`/`at-least` value threshold, or active/inactive state.                                                                       |
+| Group                 | Non-empty predicate set         | Every predicate MUST hold; several groups are alternatives.                                                                                     |
 
-Runtime prerequisites are currently used by Game Over trajectories. Their use
-by other systems MUST be explicitly specified rather than inferred.
+Referenced nodes MUST exist and value thresholds MUST be in their node domains.
 
 ## Consequences
 
-An authored occurrence may apply immediate consequences. The consequence
-defines the change, not when its owning system triggers the occurrence.
+An authored occurrence may apply an immediate consequence. A consequence
+defines the change, not its trigger or timing.
 
-| Kind         | Effect                                                                 | Rules                                                                                                                                           |
-| ------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resource`   | Adds `amount` to a Resource's current and underlying runtime balance.  | Survives persistent recalculation; a direct change, not a persistent Effect.                                                                    |
-| `grudge`     | Creates a temporary contribution with its label, magnitude, and decay. | Runtime owns its identity, creation turn, and current magnitude. A Grudge created after a completed turn contributes during the following turn. |
-| `activation` | Sets ordinary activation to `true` or `false`.                         | MUST NOT deactivate a forced-active node or change its forced status.                                                                           |
+| Kind         | Effect                                                                  | Constraint                                                                    |
+| ------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `resource`   | Add `amount` to a Resource's runtime balance;                           | The change survives persistent recalculation. Subject to the Resource domain. |
+| `grudge`     | Create a temporary contribution; does not permanently change its target's baseline. | `0 < decay <= 1`; it contributes before decaying. A factor closer to `1` lasts longer, and `1` means no decay. |
+| `activation` | Set a node's ordinary activation.                                       | MUST NOT deactivate a forced-active node or change forced status.             |
 
-Consequences are applied once per occurrence. Their shared shapes may be used by
-crisis stages, recoveries, and incidents, but each consumer MUST define its own
-triggering and ordering semantics.
+Consequences apply once per occurrence. Grudge decay follows:
+
+```text
+next magnitude = contributed magnitude * decay
+```
+
+A post-turn Grudge first contributes on the next turn. Grudge identity,
+creation turn, and current magnitude are runtime state.
 
 ## Game Overs
 
@@ -298,17 +276,18 @@ A Game Over is a Scenario-authored terminal trajectory. Its prerequisite groups
 may refer to any Scenario nodes. A group is satisfied only when all its
 prerequisites hold; any satisfied group qualifies the trajectory.
 
-| Trajectory state        | Rule                                                               | Result                                                                                            |
-| ----------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Initial                 | At least one group is satisfied after persistent evaluation.       | Start an episode; Increment consecutive-turn progress by one; Show the warning stage at turn `1`. |
-| Continued qualification | At least one group remains satisfied.                              | Increment consecutive-turn progress; changing matched groups does not interrupt the episode.      |
-| Broken qualification    | No group is satisfied after progress began.                        | Reset progress; apply recovery once; the next qualification starts a new episode.                 |
-| Intermediate stage      | Progress reaches an authored stage before the terminal turn.       | Record the stage narrative and apply consequences once.                                           |
-| Terminal turn           | Progress reaches `terminalAfterTurns`, which MUST be at least `2`. | Record an Game Over.                                                                              |
+| Trajectory state        | Rule                                                                         | Result                                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Initial                 | At least one group is satisfied in the post-persistent, post-decay snapshot. | Start an episode; increment consecutive-turn progress by one; show the warning stage at turn `1`. |
+| Continued qualification | At least one group remains satisfied in that snapshot.                       | Increment consecutive-turn progress; changing matched groups does not interrupt the episode.      |
+| Broken qualification    | No group is satisfied after progress began.                                  | Reset progress; apply recovery once; the next qualification starts a new episode.                 |
+| Intermediate stage      | Progress reaches an authored stage before the terminal turn.                 | Record the stage narrative and apply consequences once.                                           |
+| Terminal turn           | Progress reaches `terminalAfterTurns`, which MUST be at least `2`.           | Record a Game Over.                                                                               |
 
-If several trajectories become terminal on the same turn, one outcome records
-all of them as causes. Game Over resolution MUST precede normal Ending
-resolution, player commands and turn advancement
+Prerequisites are evaluated before stage or recovery consequences. Simultaneous
+terminal trajectories are recorded as one outcome with multiple causes. Terminal
+Game Over resolution takes precedence over nonterminal occurrences and blocks
+normal endings, player commands, and further turn advancement.
 
 ## Scenario and runtime state
 

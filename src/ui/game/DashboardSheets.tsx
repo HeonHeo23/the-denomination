@@ -225,46 +225,6 @@ export function DashboardSheets({
               ))}
           </ItemGroup>
         )}
-
-        {state.grudges.length > 0 && (
-          <section className="mt-6" aria-labelledby="temporary-effects-title">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldCheck aria-hidden="true" />
-              <h3
-                id="temporary-effects-title"
-                className="font-heading text-base"
-              >
-                Temporary effects
-              </h3>
-            </div>
-            <ItemGroup>
-              {state.grudges.map((grudge) => (
-                <Item
-                  role="listitem"
-                  variant="outline"
-                  size="sm"
-                  key={grudge.id}
-                >
-                  <ItemContent>
-                    <ItemTitle>{grudge.label}</ItemTitle>
-                  </ItemContent>
-                  <ItemActions>
-                    <Badge
-                      variant={
-                        grudge.magnitude < 0 ? "destructive" : "secondary"
-                      }
-                    >
-                      {formatSignedValue(
-                        grudge.magnitude,
-                        nodeDomains.get(grudge.target),
-                      )}
-                    </Badge>
-                  </ItemActions>
-                </Item>
-              ))}
-            </ItemGroup>
-          </section>
-        )}
       </DashboardSheet>
     </>
   );

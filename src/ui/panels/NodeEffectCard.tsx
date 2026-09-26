@@ -143,16 +143,22 @@ export function EffectRow({
 
   return (
     <Item
-      aria-label={effect.label ?? effect.relatedName}
+      aria-label={
+        effect.kind === "grudge" && effect.label
+          ? `Grudge: ${effect.label}`
+          : (effect.label ?? effect.relatedName)
+      }
       className={cn(
         "gap-2 py-1.5",
         layout === "stance" && "flex-nowrap px-2 py-2",
+        effect.kind === "grudge" && "border-dashed",
         linked && "cursor-pointer hover:bg-accent focus-visible:bg-accent",
       )}
       role="listitem"
       size="sm"
-      variant="muted"
+      variant={effect.kind === "grudge" ? "outline" : "muted"}
       data-game-effect-row
+      data-game-effect-kind={effect.kind}
       data-game-crisis-contribution-row={!showInertia ? true : undefined}
       {...trigger}
     >
@@ -202,7 +208,7 @@ export function EffectRow({
           }
         >
           <EffectBar effect={effect} />
-          {showInertia && (
+          {showInertia && effect.kind === "effect" && (
             <span className="shrink-0 font-mono text-[0.65rem] text-muted-foreground">
               ({inertiaTurns})
             </span>

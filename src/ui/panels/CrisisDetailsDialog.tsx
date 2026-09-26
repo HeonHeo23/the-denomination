@@ -53,6 +53,7 @@ function contributionTone(amount: number): "positive" | "negative" | "neutral" {
 function effectBarView(contribution: Contribution) {
   return {
     id: contribution.id,
+    kind: "effect",
     relatedNodeId: contribution.sourceId,
     relatedName: contribution.sourceTitle,
     label: contribution.label,

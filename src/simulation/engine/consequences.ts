@@ -16,21 +16,33 @@ export function applyConsequences(
   const definitions = indexNodes(scenario);
   const nodes = { ...state.nodes };
   const grudges = [...state.grudges];
+  const history = [...state.history];
 
   consequences.forEach((consequence, index) => {
     const definition = definitions[consequence.target];
     const runtime = nodes[consequence.target];
     if (!definition || !runtime) return;
 
+    const historyId = `${occurrenceId}:consequence:${index}`;
+
     if (consequence.kind === "resource") {
+      const value = clampValue(runtime.value + consequence.amount, definition);
+      const actualChange = value - runtime.value;
       nodes[consequence.target] = {
         ...runtime,
-        value: clampValue(runtime.value + consequence.amount, definition),
+        value,
         baseValue: clampValue(
           runtime.baseValue + consequence.amount,
           definition,
         ),
       };
+      history.push({
+        id: historyId,
+        turn: state.turn,
+        kind: "consequence",
+        title: `${definition.name} changed`,
+        detail: `Resource balance changed by ${actualChange}.`,
+      });
       return;
     }
 
@@ -40,6 +52,13 @@ export function applyConsequences(
         ...runtime,
         isActive: consequence.active,
       };
+      history.push({
+        id: historyId,
+        turn: state.turn,
+        kind: "consequence",
+        title: `${definition.name} activation set`,
+        detail: `${definition.name} is now ${consequence.active ? "active" : "inactive"}.`,
+      });
       return;
     }
 
@@ -51,7 +70,14 @@ export function applyConsequences(
       decay: consequence.decay,
       createdTurn: state.turn,
     });
+    history.push({
+      id: historyId,
+      turn: state.turn,
+      kind: "consequence",
+      title: `Grudge created: ${consequence.label}`,
+      detail: `A temporary contribution of ${consequence.magnitude} was applied to ${definition.name} (decay ${consequence.decay}).`,
+    });
   });
 
-  return { ...state, nodes, grudges };
+  return { ...state, nodes, grudges, history };
 }

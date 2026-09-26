@@ -308,7 +308,7 @@ function validRuntimeState(
       !Number.isInteger(entry.turn) ||
       entry.turn < scenario.start.turn ||
       entry.turn > value.turn ||
-      !["stance", "situation", "crisis", "game-over"].includes(
+      !["stance", "situation", "crisis", "consequence", "game-over"].includes(
         String(entry.kind),
       ) ||
       !nonempty(entry.title) ||
