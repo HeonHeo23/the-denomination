@@ -45,6 +45,7 @@ interface GameHeaderProps {
   readonly gameOver: boolean;
   readonly canLoad: boolean;
   readonly resolvingTurn: boolean;
+  readonly pendingDilemmaCount: number;
   readonly onAdvance: () => void;
   readonly onSave: () => void;
   readonly onLoad: () => void;
@@ -358,6 +359,7 @@ export function GameHeader(props: GameHeaderProps) {
     canLoad,
     resolvingTurn,
     onAdvance,
+    pendingDilemmaCount,
     onSave,
     onLoad,
     onReset,
@@ -448,24 +450,32 @@ export function GameHeader(props: GameHeaderProps) {
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
             {gameOver
               ? "Game over"
-              : state.year === undefined
-                ? `Turn ${state.turn}`
-                : `Year ${state.year}`}
+              : pendingDilemmaCount > 0
+                ? `${pendingDilemmaCount} pending`
+                : state.year === undefined
+                  ? `Turn ${state.turn}`
+                  : `Year ${state.year}`}
           </span>
           <span className="flex items-center gap-2 sm:contents">
             <span className="hidden xl:inline">
               {gameOver
                 ? "View final report"
-                : resolvingTurn
-                  ? "Recording proceedings"
-                  : "Advance the year"}
+                : pendingDilemmaCount > 0
+                  ? `Resolve ${pendingDilemmaCount} ${pendingDilemmaCount === 1 ? "Dilemma" : "Dilemmas"}`
+                  : resolvingTurn
+                    ? "Recording proceedings"
+                    : "Advance the year"}
             </span>
             <span className="xl:hidden">
               {gameOver
                 ? "Final report"
-                : resolvingTurn
-                  ? "Recording"
-                  : "Advance"}
+                : pendingDilemmaCount > 0
+                  ? pendingDilemmaCount === 1
+                    ? "Resolve Dilemma"
+                    : "Resolve Dilemmas"
+                  : resolvingTurn
+                    ? "Recording"
+                    : "Advance"}
             </span>
             {gameOver ? (
               <ShieldAlert data-icon="inline-end" />

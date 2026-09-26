@@ -1076,7 +1076,10 @@ export function runComplianceTests() {
     start: { turn: 7, year: 2040 },
   });
   assert.ok(session.ok);
-  const advanced = reduceGameSession(session, { type: "advance" });
+  const advanced = reduceGameSession(session, {
+    type: "advance",
+    randomValue: 0,
+  });
   assert.ok(advanced.ok);
   assert.equal(advanced.state.turn, 8);
   assert.equal(advanced.state.year, 2041);
@@ -1090,5 +1093,8 @@ export function runComplianceTests() {
   assert.equal(noYear.state.year, undefined);
   const failure = createGameSession({});
   assert.ok(!failure.ok);
-  assert.strictEqual(reduceGameSession(failure, { type: "advance" }), failure);
+  assert.strictEqual(
+    reduceGameSession(failure, { type: "advance", randomValue: 0 }),
+    failure,
+  );
 }

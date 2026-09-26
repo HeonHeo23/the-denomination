@@ -5,7 +5,7 @@ import App from "./App.tsx";
 import { exampleScenario } from "./scenarios/example";
 
 const scenarioCatalog = [
-  { contentVersion: 3, content: exampleScenario },
+  { contentVersion: 4, content: exampleScenario },
 ] as const;
 
 createRoot(document.getElementById("root")!).render(

@@ -29,7 +29,7 @@ export interface HistoryEntry {
   readonly id: string;
   readonly turn: number;
   readonly kind:
-    "stance" | "situation" | "crisis" | "consequence" | "game-over";
+    "stance" | "situation" | "crisis" | "consequence" | "game-over" | "dilemma";
   readonly title: string;
   readonly detail: string;
 }
@@ -59,6 +59,11 @@ export interface GameOverOutcome {
   readonly causes: readonly GameOverOutcomeCause[];
 }
 
+export interface DilemmaRuntimeState {
+  readonly lastTriggerTurn: number | null;
+  readonly triggerCount: number;
+}
+
 /** Immutable canonical runtime snapshot for one Scenario session. */
 export interface SimulationState {
   readonly scenarioId: string;
@@ -69,6 +74,8 @@ export interface SimulationState {
   readonly grudges: readonly GrudgeRuntimeState[];
   readonly history: readonly HistoryEntry[];
   readonly nodeValueHistory: readonly NodeValueHistoryPoint[];
+  readonly dilemmas: Readonly<Record<string, DilemmaRuntimeState>>;
+  readonly pendingDilemmaIds: readonly string[];
   readonly gameOverProgress: Readonly<
     Record<string, GameOverProgressRuntimeState>
   >;

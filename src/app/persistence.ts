@@ -1,7 +1,8 @@
 import type { ScenarioDefinition, SimulationState } from "../simulation";
 import type { LoadedScenarioCatalogEntry } from "./scenarioCatalog";
 
-export const SAVE_STORAGE_KEY = "the-denomination.save.v2";
+export const SAVE_STORAGE_KEY = "the-denomination.save.v3";
+const PREVIOUS_SAVE_STORAGE_KEY = "the-denomination.save.v2";
 export const LEGACY_SAVE_STORAGE_KEY = "the-denomination.save.v1";
 
 export interface SaveStorage {
@@ -46,7 +47,7 @@ export interface SavedTurnReport {
 }
 
 export interface SavedGame {
-  readonly version: 2;
+  readonly version: 3;
   readonly scenarioId: string;
   readonly scenarioContentVersion: number;
   readonly playerName: string;
@@ -133,6 +134,8 @@ function validRuntimeState(
         "grudges",
         "history",
         "nodeValueHistory",
+        "dilemmas",
+        "pendingDilemmaIds",
         "gameOverProgress",
         "outcome",
       ],
@@ -154,6 +157,11 @@ function validRuntimeState(
     !Array.isArray(value.history) ||
     !Array.isArray(value.nodeValueHistory) ||
     !exactObject(
+      value.dilemmas,
+      (scenario.dilemmas ?? []).map(({ id }) => id),
+    ) ||
+    !Array.isArray(value.pendingDilemmaIds) ||
+    !exactObject(
       value.gameOverProgress,
       (scenario.gameOvers ?? []).map(({ id }) => id),
     )
@@ -169,6 +177,36 @@ function validRuntimeState(
   const nodes = value.nodes as ObjectValue;
   const effects = value.effects as ObjectValue;
   const gameOverProgress = value.gameOverProgress as ObjectValue;
+  const dilemmaProgress = value.dilemmas as ObjectValue;
+
+  const pendingIds = new Set<string>();
+  for (const pendingId of value.pendingDilemmaIds) {
+    if (
+      typeof pendingId !== "string" ||
+      pendingIds.has(pendingId) ||
+      !(scenario.dilemmas ?? []).some(({ id }) => id === pendingId) ||
+      value.outcome !== null
+    )
+      return false;
+    pendingIds.add(pendingId);
+  }
+  for (const definition of scenario.dilemmas ?? []) {
+    const progress = dilemmaProgress[definition.id];
+    if (
+      !exactObject(progress, ["lastTriggerTurn", "triggerCount"]) ||
+      !finite(progress.triggerCount) ||
+      !Number.isInteger(progress.triggerCount) ||
+      progress.triggerCount < 0 ||
+      (progress.lastTriggerTurn === null) !== (progress.triggerCount === 0) ||
+      (progress.lastTriggerTurn !== null &&
+        (!finite(progress.lastTriggerTurn) ||
+          !Number.isInteger(progress.lastTriggerTurn) ||
+          progress.lastTriggerTurn <= scenario.start.turn ||
+          progress.lastTriggerTurn > value.turn)) ||
+      (pendingIds.has(definition.id) && progress.lastTriggerTurn !== value.turn)
+    )
+      return false;
+  }
 
   if (
     !scenario.nodes.every((node) => validNodeState(nodes[node.id], node)) ||
@@ -344,9 +382,14 @@ function validRuntimeState(
       !Number.isInteger(entry.turn) ||
       entry.turn < scenario.start.turn ||
       entry.turn > value.turn ||
-      !["stance", "situation", "crisis", "consequence", "game-over"].includes(
-        String(entry.kind),
-      ) ||
+      ![
+        "stance",
+        "situation",
+        "crisis",
+        "consequence",
+        "game-over",
+        "dilemma",
+      ].includes(String(entry.kind)) ||
       !nonempty(entry.title) ||
       typeof entry.detail !== "string"
     )
@@ -514,7 +557,7 @@ export function validateSavedGame(
       ],
       ["turnReport"],
     ) ||
-    value.version !== 2 ||
+    value.version !== 3 ||
     typeof value.scenarioId !== "string" ||
     !finite(value.scenarioContentVersion) ||
     !Number.isInteger(value.scenarioContentVersion) ||
@@ -559,11 +602,14 @@ export function loadSavedGame(
   }
   if (serialized === null) {
     try {
-      if (storage.getItem(LEGACY_SAVE_STORAGE_KEY) !== null)
+      if (
+        storage.getItem(PREVIOUS_SAVE_STORAGE_KEY) !== null ||
+        storage.getItem(LEGACY_SAVE_STORAGE_KEY) !== null
+      )
         return {
           status: "unavailable",
           message:
-            "The previous saved game uses an older format and cannot be restored after the Game Over update.",
+            "The previous saved game uses an older format and cannot be restored after the Dilemma update.",
           discardInvalid: true,
         };
     } catch {
@@ -609,6 +655,7 @@ export function storeSavedGame(
 export function clearSavedGame(storage: SaveStorage): string | undefined {
   try {
     storage.removeItem(SAVE_STORAGE_KEY);
+    storage.removeItem(PREVIOUS_SAVE_STORAGE_KEY);
     storage.removeItem(LEGACY_SAVE_STORAGE_KEY);
     return undefined;
   } catch {

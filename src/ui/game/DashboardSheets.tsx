@@ -30,7 +30,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatSignedValue } from "@/ui/formatValue";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 import { projectCrises } from "./projectGameOvers";
@@ -109,9 +108,6 @@ export function DashboardSheets({
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
-  const nodeDomains = new Map(
-    scenario.nodes.map((node) => [node.id, node.domain]),
-  );
   const crises = projectCrises(scenario, state);
 
   return (

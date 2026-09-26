@@ -41,6 +41,10 @@ The primary flow is:
 - Use dossiers for analysis and Stance editing.
 - Use Sheets for overview, Crises, and Chronicle review, and more. Situations
   remain available as canonical graph nodes and dossiers.
+- Keep game dialogs consistent in width, header hierarchy, body scrolling,
+  separators, spacing, and footer actions. Reuse the shared dialog frame for
+  Dilemmas, dossiers, reports, and similar full-detail surfaces; vary the
+  content within that frame to suit each decision or record.
 - Keep feedback timely and purposeful.
 
 ## Visual Hierarchy

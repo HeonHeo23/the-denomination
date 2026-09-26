@@ -10,6 +10,53 @@ export const exampleScenario = {
   schemaVersion: 3,
   start: { turn: 0, year: 1980 },
   conditions: ["has-seminary", "has-general-assembly"],
+  dilemmas: [
+    {
+      kind: "dilemma",
+      id: "assembly-governance-dispute",
+      title: "An Assembly dispute over local authority",
+      description:
+        "District delegates demand a response to mounting tension over central direction.",
+      influences: [{ source: "governance-tension", coefficient: 1 }],
+      threshold: 0.58,
+      cooldownTurns: 3,
+      requires: ["has-general-assembly"],
+      choices: [
+        {
+          id: "convene-mediation",
+          label: "Convene regional mediation",
+          description:
+            "Spend institutional authority to bring district leaders into a shared process.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -4 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Regional mediation",
+            },
+          ],
+        },
+        {
+          id: "reassert-direction",
+          label: "Reassert central direction",
+          description:
+            "Defend the office's mandate while risking deeper division.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: 3 },
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: -0.05,
+              decay: 0.75,
+              label: "Disputed central direction",
+            },
+          ],
+        },
+      ],
+    },
+  ],
   gameOvers: [
     {
       id: "loss-of-connectional-mandate",

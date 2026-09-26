@@ -20,6 +20,7 @@ import {
 } from "@/ui/panels/projectTurnReport";
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
+import { DilemmaDialog } from "./DilemmaDialog";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { GameOverReportDialog } from "./GameOverReportDialog";
@@ -72,6 +73,9 @@ export function GameView({
       : undefined,
   );
   const [turnReportOpen, setTurnReportOpen] = useState(false);
+  const [dilemmaOpen, setDilemmaOpen] = useState(
+    Boolean(restoredState?.pendingDilemmaIds.length),
+  );
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
   const [toastMessage, setToastMessage] = useState<string>();
@@ -129,6 +133,7 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setDilemmaOpen(false);
       setToastMessage(undefined);
       if (reducedMotion) {
         if (session.state.outcome) {
@@ -171,6 +176,7 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setDilemmaOpen(false);
     } else if (before && messageChanged) {
       setToastMessage(session.message);
     }
@@ -250,17 +256,23 @@ export function GameView({
             : undefined
         }
         gameOver={Boolean(session.state.outcome)}
+        pendingDilemmaCount={session.state.pendingDilemmaIds.length}
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
         onAdvance={() => {
-          if (!revealingTurn) {
+          if (session.state.pendingDilemmaIds.length) {
+            setDilemmaOpen(true);
+          } else if (!revealingTurn) {
             play("advance");
             session.nextTurn();
           }
         }}
         onSave={() => onSave(session.state, savedTurnReport)}
         onLoad={onLoad}
-        onReset={session.reset}
+        onReset={() => {
+          setDilemmaOpen(false);
+          session.reset();
+        }}
         onMainMenu={() => onMainMenu(session.state, savedTurnReport)}
         onOpenOverview={() => {
           play("paper");
@@ -358,7 +370,21 @@ export function GameView({
           open={turnReportOpen}
           onNodeSelect={selectNode}
           onCrisisSelect={selectCrisis}
-          onOpenChange={setTurnReportOpen}
+          onOpenChange={(open) => {
+            setTurnReportOpen(open);
+            if (!open && session.state.pendingDilemmaIds.length)
+              setDilemmaOpen(true);
+          }}
+        />
+      )}
+
+      {session.state.pendingDilemmaIds.length > 0 && (
+        <DilemmaDialog
+          scenario={scenario}
+          state={session.state}
+          open={dilemmaOpen && !turnReportOpen && !revealingTurn}
+          onOpenChange={setDilemmaOpen}
+          onResolve={session.resolveDilemma}
         />
       )}
 

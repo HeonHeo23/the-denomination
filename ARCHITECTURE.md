@@ -205,11 +205,12 @@ UI intent -> semantic command -> validate against Scenario and state
 Turn advancement:
 
 ```text
-Scenario + prior snapshot (future incident evaluation may use injected RNG)
+Scenario + prior snapshot + injected incident random value
     -> persistent evaluation and Grudge decay
     -> reusable prerequisite evaluation
     -> Game Over stage/recovery consequences
     -> terminal Game Over resolution
+    -> queue all qualifying Dilemmas from the nonterminal snapshot
     -> future normal Ending resolution only when nonterminal
     -> next snapshot + trace/messages
 ```
@@ -225,9 +226,10 @@ UI, session, and persistence layers MUST NOT duplicate those rules; define
 their exact responsibilities once the mechanics and data contract are
 specified.
 
-Incident candidate calculation and incident selection should be separable
-engine steps. This is required because the selection policy is still a design
-TBD, not because it warrants a general rules framework.
+Dilemma candidate calculation and queueing belong in the engine after Game Over
+resolution. Event selection, including mixed Event/Dilemma cases, remains a
+design TBD; its future selection policy must stay separate from candidate
+calculation.
 
 Reusable runtime-prerequisite evaluation and consequence application belong in
 the simulation engine. Consumers such as Game Overs or future incidents own
@@ -337,7 +339,7 @@ Retain:
 
 Improve as relevant work reaches these areas:
 
-- incident execution and injection of RNG are not yet implemented;
+- Event execution and mixed incident selection are not yet implemented;
 - keep public simulation exports intentional as the codebase grows.
 
 These gaps document migration direction. They do not authorize unrelated

@@ -12,7 +12,10 @@ export function loadScenario(input: unknown): ScenarioLoadResult {
     ...content,
     conditions: content.conditions ?? [],
     events: content.events ?? [],
-    dilemmas: content.dilemmas ?? [],
+    dilemmas: (content.dilemmas ?? []).map((definition) => ({
+      ...definition,
+      requires: definition.requires ?? [],
+    })),
     gameOvers: (content.gameOvers ?? []).map((definition) => ({
       ...definition,
       stages: [...definition.stages]

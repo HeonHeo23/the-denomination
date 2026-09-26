@@ -225,6 +225,29 @@ export interface GameOverDefinition {
   };
 }
 
+export interface IncidentInfluence {
+  readonly source: NodeId | "_random_";
+  readonly coefficient: number;
+  readonly intercept?: number;
+}
+
+export interface DilemmaDefinition {
+  readonly kind: "dilemma";
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly influences: readonly IncidentInfluence[];
+  readonly threshold: number;
+  readonly cooldownTurns: number;
+  readonly requires?: readonly string[];
+  readonly choices: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly description: string;
+    readonly consequences: readonly ConsequenceDefinition[];
+  }[];
+}
+
 /** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
   readonly id: string;
@@ -233,9 +256,9 @@ export interface ScenarioDefinition {
   readonly schemaVersion: 3;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
-  /** Incidents are not supported by this implementation yet. */
+  /** Events remain unsupported. */
   readonly events?: readonly never[];
-  readonly dilemmas?: readonly never[];
+  readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];

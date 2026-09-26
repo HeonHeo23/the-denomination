@@ -29,7 +29,12 @@ export type SessionAction =
       readonly value: number;
     }
   | { readonly type: "repeal-stance"; readonly stanceId: string }
-  | { readonly type: "advance" }
+  | { readonly type: "advance"; readonly randomValue: number }
+  | {
+      readonly type: "resolve-dilemma";
+      readonly dilemmaId: string;
+      readonly choiceId: string;
+    }
   | { readonly type: "reset" };
 
 export function createGameSession(
@@ -68,7 +73,11 @@ export function reduceGameSession(
       trace: [],
     };
   if (action.type === "advance") {
-    const result = advanceTurn(session.scenario, session.state);
+    const result = advanceTurn(
+      session.scenario,
+      session.state,
+      action.randomValue,
+    );
     return { ...session, ...result };
   }
   const result = executeCommand(session.scenario, session.state, action);

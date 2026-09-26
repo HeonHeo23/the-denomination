@@ -1,4 +1,5 @@
 import { runComplianceTests } from "./compliance.test";
+import { runDilemmaTests } from "./dilemmas.test";
 import { exampleScenario } from "../../src/scenarios/example/index";
 import {
   advanceTurn,
@@ -23,6 +24,8 @@ function closeTo(actual: number, expected: number, message: string) {
     `${message}: ${actual} !== ${expected}`,
   );
 }
+
+runDilemmaTests();
 
 assert(
   validateScenario(exampleScenario).length === 0,

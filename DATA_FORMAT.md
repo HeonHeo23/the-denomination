@@ -325,8 +325,9 @@ interface BaseIncidentDefinition {
 positive integer. Influence sources other than `_random_` must reference
 nodes.
 
-The format declares candidates and their thresholds. It does not encode the
-still-TBD policy for selecting one incident when multiple candidates qualify.
+The format declares candidates and their thresholds. All qualifying Dilemmas
+are queued from one snapshot; Event selection remains TBD. Dilemma declaration
+order does not determine the player's resolution order.
 
 ### Event
 
@@ -389,8 +390,8 @@ No generic permanent node-value consequence is defined. Adding one would
 require game-design approval.
 
 These definitions are shared content contracts. Game Over stages and recovery
-occurrences currently execute them; Events and Dilemmas retain the same shapes
-for their future engine implementation.
+occurrences and Dilemma choices execute them; Events retain the same shape for
+their future engine implementation.
 
 ## Static definition versus runtime state
 
@@ -403,7 +404,7 @@ conditions. Runtime state records what has happened:
 | Effect source, target, response, Inertia window | Source-value history and last contribution                    |
 | Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
 | Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
-| Dilemma choices                                 | Pending Dilemma                                               |
+| Dilemma choices                                 | Pending Dilemma IDs                                            |
 | Game Over definitions and warning stages        | Episode progress, matched groups, and terminal outcome        |
 | Scenario start                                  | Current turn and year                                         |
 

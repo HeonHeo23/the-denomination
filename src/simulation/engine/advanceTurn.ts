@@ -3,6 +3,7 @@ import type { TurnResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { evaluatePersistentState } from "./evaluatePersistentState";
 import { evaluateGameOvers } from "./evaluateGameOvers";
+import { queueDilemmas } from "./dilemmas";
 
 const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 
@@ -15,11 +16,18 @@ const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 export function advanceTurn(
   scenario: ScenarioDefinition,
   state: SimulationState,
+  randomValue?: number,
 ): TurnResult {
   if (state.outcome)
     return {
       state,
       message: "The game is over. No further turns can be advanced.",
+      trace: [],
+    };
+  if (state.pendingDilemmaIds.length)
+    return {
+      state,
+      message: "Resolve pending Dilemmas before advancing.",
       trace: [],
     };
   const turn = state.turn + 1;
@@ -39,18 +47,19 @@ export function advanceTurn(
       ),
   };
   const resolved = evaluateGameOvers(scenario, decayed);
+  const queued = queueDilemmas(scenario, resolved, randomValue);
   const completed = {
-    ...resolved,
+    ...queued,
     nodeValueHistory: [
-      ...resolved.nodeValueHistory,
+      ...queued.nodeValueHistory,
       {
         turn,
         values: Object.fromEntries(
           scenario.nodes.map((node) => [
             node.id,
             {
-              value: resolved.nodes[node.id].value,
-              isActive: resolved.nodes[node.id].isActive,
+              value: queued.nodes[node.id].value,
+              isActive: queued.nodes[node.id].isActive,
             },
           ]),
         ),

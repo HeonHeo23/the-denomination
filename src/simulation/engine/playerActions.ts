@@ -10,6 +10,7 @@ import type {
 } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { clampValue, conditionsMet, indexNodes } from "./shared";
+import { resolveDilemma } from "./dilemmas";
 
 type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
 const GAME_OVER_STANCE_MESSAGE = "The game is over. Stances are read-only.";
@@ -212,6 +213,8 @@ export function executeCommand(
   state: SimulationState,
   command: SimulationCommand,
 ): CommandResult {
+  if (command.type === "resolve-dilemma")
+    return resolveDilemma(scenario, state, command.dilemmaId, command.choiceId);
   const assessment =
     command.type === "set-stance"
       ? assessStanceChange(scenario, state, command.stanceId, command.value)
@@ -260,6 +263,22 @@ export function executeCommand(
     state: {
       ...state,
       nodes,
+      nodeValueHistory: state.nodeValueHistory.map((point, index) =>
+        index === state.nodeValueHistory.length - 1
+          ? {
+              ...point,
+              values: Object.fromEntries(
+                scenario.nodes.map((node) => [
+                  node.id,
+                  {
+                    value: nodes[node.id].value,
+                    isActive: nodes[node.id].isActive,
+                  },
+                ]),
+              ),
+            }
+          : point,
+      ),
       history: [
         ...state.history,
         {

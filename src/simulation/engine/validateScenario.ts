@@ -155,10 +155,8 @@ export function validateScenario(input: unknown): readonly string[] {
       number(input.start.year, "$.start.year");
   }
   tags(input.conditions, "$.conditions");
-  for (const kind of ["events", "dilemmas"]) {
-    if (input[kind] !== undefined && array(input[kind], `$.${kind}`).length)
-      error(`$.${kind}`, "nonempty incident content is not supported yet");
-  }
+  if (input.events !== undefined && array(input.events, "$.events").length)
+    error("$.events", "nonempty Event content is not supported yet");
   const base = [
     "id",
     "type",
@@ -480,6 +478,89 @@ export function validateScenario(input: unknown): readonly string[] {
           deactivate: consequence.active === false,
         });
       } else error(`${p}.kind`, "unknown consequence kind");
+    });
+  }
+
+  if (input.dilemmas !== undefined) {
+    const dilemmaIds = new Set<unknown>();
+    array(input.dilemmas, "$.dilemmas").forEach((definition, index) => {
+      const path = `$.dilemmas[${index}]`;
+      if (
+        !object(definition, path, [
+          "kind",
+          "id",
+          "title",
+          "description",
+          "influences",
+          "threshold",
+          "cooldownTurns",
+          "requires",
+          "choices",
+        ])
+      )
+        return;
+      if (definition.kind !== "dilemma")
+        error(`${path}.kind`, "expected dilemma");
+      id(definition.id, `${path}.id`);
+      if (dilemmaIds.has(definition.id))
+        error(`${path}.id`, "duplicate Dilemma identifier");
+      dilemmaIds.add(definition.id);
+      string(definition.title, `${path}.title`);
+      string(definition.description, `${path}.description`);
+      number(definition.threshold, `${path}.threshold`);
+      if (
+        number(definition.cooldownTurns, `${path}.cooldownTurns`) &&
+        (!Number.isInteger(definition.cooldownTurns) ||
+          definition.cooldownTurns < 1)
+      )
+        error(`${path}.cooldownTurns`, "expected a positive integer");
+      tags(definition.requires, `${path}.requires`);
+      array(definition.influences, `${path}.influences`).forEach(
+        (influence, influenceIndex) => {
+          const influencePath = `${path}.influences[${influenceIndex}]`;
+          if (
+            !object(influence, influencePath, [
+              "source",
+              "coefficient",
+              "intercept",
+            ])
+          )
+            return;
+          if (influence.source !== "_random_")
+            refs.push({
+              value: influence.source,
+              path: `${influencePath}.source`,
+            });
+          number(influence.coefficient, `${influencePath}.coefficient`);
+          if (influence.intercept !== undefined)
+            number(influence.intercept, `${influencePath}.intercept`);
+        },
+      );
+      const choices = array(definition.choices, `${path}.choices`);
+      if (choices.length < 2)
+        error(`${path}.choices`, "expected at least two choices");
+      const choiceIds = new Set<unknown>();
+      choices.forEach((choice, choiceIndex) => {
+        const choicePath = `${path}.choices[${choiceIndex}]`;
+        if (
+          !object(choice, choicePath, [
+            "id",
+            "label",
+            "description",
+            "consequences",
+          ])
+        )
+          return;
+        id(choice.id, `${choicePath}.id`);
+        if (choiceIds.has(choice.id))
+          error(`${choicePath}.id`, "duplicate choice identifier");
+        choiceIds.add(choice.id);
+        string(choice.label, `${choicePath}.label`);
+        string(choice.description, `${choicePath}.description`);
+        if (choice.consequences === undefined)
+          error(`${choicePath}.consequences`, "expected an array");
+        else consequences(choice.consequences, `${choicePath}.consequences`);
+      });
     });
   }
 

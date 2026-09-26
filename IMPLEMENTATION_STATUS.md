@@ -37,7 +37,8 @@ Statuses used here are:
 | Browser persistence | Partial | `src/app/persistence.ts` | A versioned local save stores identity, Scenario/content identity, runtime state, and an optional validated Turn report. Restoration validates against current content. |
 | Domain-aware UI projection | Partial | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels` | Provides domain-aware formatting, graph navigation, Crisis views, node search, dossiers, and Effect analysis. The graph shows active nodes and briefly retains just-ended nodes. Inactive Stances have a dedicated enactment index. |
 | Interface audio | Implemented | `src/ui/sound` | UI-only Web Audio cues use an independently saved mute preference and are gesture-initialized, throttled, and cleaned up on unmount. |
-| Events and Dilemmas | Unsupported | `src/simulation/engine/validateScenario.ts`, `loadScenario.ts` | Nonempty incident content is rejected; incident execution is not implemented. |
+| Dilemmas | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx` | Qualifying Dilemmas queue from one turn snapshot; choices resolve once in player-selected order. Cooldowns, history, UI, and saves are supported. |
+| Events | Unsupported | `src/simulation/engine/validateScenario.ts` | Nonempty Event content is rejected; mixed incident selection remains deferred. |
 | Runtime prerequisites and consequences | Implemented | `src/simulation/engine/prerequisites.ts`, `consequences.ts` | Grouped node predicates and immutable Resource, Grudge, and activation consequences support Game Overs. |
 | Scenario Game Overs | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game` | Crises track consecutive qualifying turns, apply warning and recovery consequences, combine terminal causes, block later actions, persist, and appear in reports. |
 
@@ -45,15 +46,15 @@ The Game Over UI reuses Crisis projections and dossier navigation across
 overview, sheet, dossier, and terminal reports. These presentation structures
 are not part of simulation state or saves.
 
-Version 2 saves retain node history; older saves cannot be restored. Known gaps:
-between-turn Stance saves, initial `requires` checks, non-`0..1` Effect displays,
+Version 3 saves retain node history and Dilemma state; older saves cannot be restored. Known gaps:
+initial `requires` checks, non-`0..1` Effect displays,
 negative change costs, and a stale product-preview test.
 
 ## Deferred or incomplete areas
 
 The following remain deferred or incomplete:
 
-- incident selection and complete Event/Dilemma execution;
+- Event execution and mixed incident selection;
 - normal Ending definitions and resolution; Game Over precedence is established
   for that future phase;
 - runtime-prerequisite consumers beyond Game Overs and static `requires` tag

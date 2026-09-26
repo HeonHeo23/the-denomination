@@ -226,7 +226,7 @@ function Application({
     (state: SimulationState, turnReport?: SavedTurnReport) => {
       if (!activeGame) return;
       const save: SavedGame = {
-        version: 2,
+        version: 3,
         scenarioId: activeGame.entry.scenario.id,
         scenarioContentVersion: activeGame.entry.contentVersion,
         playerName: activeGame.playerName,

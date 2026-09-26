@@ -217,11 +217,15 @@ Cooldown or recurrence controls prevent unintended repeated triggering.
 Each influence contributes its intercept plus its coefficient multiplied by its
 source value. The contributions are summed into the incident score; an eligible
 incident qualifies when that score reaches or exceeds its threshold. A random
-influence uses the injected bounded random value as its source.
+influence uses one injected value in `[0, 1)`, shared by all Dilemmas in that
+turn's evaluation.
 
-At most one incident is selected per incident evaluation. When multiple Events
-or Dilemmas qualify, including when both kinds qualify, the selection mechanism
-is TBD. Declaration order MUST NOT silently become the intended selection rule.
+At the end of each nonterminal turn, all qualifying Dilemmas are captured from
+the same post-persistent, post-decay, post-Game-Over snapshot and queued. The
+player may resolve them in any order. Later choices do not retract queued
+Dilemmas or cause another incident evaluation that turn. Event selection,
+including mixed Event/Dilemma cases, remains TBD. Declaration order MUST NOT
+silently become an Event selection rule.
 
 ### Event
 
@@ -232,7 +236,11 @@ create Grudges, change Resources, or explicitly change allowed activation state.
 
 A Dilemma requires the player to choose among at least two defined options.
 Each choice has its own immediate consequences. A pending Dilemma blocks turn
-advancement until resolved.
+advancement until resolved. Triggering records its last trigger turn and count;
+`cooldownTurns` excludes that Dilemma for the following number of turns.
+Choice consequences apply immediately without recalculating persistent values
+or Game Overs until the next turn. Stance commands remain available while a
+Dilemma is pending.
 
 Temporary incident consequences SHOULD normally use Grudges rather than mutate
 an unrelated node's underlying baseline.
@@ -306,7 +314,7 @@ least:
 - per-Effect Inertia history and current contribution;
 - active Grudges and their current magnitudes;
 - incident cooldown/recurrence state;
-- a pending Dilemma, if any;
+- pending Dilemmas, if any;
 - per-trajectory Game Over episode and consecutive-turn progress;
 - a terminal Game Over outcome, if reached;
 - player-visible history where retained.
@@ -334,8 +342,8 @@ following partial ordering is authoritative:
 - Game Over prerequisites read the post-persistent, post-decay snapshot before
   newly reached stage or recovery consequences are applied;
 - Game Over resolution precedes and blocks normal Ending resolution;
-- a pending Dilemma prevents another turn from advancing;
-- no more than one incident is selected by one incident evaluation.
+- pending Dilemmas prevent another turn from advancing;
+- all qualifying Dilemmas are queued from one shared snapshot;
 
 Randomness may influence explicitly random mechanics, especially incidents. It
 should be bounded, causally constrained, and injectable or seedable where
@@ -371,7 +379,7 @@ universal mechanics.
 Do not infer or implement the following until this document is revised:
 
 - the complete within-turn phase order beyond the partial ordering above;
-- selection among multiple simultaneously eligible incidents;
+- Event selection, including mixed Event/Dilemma eligibility;
 - runtime-prerequisite use outside explicitly supported consumers;
 - the supported scope and merge semantics of Scenario overrides;
 - complete Resource accumulation and baseline interaction rules;
