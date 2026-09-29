@@ -1,4 +1,4 @@
-import { exampleScenario } from "../../src/scenarios/example/index";
+import { exampleScenario } from "../../src/scenarios/example";
 import {
   advanceTurn,
   executeCommand,
