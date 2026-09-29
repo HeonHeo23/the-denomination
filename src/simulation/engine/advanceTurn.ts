@@ -4,6 +4,7 @@ import type { SimulationState } from "../domain/runtime";
 import { evaluatePersistentState } from "./evaluatePersistentState";
 import { evaluateGameOvers } from "./evaluateGameOvers";
 import { queueDilemmas } from "./dilemmas";
+import { resolveEvents, selectEvents } from "./events";
 
 const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 
@@ -47,19 +48,21 @@ export function advanceTurn(
       ),
   };
   const resolved = evaluateGameOvers(scenario, decayed);
+  const selectedEvents = selectEvents(scenario, resolved, randomValue);
   const queued = queueDilemmas(scenario, resolved, randomValue);
+  const afterEvents = resolveEvents(scenario, queued, selectedEvents);
   const completed = {
-    ...queued,
+    ...afterEvents,
     nodeValueHistory: [
-      ...queued.nodeValueHistory,
+      ...afterEvents.nodeValueHistory,
       {
         turn,
         values: Object.fromEntries(
           scenario.nodes.map((node) => [
             node.id,
             {
-              value: queued.nodes[node.id].value,
-              isActive: queued.nodes[node.id].isActive,
+              value: afterEvents.nodes[node.id].value,
+              isActive: afterEvents.nodes[node.id].isActive,
             },
           ]),
         ),

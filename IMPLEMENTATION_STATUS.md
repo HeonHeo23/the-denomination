@@ -23,30 +23,30 @@ Statuses used here are:
 
 ## Current implementation
 
-| Area | Status | Implementation | Notes |
-| ---- | ------ | -------------- | ----- |
-| Scenario loading and trust boundary | Implemented | `src/simulation/engine/validateScenario.ts`, `loadScenario.ts` | Validates content, references, domains, fields, and cycles; then clones, normalizes, and freezes the definition. |
-| Turn-zero initialization | Implemented | `src/simulation/engine/initialize.ts` | Preserves initial values, seeds Effect histories, and snapshots the declared start turn and year. |
-| Runtime activation | Implemented | `src/simulation/domain/runtime.ts`, `initialize.ts`, `evaluatePersistentState.ts` | `isActive` controls participation; `isForced` prevents ordinary deactivation. Forced nodes are active. |
-| Activation schema migration | Implemented | `src/simulation/domain/definitions.ts`, `validateScenario.ts`, `src/scenarios/example` | Scenarios use `initial.isActive` and `initial.isForced`; legacy activation strings are rejected. |
-| Persistent Effects and inertia | Implemented | `src/simulation/engine/evaluatePersistentState.ts` | Uses synchronous snapshots and per-Effect history. Newly activated Situations exert Effects starting next turn. |
-| Static conditions and requirements | Partial | `src/simulation/engine/shared.ts`, `playerActions.ts`, `evaluatePersistentState.ts` | Scenario conditions are matched against node requirements for supported checks. |
-| Stance assessment and execution | Implemented | `src/simulation/engine/playerActions.ts` | Supports Stance changes, enactment, and non-forced repeal, including fixed transition costs. |
-| Application session ownership | Implemented | `src/app/gameSession.ts`, `useGameSession.ts` | A reducer owns the active Scenario, runtime snapshot, messages, traces, commands, turn advancement, reset, and validated restoration. |
-| Scenario catalog and launcher | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/ui/landing`, `src/main.tsx` | Validates catalog entries and launches or continues a session. The catalog has one bundled Scenario. |
-| Browser persistence | Partial | `src/app/persistence.ts` | A versioned local save stores identity, Scenario/content identity, runtime state, and an optional validated Turn report. Restoration validates against current content. |
-| Domain-aware UI projection | Partial | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels` | Provides domain-aware formatting, graph navigation, Crisis views, node search, dossiers, and Effect analysis. The graph shows active nodes and briefly retains just-ended nodes. Inactive Stances have a dedicated enactment index. |
-| Interface audio | Implemented | `src/ui/sound` | UI-only Web Audio cues use an independently saved mute preference and are gesture-initialized, throttled, and cleaned up on unmount. |
-| Dilemmas | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx` | Qualifying Dilemmas queue from one turn snapshot; choices resolve once in player-selected order. Cooldowns, history, UI, and saves are supported. |
-| Events | Unsupported | `src/simulation/engine/validateScenario.ts` | Nonempty Event content is rejected; mixed incident selection remains deferred. |
-| Runtime prerequisites and consequences | Implemented | `src/simulation/engine/prerequisites.ts`, `consequences.ts` | Grouped node predicates and immutable Resource, Grudge, and activation consequences support Game Overs. |
-| Scenario Game Overs | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game` | Crises track consecutive qualifying turns, apply warning and recovery consequences, combine terminal causes, block later actions, persist, and appear in reports. |
+| Area                                   | Status      | Implementation                                                                         | Notes                                                                                                                                                                                                                               |
+| -------------------------------------- | ----------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scenario loading and trust boundary    | Implemented | `src/simulation/engine/validateScenario.ts`, `loadScenario.ts`                         | Validates content, references, domains, fields, and cycles; then clones, normalizes, and freezes the definition.                                                                                                                    |
+| Turn-zero initialization               | Implemented | `src/simulation/engine/initialize.ts`                                                  | Preserves initial values, seeds Effect histories, and snapshots the declared start turn and year.                                                                                                                                   |
+| Runtime activation                     | Implemented | `src/simulation/domain/runtime.ts`, `initialize.ts`, `evaluatePersistentState.ts`      | `isActive` controls participation; `isForced` prevents ordinary deactivation. Forced nodes are active.                                                                                                                              |
+| Activation schema migration            | Implemented | `src/simulation/domain/definitions.ts`, `validateScenario.ts`, `src/scenarios/example` | Scenarios use `initial.isActive` and `initial.isForced`; legacy activation strings are rejected.                                                                                                                                    |
+| Persistent Effects and inertia         | Implemented | `src/simulation/engine/evaluatePersistentState.ts`                                     | Uses synchronous snapshots and per-Effect history. Newly activated Situations exert Effects starting next turn.                                                                                                                     |
+| Static conditions and requirements     | Partial     | `src/simulation/engine/shared.ts`, `playerActions.ts`, `evaluatePersistentState.ts`    | Scenario conditions are matched against node requirements for supported checks.                                                                                                                                                     |
+| Stance assessment and execution        | Implemented | `src/simulation/engine/playerActions.ts`                                               | Supports Stance changes, enactment, and non-forced repeal, including fixed transition costs.                                                                                                                                        |
+| Application session ownership          | Implemented | `src/app/gameSession.ts`, `useGameSession.ts`                                          | A reducer owns the active Scenario, runtime snapshot, messages, traces, commands, turn advancement, reset, and validated restoration.                                                                                               |
+| Scenario catalog and launcher          | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/ui/landing`, `src/main.tsx`          | Validates catalog entries and launches or continues a session. The catalog has one bundled Scenario.                                                                                                                                |
+| Browser persistence                    | Partial     | `src/app/persistence.ts`                                                               | A versioned local save stores identity, Scenario/content identity, runtime state, and an optional validated Turn report. Restoration validates against current content.                                                             |
+| Domain-aware UI projection             | Partial     | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels`                | Provides domain-aware formatting, graph navigation, Crisis views, node search, dossiers, and Effect analysis. The graph shows active nodes and briefly retains just-ended nodes. Inactive Stances have a dedicated enactment index. |
+| Interface audio                        | Implemented | `src/ui/sound`                                                                         | UI-only Web Audio cues use an independently saved mute preference and are gesture-initialized, throttled, and cleaned up on unmount.                                                                                                |
+| Dilemmas                               | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx`                   | Qualifying Dilemmas queue from one turn snapshot; choices resolve once in player-selected order. Cooldowns, history, UI, and saves are supported.                                                                                   |
+| Events                                 | Implemented | `src/simulation/engine/events.ts`, `advanceTurn.ts`, `src/ui/game/EventDetailDialog.tsx` | All qualifying Events resolve in ID order from the shared incident snapshot; automatic detail dialogs, report and Chronicle reopening, cooldowns, and saves are supported.                                                       |
+| Runtime prerequisites and consequences | Implemented | `src/simulation/engine/prerequisites.ts`, `consequences.ts`                            | Grouped node predicates and immutable Resource, Grudge, and activation consequences support Game Overs.                                                                                                                             |
+| Scenario Game Overs                    | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game`                            | Crises track consecutive qualifying turns, apply warning and recovery consequences, combine terminal causes, block later actions, persist, and appear in reports.                                                                   |
 
 The Game Over UI reuses Crisis projections and dossier navigation across
 overview, sheet, dossier, and terminal reports. These presentation structures
 are not part of simulation state or saves.
 
-Version 3 saves retain node history and Dilemma state; older saves cannot be restored. Known gaps:
+Version 4 saves retain node history and incident state; valid version 3 saves migrate without replaying prior Events. Older saves cannot be restored. Known gaps:
 initial `requires` checks, non-`0..1` Effect displays,
 negative change costs, and a stale product-preview test.
 
@@ -54,7 +54,6 @@ negative change costs, and a stale product-preview test.
 
 The following remain deferred or incomplete:
 
-- Event execution and mixed incident selection;
 - normal Ending definitions and resolution; Game Over precedence is established
   for that future phase;
 - runtime-prerequisite consumers beyond Game Overs and static `requires` tag

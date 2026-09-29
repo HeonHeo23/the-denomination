@@ -1,6 +1,7 @@
+import { exampleScenario } from "../../src/scenarios/example";
 import { runComplianceTests } from "./compliance.test";
 import { runDilemmaTests } from "./dilemmas.test";
-import { exampleScenario } from "../../src/scenarios/example/index";
+import { runEventTests } from "./events.test";
 import {
   advanceTurn,
   executeCommand,
@@ -13,6 +14,7 @@ import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
+import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -26,6 +28,8 @@ function closeTo(actual: number, expected: number, message: string) {
 }
 
 runDilemmaTests();
+runEventTests();
+runEventDetailTests();
 
 assert(
   validateScenario(exampleScenario).length === 0,

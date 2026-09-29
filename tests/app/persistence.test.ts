@@ -43,7 +43,7 @@ class MemoryStorage implements SaveStorage {
 }
 
 const catalogResult = loadScenarioCatalog([
-  { contentVersion: 4, content: exampleScenario },
+  { contentVersion: 5, content: exampleScenario },
 ]);
 assert.deepEqual(catalogResult.diagnostics, []);
 const catalog = catalogResult.entries;
@@ -55,18 +55,18 @@ assert.match(
 assert.match(
   loadScenarioCatalog([
     { contentVersion: 1, content: exampleScenario },
-    { contentVersion: 4, content: exampleScenario },
+    { contentVersion: 5, content: exampleScenario },
   ]).diagnostics[0],
   /duplicate Scenario id/,
 );
 const initialState = initializeScenario(catalog[0].scenario);
-const state = advanceTurn(catalog[0].scenario, initialState).state;
+const state = advanceTurn(catalog[0].scenario, initialState, 0).state;
 const turnReport = projectTurnReport(catalog[0].scenario, initialState, state);
 const savedTurnReport = serializeTurnReport(turnReport);
 const save: SavedGame = {
-  version: 3,
+  version: 4,
   scenarioId: exampleScenario.id,
-  scenarioContentVersion: 4,
+  scenarioContentVersion: 5,
   playerName: "Avery Morgan",
   denominationName: "The Common Fellowship",
   state,
@@ -83,13 +83,14 @@ const queuedContent = {
   ],
 };
 const queuedCatalog = loadScenarioCatalog([
-  { contentVersion: 5, content: queuedContent },
+  { contentVersion: 6, content: queuedContent },
 ]).entries;
 assert.equal(queuedCatalog.length, 1);
 const queuedScenario = queuedCatalog[0].scenario;
 const queued = advanceTurn(
   queuedScenario,
   initializeScenario(queuedScenario),
+  0,
 ).state;
 assert.equal(queued.pendingDilemmaIds.length, 2);
 const partiallyResolved = executeCommand(queuedScenario, queued, {
@@ -99,7 +100,7 @@ const partiallyResolved = executeCommand(queuedScenario, queued, {
 }).state;
 const pendingSave: SavedGame = {
   ...save,
-  scenarioContentVersion: 5,
+  scenarioContentVersion: 6,
   state: partiallyResolved,
 };
 assert.ok(
@@ -164,6 +165,36 @@ assert.equal(
   undefined,
 );
 const reportSave: SavedGame = { ...save, turnReport: savedTurnReport };
+const priorScenario = { ...exampleScenario, events: [] };
+const priorInitial = initializeScenario(priorScenario);
+const priorState = advanceTurn(priorScenario, priorInitial, 0).state;
+const { events: _priorEvents, ...priorRuntime } = priorState;
+const priorReport = serializeTurnReport(
+  projectTurnReport(priorScenario, priorInitial, priorState),
+);
+const { eventIds: _priorEventIds, ...priorReportRecord } = priorReport;
+const priorStorage = new MemoryStorage();
+priorStorage.setItem(
+  "the-denomination.save.v3",
+  JSON.stringify({
+    version: 3,
+    scenarioId: exampleScenario.id,
+    scenarioContentVersion: 4,
+    playerName: "Avery Morgan",
+    denominationName: "The Common Fellowship",
+    state: priorRuntime,
+    turnReport: priorReportRecord,
+  }),
+);
+const migrated = loadSavedGame(priorStorage, catalog);
+assert.equal(migrated.status, "ready");
+if (migrated.status === "ready") {
+  assert.equal(migrated.save.version, 4);
+  assert.equal(migrated.save.scenarioContentVersion, 5);
+  assert.equal(migrated.save.state.events["regional-petition"].triggerCount, 0);
+  assert.deepEqual(migrated.save.turnReport?.eventIds, []);
+  assert.ok(validateSavedGame(migrated.save, catalog));
+}
 assert.ok(
   validateSavedGame(reportSave, catalog),
   "A save with a turn report should be accepted",
@@ -217,7 +248,10 @@ if (loaded.status === "ready") {
   assert.ok(session.ok);
   assert.equal(session.state.turn, state.turn);
   assert.match(session.message, /restored/);
-  const advancedSession = reduceGameSession(session, { type: "advance", randomValue: 0 });
+  const advancedSession = reduceGameSession(session, {
+    type: "advance",
+    randomValue: 0,
+  });
   assert.ok(advancedSession.ok);
   const report = projectTurnReport(
     advancedSession.scenario,
@@ -288,7 +322,7 @@ assert.equal(
   "Scenario mismatches must be rejected",
 );
 assert.equal(
-  validateSavedGame({ ...save, scenarioContentVersion: 5 }, catalog),
+  validateSavedGame({ ...save, scenarioContentVersion: 6 }, catalog),
   undefined,
   "Content-version mismatches must be rejected",
 );

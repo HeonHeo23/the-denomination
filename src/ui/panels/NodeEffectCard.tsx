@@ -44,7 +44,19 @@ function effectBarSpanPercent(contribution: number): number {
   return effectBarMagnitudePercent(contribution) / 2;
 }
 
-export function EffectBar({ effect }: { readonly effect: NodeEffectView }) {
+type EffectBarValue = Pick<
+  NodeEffectView,
+  | "contribution"
+  | "contributionLabel"
+  | "contributionTone"
+  | "previewContribution"
+  | "previewContributionLabel"
+  | "previewContributionTone"
+  | "previewKind"
+  | "inertiaTurns"
+>;
+
+export function EffectBar({ effect }: { readonly effect: EffectBarValue }) {
   const currentSpan = effectBarSpanPercent(effect.contribution);
   const previewContribution = effect.previewContribution ?? effect.contribution;
   const previewSpan = effectBarSpanPercent(previewContribution);

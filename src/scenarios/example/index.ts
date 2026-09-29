@@ -10,6 +10,40 @@ export const exampleScenario = {
   schemaVersion: 3,
   start: { turn: 0, year: 1980 },
   conditions: ["has-seminary", "has-general-assembly"],
+  events: [
+    {
+      kind: "event",
+      id: "regional-petition",
+      title: "Regional delegates submit a petition",
+      description:
+        "Delegates ask the central office to hear local concerns before setting another common course.",
+      influences: [{ source: "centralization", coefficient: 1 }],
+      threshold: 0.5,
+      cooldownTurns: 3,
+      requires: ["has-general-assembly"],
+      consequences: [
+        { kind: "resource", target: "authority", amount: -2 },
+        {
+          kind: "grudge",
+          target: "leadership-trust",
+          magnitude: -0.02,
+          decay: 0.75,
+          label: "Unanswered regional petition",
+        },
+      ],
+    },
+    {
+      kind: "event",
+      id: "unexpected-bequest",
+      title: "An unexpected bequest arrives",
+      description:
+        "A longtime supporter leaves an unrestricted gift to sustain shared ministries.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.6,
+      cooldownTurns: 4,
+      consequences: [{ kind: "resource", target: "money", amount: 4 }],
+    },
+  ],
   dilemmas: [
     {
       kind: "dilemma",

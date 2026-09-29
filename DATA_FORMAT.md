@@ -326,8 +326,9 @@ positive integer. Influence sources other than `_random_` must reference
 nodes.
 
 The format declares candidates and their thresholds. All qualifying Dilemmas
-are queued from one snapshot; Event selection remains TBD. Dilemma declaration
-order does not determine the player's resolution order.
+are queued from one snapshot; all qualifying Events resolve from that snapshot
+in Event ID order. Dilemma declaration order does not determine the player's
+resolution order.
 
 ### Event
 
@@ -390,8 +391,7 @@ No generic permanent node-value consequence is defined. Adding one would
 require game-design approval.
 
 These definitions are shared content contracts. Game Over stages and recovery
-occurrences and Dilemma choices execute them; Events retain the same shape for
-their future engine implementation.
+occurrences, Dilemma choices, and Events execute them.
 
 ## Static definition versus runtime state
 
@@ -404,7 +404,7 @@ conditions. Runtime state records what has happened:
 | Effect source, target, response, Inertia window | Source-value history and last contribution                    |
 | Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
 | Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
-| Dilemma choices                                 | Pending Dilemma IDs                                            |
+| Dilemma choices                                 | Pending Dilemma IDs                                           |
 | Game Over definitions and warning stages        | Episode progress, matched groups, and terminal outcome        |
 | Scenario start                                  | Current turn and year                                         |
 

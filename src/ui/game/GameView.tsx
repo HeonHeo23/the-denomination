@@ -21,6 +21,16 @@ import {
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
 import { DilemmaDialog } from "./DilemmaDialog";
+import { EventDetailDialog } from "./EventDetailDialog";
+import {
+  eventOccurrenceIdsForTurn,
+  projectEventOccurrence,
+} from "./projectEventOccurrence";
+import {
+  beginAutomaticEvents,
+  closeEventPresentation,
+  type EventPresentation,
+} from "./eventDialogFlow";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { GameOverReportDialog } from "./GameOverReportDialog";
@@ -73,6 +83,8 @@ export function GameView({
       : undefined,
   );
   const [turnReportOpen, setTurnReportOpen] = useState(false);
+  const [eventPresentation, setEventPresentation] =
+    useState<EventPresentation>();
   const [dilemmaOpen, setDilemmaOpen] = useState(
     Boolean(restoredState?.pendingDilemmaIds.length),
   );
@@ -133,16 +145,27 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setEventPresentation(undefined);
       setDilemmaOpen(false);
       setToastMessage(undefined);
-      if (reducedMotion) {
+      const presentCompletedTurn = () => {
         if (session.state.outcome) {
-          // oxlint-disable-next-line react/set-state-in-effect -- the terminal overlay follows the completed engine transition.
           openReport();
-        } else {
-          setTurnReport(report);
-          setTurnReportOpen(true);
+          return;
         }
+        setTurnReport(report);
+        const ids = eventOccurrenceIdsForTurn(
+          session.scenario,
+          session.state,
+          report.turn,
+        );
+        const presentation = beginAutomaticEvents(ids);
+        if (presentation) setEventPresentation(presentation);
+        else setTurnReportOpen(true);
+      };
+      if (reducedMotion) {
+        // oxlint-disable-next-line react/set-state-in-effect -- the presentation follows the completed engine transition.
+        presentCompletedTurn();
         if (
           report.situationTransitions.some(({ kind }) => kind === "began") ||
           report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -153,12 +176,7 @@ export function GameView({
         setRevealingTurn(report);
         revealTimer.current = setTimeout(() => {
           setRevealingTurn(undefined);
-          if (session.state.outcome) {
-            openReport();
-          } else {
-            setTurnReport(report);
-            setTurnReportOpen(true);
-          }
+          presentCompletedTurn();
           if (
             report.situationTransitions.some(({ kind }) => kind === "began") ||
             report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -176,6 +194,7 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setEventPresentation(undefined);
       setDilemmaOpen(false);
     } else if (before && messageChanged) {
       setToastMessage(session.message);
@@ -203,6 +222,13 @@ export function GameView({
   }
 
   const scenario = session.scenario;
+  const activeEventId =
+    eventPresentation?.mode === "automatic"
+      ? eventPresentation.ids[eventPresentation.index]
+      : eventPresentation?.id;
+  const activeEvent = activeEventId
+    ? projectEventOccurrence(scenario, session.state, activeEventId)
+    : undefined;
   const resources = scenario.nodes.filter((node) => node.type === "resource");
   const selectedDefinition = scenario.nodes.find(
     ({ id }) => id === navigation.selectedNodeId,
@@ -271,6 +297,7 @@ export function GameView({
         onLoad={onLoad}
         onReset={() => {
           setDilemmaOpen(false);
+          setEventPresentation(undefined);
           session.reset();
         }}
         onMainMenu={() => onMainMenu(session.state, savedTurnReport)}
@@ -359,6 +386,14 @@ export function GameView({
         resources={resources}
         onClose={() => setActivePanel(undefined)}
         onCrisisSelect={selectCrisis}
+        onEventSelect={(occurrenceId) => {
+          setDilemmaOpen(false);
+          setEventPresentation({
+            mode: "manual",
+            id: occurrenceId,
+            returnTo: "chronicle",
+          });
+        }}
         onResourceHover={setSheetHoveredNodeId}
         onResourceSelect={selectNode}
       />
@@ -370,10 +405,43 @@ export function GameView({
           open={turnReportOpen}
           onNodeSelect={selectNode}
           onCrisisSelect={selectCrisis}
+          onEventSelect={(eventId) => {
+            const occurrenceId = eventOccurrenceIdsForTurn(
+              scenario,
+              session.state,
+              turnReport.turn,
+            ).find((id) => id.startsWith(`${eventId}:event:`));
+            if (!occurrenceId) return;
+            setDilemmaOpen(false);
+            setEventPresentation({
+              mode: "manual",
+              id: occurrenceId,
+              returnTo: "report",
+            });
+          }}
           onOpenChange={(open) => {
             setTurnReportOpen(open);
-            if (!open && session.state.pendingDilemmaIds.length)
+            if (
+              !open &&
+              !eventPresentation &&
+              session.state.pendingDilemmaIds.length
+            )
               setDilemmaOpen(true);
+          }}
+        />
+      )}
+
+      {activeEvent && (
+        <EventDetailDialog
+          key={activeEvent.id}
+          occurrence={activeEvent}
+          onNodeSelect={selectNode}
+          onOpenChange={(open) => {
+            if (open || !eventPresentation) return;
+            const next = closeEventPresentation(eventPresentation);
+            setEventPresentation(next.next);
+            if (next.returnTo === "report") setTurnReportOpen(true);
+            if (next.returnTo === "chronicle") setActivePanel("chronicle");
           }}
         />
       )}
@@ -382,7 +450,12 @@ export function GameView({
         <DilemmaDialog
           scenario={scenario}
           state={session.state}
-          open={dilemmaOpen && !turnReportOpen && !revealingTurn}
+          open={
+            dilemmaOpen &&
+            !turnReportOpen &&
+            !revealingTurn &&
+            !eventPresentation
+          }
           onOpenChange={setDilemmaOpen}
           onResolve={session.resolveDilemma}
         />

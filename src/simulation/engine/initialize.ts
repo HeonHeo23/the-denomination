@@ -76,6 +76,12 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
         { lastTriggerTurn: null, triggerCount: 0 },
       ]),
     ),
+    events: Object.fromEntries(
+      (scenario.events ?? []).map(({ id }) => [
+        id,
+        { lastTriggerTurn: null, triggerCount: 0 },
+      ]),
+    ),
     pendingDilemmaIds: [],
     gameOverProgress: Object.fromEntries(
       (scenario.gameOvers ?? []).map((definition) => [

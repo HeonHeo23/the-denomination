@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { BookOpenText, ChevronDown, Sparkles } from "lucide-react";
+import {
+  BookOpenText,
+  ChevronDown,
+  CircleCheck,
+  CircleAlert,
+  Flame,
+  ScrollText,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +43,7 @@ interface TurnReportDialogProps {
   readonly open: boolean;
   readonly onNodeSelect: (nodeId: string) => void;
   readonly onCrisisSelect: (crisisId: string) => void;
+  readonly onEventSelect: (eventId: string) => void;
   readonly onOpenChange: (open: boolean) => void;
 }
 
@@ -88,6 +98,7 @@ export function TurnReportDialog({
   open,
   onNodeSelect,
   onCrisisSelect,
+  onEventSelect,
   onOpenChange,
 }: TurnReportDialogProps) {
   const [showAllChanges, setShowAllChanges] = useState(false);
@@ -98,7 +109,8 @@ export function TurnReportDialog({
     report.changes.length > 0 ||
     report.situationTransitions.length > 0 ||
     report.grudges.length > 0 ||
-    report.crisisTransitions.length > 0;
+    report.crisisTransitions.length > 0 ||
+    report.events.length > 0;
   const significant = isEtherealTurn(report);
 
   return (
@@ -125,8 +137,8 @@ export function TurnReportDialog({
             </Badge>
           )}
           <DialogDescription>
-            The record of persistent changes and temporary effects following
-            turn {report.turn}.
+            The record of Events, persistent changes, and temporary effects
+            following turn {report.turn}.
           </DialogDescription>
         </>
       }
@@ -142,7 +154,7 @@ export function TurnReportDialog({
           {!hasOutcomes ? (
             <Empty className="my-6 min-h-56 border">
               <EmptyHeader>
-                <EmptyTitle>No persistent changes</EmptyTitle>
+                <EmptyTitle>No recorded changes</EmptyTitle>
                 <EmptyDescription>
                   The institution remained steady during this turn.
                 </EmptyDescription>
@@ -150,9 +162,28 @@ export function TurnReportDialog({
             </Empty>
           ) : (
             <div className="flex min-h-full flex-col gap-6 pb-6">
-              {(report.crisisTransitions.length > 0 ||
-                report.grudges.length > 0) && (
-                <ItemGroup>
+              {(report.events.length > 0 ||
+                report.crisisTransitions.length > 0 ||
+                report.grudges.length > 0 ||
+                report.situationTransitions.length > 0) && (
+                <ItemGroup aria-label="Turn outcomes">
+                  {report.events.map((event) => (
+                    <DossierItemButton
+                      key={event.id}
+                      variant="outline"
+                      size="sm"
+                      leading={
+                        <ScrollText
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      }
+                      title={event.title}
+                      description={event.description}
+                      aria-label={`Open ${event.title} Event details`}
+                      onSelect={() => onEventSelect(event.id)}
+                    />
+                  ))}
                   {report.crisisTransitions.map((transition) => (
                     <DossierItemButton
                       variant="outline"
@@ -161,6 +192,12 @@ export function TurnReportDialog({
                       key={`${transition.definition.id}:${transition.kind}`}
                       aria-label={`Open ${transition.definition.title} crisis dossier`}
                       onSelect={() => onCrisisSelect(transition.definition.id)}
+                      leading={
+                        <TriangleAlert
+                          aria-hidden="true"
+                          className="size-4 shrink-0"
+                        />
+                      }
                       title={
                         transition.kind === "stage"
                           ? transition.stage?.title
@@ -187,6 +224,9 @@ export function TurnReportDialog({
                       key={grudge.id}
                       aria-label={`Open ${grudge.targetName} dossier`}
                       onSelect={() => onNodeSelect(grudge.targetId)}
+                      leading={
+                        <Flame aria-hidden="true" className="size-4 shrink-0" />
+                      }
                       title={grudge.label}
                       description={`Affecting ${grudge.targetName}`}
                       trailing={
@@ -203,10 +243,6 @@ export function TurnReportDialog({
                       }
                     />
                   ))}
-                </ItemGroup>
-              )}
-              {report.situationTransitions.length > 0 && (
-                <ItemGroup>
                   {report.situationTransitions.map((transition) => (
                     <DossierItemButton
                       variant="outline"
@@ -214,6 +250,19 @@ export function TurnReportDialog({
                       key={transition.node.id}
                       aria-label={`Open ${transition.node.name} dossier`}
                       onSelect={() => onNodeSelect(transition.node.id)}
+                      leading={
+                        transition.kind === "began" ? (
+                          <CircleAlert
+                            aria-hidden="true"
+                            className="size-4 shrink-0"
+                          />
+                        ) : (
+                          <CircleCheck
+                            aria-hidden="true"
+                            className="size-4 shrink-0"
+                          />
+                        )
+                      }
                       title={transition.node.name}
                       trailing={
                         <Badge

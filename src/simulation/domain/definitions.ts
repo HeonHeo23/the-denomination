@@ -231,6 +231,18 @@ export interface IncidentInfluence {
   readonly intercept?: number;
 }
 
+export interface EventDefinition {
+  readonly kind: "event";
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly influences: readonly IncidentInfluence[];
+  readonly threshold: number;
+  readonly cooldownTurns: number;
+  readonly requires?: readonly string[];
+  readonly consequences: readonly ConsequenceDefinition[];
+}
+
 export interface DilemmaDefinition {
   readonly kind: "dilemma";
   readonly id: string;
@@ -256,8 +268,7 @@ export interface ScenarioDefinition {
   readonly schemaVersion: 3;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
-  /** Events remain unsupported. */
-  readonly events?: readonly never[];
+  readonly events?: readonly EventDefinition[];
   readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];
   readonly nodes: readonly NodeDefinition[];

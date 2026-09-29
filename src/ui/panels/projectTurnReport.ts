@@ -6,6 +6,7 @@ import type {
   SimulationState,
   GameOverDefinition,
   GameOverStageDefinition,
+  EventDefinition,
 } from "../../simulation";
 import type {
   SavedTurnReport,
@@ -47,6 +48,7 @@ export interface TurnReport {
   readonly situationTransitions: readonly TurnReportSituationTransition[];
   readonly grudges: readonly TurnReportGrudge[];
   readonly crisisTransitions: readonly TurnReportCrisisTransition[];
+  readonly events: readonly EventDefinition[];
 }
 
 export interface TurnReportCrisisTransition {
@@ -166,6 +168,16 @@ export function projectTurnReport(
       };
     }),
     crisisTransitions,
+    events: (scenario.events ?? [])
+      .filter(
+        (definition) =>
+          current.events[definition.id]?.lastTriggerTurn === current.turn &&
+          current.events[definition.id].triggerCount >
+            (previous.events[definition.id]?.triggerCount ?? 0),
+      )
+      .sort((left, right) =>
+        left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+      ),
   };
 }
 
@@ -203,6 +215,7 @@ export function serializeTurnReport(report: TurnReport): SavedTurnReport {
       consecutiveTurns: transition.consecutiveTurns,
       turnsRemaining: transition.turnsRemaining,
     })),
+    eventIds: report.events.map(({ id }) => id),
   };
 }
 
@@ -213,6 +226,9 @@ export function restoreTurnReport(
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
   const gameOvers = new Map(
     (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
+  );
+  const events = new Map(
+    (scenario.events ?? []).map((definition) => [definition.id, definition]),
   );
   const changes = saved.changes.map((change) => ({
     node: nodes.get(change.nodeId)!,
@@ -259,6 +275,7 @@ export function restoreTurnReport(
         turnsRemaining: transition.turnsRemaining,
       };
     }),
+    events: saved.eventIds.map((id) => events.get(id)!),
   };
 }
 

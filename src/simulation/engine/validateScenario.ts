@@ -155,8 +155,6 @@ export function validateScenario(input: unknown): readonly string[] {
       number(input.start.year, "$.start.year");
   }
   tags(input.conditions, "$.conditions");
-  if (input.events !== undefined && array(input.events, "$.events").length)
-    error("$.events", "nonempty Event content is not supported yet");
   const base = [
     "id",
     "type",
@@ -478,6 +476,66 @@ export function validateScenario(input: unknown): readonly string[] {
           deactivate: consequence.active === false,
         });
       } else error(`${p}.kind`, "unknown consequence kind");
+    });
+  }
+
+  if (input.events !== undefined) {
+    const eventIds = new Set<unknown>();
+    array(input.events, "$.events").forEach((definition, index) => {
+      const path = `$.events[${index}]`;
+      if (
+        !object(definition, path, [
+          "kind",
+          "id",
+          "title",
+          "description",
+          "influences",
+          "threshold",
+          "cooldownTurns",
+          "requires",
+          "consequences",
+        ])
+      )
+        return;
+      if (definition.kind !== "event") error(`${path}.kind`, "expected event");
+      id(definition.id, `${path}.id`);
+      if (eventIds.has(definition.id))
+        error(`${path}.id`, "duplicate Event identifier");
+      eventIds.add(definition.id);
+      string(definition.title, `${path}.title`);
+      string(definition.description, `${path}.description`);
+      number(definition.threshold, `${path}.threshold`);
+      if (
+        number(definition.cooldownTurns, `${path}.cooldownTurns`) &&
+        (!Number.isInteger(definition.cooldownTurns) ||
+          definition.cooldownTurns < 1)
+      )
+        error(`${path}.cooldownTurns`, "expected a positive integer");
+      tags(definition.requires, `${path}.requires`);
+      array(definition.influences, `${path}.influences`).forEach(
+        (influence, influenceIndex) => {
+          const influencePath = `${path}.influences[${influenceIndex}]`;
+          if (
+            !object(influence, influencePath, [
+              "source",
+              "coefficient",
+              "intercept",
+            ])
+          )
+            return;
+          if (influence.source !== "_random_")
+            refs.push({
+              value: influence.source,
+              path: `${influencePath}.source`,
+            });
+          number(influence.coefficient, `${influencePath}.coefficient`);
+          if (influence.intercept !== undefined)
+            number(influence.intercept, `${influencePath}.intercept`);
+        },
+      );
+      if (definition.consequences === undefined)
+        error(`${path}.consequences`, "expected an array");
+      else consequences(definition.consequences, `${path}.consequences`);
     });
   }
 

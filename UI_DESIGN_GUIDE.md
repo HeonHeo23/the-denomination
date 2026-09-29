@@ -41,6 +41,7 @@ The primary flow is:
 - Use dossiers for analysis and Stance editing.
 - Use Sheets for overview, Crises, and Chronicle review, and more. Situations
   remain available as canonical graph nodes and dossiers.
+- Keep a report, Sheet, or detail dialog open beneath a linked detail dialog so closing the linked detail returns the player to the same context.
 - Keep game dialogs consistent in width, header hierarchy, body scrolling,
   separators, spacing, and footer actions. Reuse the shared dialog frame for
   Dilemmas, dossiers, reports, and similar full-detail surfaces; vary the

@@ -33,6 +33,7 @@ import {
 import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 import { projectCrises } from "./projectGameOvers";
+import { DossierItemButton } from "@/ui/panels/DossierItemButton";
 
 export type DashboardPanel = "overview" | "crises" | "chronicle";
 
@@ -43,6 +44,7 @@ interface DashboardSheetsProps {
   readonly resources: readonly NodeDefinition[];
   readonly onClose: () => void;
   readonly onCrisisSelect: (crisisId: string) => void;
+  readonly onEventSelect: (occurrenceId: string) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
@@ -105,6 +107,7 @@ export function DashboardSheets({
   resources,
   onClose,
   onCrisisSelect,
+  onEventSelect,
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
@@ -181,7 +184,7 @@ export function DashboardSheets({
       <DashboardSheet
         open={activePanel === "chronicle"}
         title="Chronicle"
-        description="Recent institutional history and temporary effects still in force."
+        description="Institutional history and temporary effects still in force."
         eyebrow="Institutional ledger"
         onClose={onClose}
       >
@@ -199,10 +202,19 @@ export function DashboardSheets({
           </Empty>
         ) : (
           <ItemGroup>
-            {[...state.history]
-              .reverse()
-              .slice(0, 8)
-              .map((entry) => (
+            {[...state.history].reverse().map((entry) =>
+              entry.kind === "event" ? (
+                <DossierItemButton
+                  key={entry.id}
+                  variant="muted"
+                  leading={<Clock3 aria-hidden="true" />}
+                  title={entry.title}
+                  description={entry.detail}
+                  trailing={<Badge variant="outline">Turn {entry.turn}</Badge>}
+                  aria-label={`Open ${entry.title} Event details from turn ${entry.turn}`}
+                  onSelect={() => onEventSelect(entry.id)}
+                />
+              ) : (
                 <Item
                   role="listitem"
                   variant="muted"
@@ -218,7 +230,8 @@ export function DashboardSheets({
                     <Badge variant="outline">Turn {entry.turn}</Badge>
                   </ItemActions>
                 </Item>
-              ))}
+              ),
+            )}
           </ItemGroup>
         )}
       </DashboardSheet>

@@ -217,15 +217,17 @@ Cooldown or recurrence controls prevent unintended repeated triggering.
 Each influence contributes its intercept plus its coefficient multiplied by its
 source value. The contributions are summed into the incident score; an eligible
 incident qualifies when that score reaches or exceeds its threshold. A random
-influence uses one injected value in `[0, 1)`, shared by all Dilemmas in that
-turn's evaluation.
+influence uses one injected value in `[0, 1)`, shared by all Events and
+Dilemmas in that turn's evaluation.
 
-At the end of each nonterminal turn, all qualifying Dilemmas are captured from
-the same post-persistent, post-decay, post-Game-Over snapshot and queued. The
-player may resolve them in any order. Later choices do not retract queued
-Dilemmas or cause another incident evaluation that turn. Event selection,
-including mixed Event/Dilemma cases, remains TBD. Declaration order MUST NOT
-silently become an Event selection rule.
+At the end of each nonterminal turn, all qualifying Events and Dilemmas are
+captured from the same post-persistent, post-decay, post-Game-Over snapshot.
+Every qualifying Event fires once and every qualifying Dilemma is queued.
+Event consequences apply after candidate capture, in Event ID order, without
+recalculating persistent values or Game Overs that turn. The player may resolve
+queued Dilemmas in any order. Event consequences and later choices do not
+retract queued Dilemmas or cause another incident evaluation that turn.
+Declaration order does not affect Event selection or consequence order.
 
 ### Event
 
@@ -263,11 +265,11 @@ Referenced nodes MUST exist and value thresholds MUST be in their node domains.
 An authored occurrence may apply an immediate consequence. A consequence
 defines the change, not its trigger or timing.
 
-| Kind         | Effect                                                                  | Constraint                                                                    |
-| ------------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `resource`   | Add `amount` to a Resource's runtime balance;                           | The change survives persistent recalculation. Subject to the Resource domain. |
+| Kind         | Effect                                                                              | Constraint                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `resource`   | Add `amount` to a Resource's runtime balance;                                       | The change survives persistent recalculation. Subject to the Resource domain.                                  |
 | `grudge`     | Create a temporary contribution; does not permanently change its target's baseline. | `0 < decay <= 1`; it contributes before decaying. A factor closer to `1` lasts longer, and `1` means no decay. |
-| `activation` | Set a node's ordinary activation.                                       | MUST NOT deactivate a forced-active node or change forced status.             |
+| `activation` | Set a node's ordinary activation.                                                   | MUST NOT deactivate a forced-active node or change forced status.                                              |
 
 Consequences apply once per occurrence. Grudge decay follows:
 
@@ -379,7 +381,6 @@ universal mechanics.
 Do not infer or implement the following until this document is revised:
 
 - the complete within-turn phase order beyond the partial ordering above;
-- Event selection, including mixed Event/Dilemma eligibility;
 - runtime-prerequisite use outside explicitly supported consumers;
 - the supported scope and merge semantics of Scenario overrides;
 - complete Resource accumulation and baseline interaction rules;
