@@ -72,34 +72,44 @@ export function NodeDetailsDialog({
       }}
       header={
         <>
-          <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
-            <Badge variant="secondary">
-              {definition.category ?? "Uncategorized"}
-            </Badge>
-            <Badge className="capitalize" variant="outline">
-              {definition.type}
-            </Badge>
-            <Badge variant="outline">{activationLabel(runtime)}</Badge>
-            {definition.type === "stance" && (
-              <Badge variant="outline">
-                {definition.domain.clamp ? "Clamped" : "Unclamped"}
-              </Badge>
+          <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
+            <div className="min-w-0 md:flex-1">
+              <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+                <Badge variant="secondary">
+                  {definition.category ?? "Uncategorized"}
+                </Badge>
+                <Badge className="capitalize" variant="outline">
+                  {definition.type}
+                </Badge>
+                <Badge variant="outline">{activationLabel(runtime)}</Badge>
+                {definition.type === "stance" && (
+                  <Badge variant="outline">
+                    {definition.domain.clamp ? "Clamped" : "Unclamped"}
+                  </Badge>
+                )}
+                {definition.type === "faction" && (
+                  <Badge
+                    className="ml-auto max-w-full min-w-0"
+                    variant="outline"
+                    title={`Value meaning: ${definition.valueMeaning}`}
+                  >
+                    <span className="truncate">
+                      Value meaning: {definition.valueMeaning}
+                    </span>
+                  </Badge>
+                )}
+              </div>
+              <DialogTitle>{definition.name}</DialogTitle>
+              <DialogDescription>{definition.description}</DialogDescription>
+            </div>
+            {definition.type !== "stance" && (
+              <NodeValueHistoryChart
+                key={definition.id}
+                definition={definition}
+                scenario={scenario}
+                state={state}
+              />
             )}
-            {definition.type === "faction" && (
-              <Badge
-                className="ml-auto max-w-full min-w-0"
-                variant="outline"
-                title={`Value meaning: ${definition.valueMeaning}`}
-              >
-                <span className="truncate">
-                  Value meaning: {definition.valueMeaning}
-                </span>
-              </Badge>
-            )}
-          </div>
-          <div className="min-w-0">
-            <DialogTitle>{definition.name}</DialogTitle>
-            <DialogDescription>{definition.description}</DialogDescription>
           </div>
         </>
       }
@@ -113,19 +123,6 @@ export function NodeDetailsDialog({
               : "overflow-y-auto pb-6",
           )}
         >
-          {definition.type !== "stance" && (
-            <section
-              className="node-record__reading node-record__reading--history"
-              aria-label="Value history"
-            >
-              <NodeValueHistoryChart
-                key={definition.id}
-                definition={definition}
-                scenario={scenario}
-                state={state}
-              />
-            </section>
-          )}
           {details.length > 0 && (
             <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {details.map(([label, value]) => (

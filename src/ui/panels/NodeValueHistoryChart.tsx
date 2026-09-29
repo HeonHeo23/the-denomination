@@ -42,6 +42,7 @@ export function NodeValueHistoryChart({
   const latestIndex = chart.points.length - 1;
   const latest = chart.points[latestIndex];
   const [selection, setSelection] = useState<ChartSelection>();
+
   if (!first || !latest) return null;
 
   const selectedIndex = selection?.index;
@@ -87,6 +88,11 @@ export function NodeValueHistoryChart({
         </div>
         <div
           className="node-value-history__canvas"
+          style={
+            {
+              "--history-grid-intervals": Math.max(1, chart.points.length - 1),
+            } as CSSProperties
+          }
           role="group"
           tabIndex={0}
           aria-label={`${definition.name} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
@@ -130,6 +136,16 @@ export function NodeValueHistoryChart({
                 </clipPath>
               </defs>
             )}
+            {chart.points.map((point) => (
+              <line
+                key={`grid-${point.turn}`}
+                x1={point.x}
+                y1="0"
+                x2={point.x}
+                y2="104"
+                className="node-value-history__grid"
+              />
+            ))}
             {chart.guides.map((guide) => (
               <line
                 key={guide.kind}
@@ -146,15 +162,6 @@ export function NodeValueHistoryChart({
                 points={chart.points.map(({ x, y }) => `${x},${y}`).join(" ")}
                 className="node-value-history__line"
                 clipPath={`url(#${lineClipId})`}
-              />
-            )}
-            {selected && (
-              <line
-                x1={selected.x}
-                y1="0"
-                x2={selected.x}
-                y2="100"
-                className="node-value-history__crosshair"
               />
             )}
           </svg>
@@ -189,9 +196,10 @@ export function NodeValueHistoryChart({
               style={
                 {
                   "--tooltip-x": `${(selected.x / CHART_WIDTH) * 100}%`,
-                  top: `${Math.min(80, Math.max(25, selected.y))}%`,
+                  top: `${selected.y}%`,
                 } as CSSProperties
               }
+              data-placement={selected.y < 35 ? "below" : "above"}
               aria-hidden="true"
             >
               <span>{selected.period}</span>

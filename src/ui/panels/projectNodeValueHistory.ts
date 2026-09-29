@@ -12,17 +12,15 @@ import {
 export const VALUE_HISTORY_WINDOW = 12;
 const PLOT_LEFT = 16;
 const PLOT_RIGHT = 584;
-const POINT_SPACING = (PLOT_RIGHT - PLOT_LEFT) / (VALUE_HISTORY_WINDOW - 1);
 
 export function historyYearMarkLabels(
   pointCount: number,
-): ReadonlyMap<number, "first" | "middle" | "last"> {
-  const labels = new Map<number, "first" | "middle" | "last">();
+): ReadonlyMap<number, "first" | "last"> {
+  const labels = new Map<number, "first" | "last">();
   if (pointCount === 0) return labels;
   const latestIndex = pointCount - 1;
   labels.set(latestIndex, "last");
-  if (pointCount >= 7) labels.set(0, "first");
-  if (pointCount >= 11) labels.set(Math.floor(latestIndex / 2), "middle");
+  if (pointCount > 1) labels.set(0, "first");
   return labels;
 }
 
@@ -122,7 +120,11 @@ export function projectNodeValueHistory(
           ? `Turn ${reading.turn}`
           : `Year ${scenario.start.year + reading.turn - scenario.start.turn}`,
       label: formatValue(reading.value, definition.domain),
-      x: PLOT_RIGHT - (readings.length - 1 - index) * POINT_SPACING,
+      x:
+        readings.length === 1
+          ? PLOT_RIGHT
+          : PLOT_LEFT +
+            (index * (PLOT_RIGHT - PLOT_LEFT)) / (readings.length - 1),
       y: yForValue(reading.value),
     })),
   };
