@@ -7,6 +7,7 @@ import {
   Menu,
   PanelLeftOpen,
   RotateCcw,
+  ScrollText,
   Save,
   ShieldAlert,
   Settings2,
@@ -54,6 +55,7 @@ interface GameHeaderProps {
   readonly onOpenOverview: () => void;
   readonly onOpenCrises: () => void;
   readonly onOpenChronicle: () => void;
+  readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
   readonly onOpenTurnReport: () => void;
   readonly onOpenGameOver: () => void;
@@ -69,6 +71,7 @@ type GameHeaderActions = Pick<
   | "onMainMenu"
   | "onOpenCrises"
   | "onOpenChronicle"
+  | "onOpenDecisions"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >;
@@ -146,6 +149,7 @@ function PanelActions({
   urgentGameOverWarning,
   onOpenCrises,
   onOpenChronicle,
+  onOpenDecisions,
   turnReportAvailable,
   onOpenTurnReport,
 }: Pick<
@@ -154,6 +158,7 @@ function PanelActions({
   | "urgentGameOverWarning"
   | "onOpenCrises"
   | "onOpenChronicle"
+  | "onOpenDecisions"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >) {
@@ -195,6 +200,18 @@ function PanelActions({
       >
         <BookOpenText data-icon="inline-start" />
         <span className="hidden lg:inline">Chronicle</span>
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onOpenDecisions}
+        aria-label="Open decisions history"
+      >
+        <ScrollText data-icon="inline-start" />
+        <span className="hidden lg:inline">Decisions</span>
       </Button>
       {turnReportAvailable && (
         <Button
@@ -259,6 +276,7 @@ function GameActionsMenu({
   onMainMenu,
   onOpenCrises,
   onOpenChronicle,
+  onOpenDecisions,
   turnReportAvailable,
   onOpenTurnReport,
   onSave,
@@ -298,6 +316,9 @@ function GameActionsMenu({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenDecisions}>
+                <ScrollText /> Decisions
               </DropdownMenuItem>
               {turnReportAvailable && (
                 <DropdownMenuItem onSelect={onOpenTurnReport}>
@@ -367,6 +388,7 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenOverview,
     onOpenCrises,
     onOpenChronicle,
+    onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
     onOpenGameOver,
@@ -381,6 +403,7 @@ export function GameHeader(props: GameHeaderProps) {
     onMainMenu,
     onOpenCrises,
     onOpenChronicle,
+    onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
     onSave,
@@ -416,6 +439,7 @@ export function GameHeader(props: GameHeaderProps) {
           urgentGameOverWarning={urgentGameOverWarning}
           onOpenCrises={onOpenCrises}
           onOpenChronicle={onOpenChronicle}
+          onOpenDecisions={onOpenDecisions}
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />

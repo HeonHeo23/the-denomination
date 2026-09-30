@@ -15,6 +15,7 @@ import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
 import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+import { runDilemmaDecisionProjectionTests } from "../ui/projectDilemmaDecisions.test";
 
 const exampleScenario = {
   ...bundledScenario,
@@ -38,6 +39,7 @@ function closeTo(actual: number, expected: number, message: string) {
 runDilemmaTests();
 runEventTests();
 runEventDetailTests();
+runDilemmaDecisionProjectionTests();
 
 assert(
   validateScenario(exampleScenario).length === 0,

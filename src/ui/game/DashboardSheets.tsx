@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Clock3, History, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  Clock3,
+  History,
+  ScrollText,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import type {
   NodeDefinition,
   ScenarioDefinition,
@@ -34,8 +40,9 @@ import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 import { projectCrises } from "./projectGameOvers";
 import { DossierItemButton } from "@/ui/panels/DossierItemButton";
+import { projectDilemmaDecisions } from "./projectDilemmaDecisions";
 
-export type DashboardPanel = "overview" | "crises" | "chronicle";
+export type DashboardPanel = "overview" | "crises" | "chronicle" | "decisions";
 
 interface DashboardSheetsProps {
   readonly activePanel?: DashboardPanel;
@@ -112,6 +119,7 @@ export function DashboardSheets({
   onResourceSelect,
 }: DashboardSheetsProps) {
   const crises = projectCrises(scenario, state);
+  const decisions = projectDilemmaDecisions(scenario, state);
 
   return (
     <>
@@ -232,6 +240,55 @@ export function DashboardSheets({
                 </Item>
               ),
             )}
+          </ItemGroup>
+        )}
+      </DashboardSheet>
+
+      <DashboardSheet
+        open={activePanel === "decisions"}
+        title="Decisions"
+        description="The choices made when the institution faced a dilemma."
+        eyebrow={`${decisions.length} ${decisions.length === 1 ? "decision" : "decisions"}`}
+        onClose={onClose}
+      >
+        {decisions.length === 0 ? (
+          <Empty className="min-h-64 border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ScrollText />
+              </EmptyMedia>
+              <EmptyTitle>No decisions recorded</EmptyTitle>
+              <EmptyDescription>
+                Resolved dilemmas will appear here.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ItemGroup>
+            {decisions.map((decision) => (
+              <Item role="listitem" variant="muted" key={decision.id}>
+                <ScrollText aria-hidden="true" />
+                <ItemContent>
+                  <ItemTitle className="line-clamp-none">
+                    {decision.title}
+                  </ItemTitle>
+                  <ItemDescription className="line-clamp-none">
+                    <strong>{decision.choiceLabel}</strong>
+                    {decision.choiceDescription && (
+                      <span className="block">
+                        {decision.choiceDescription}
+                      </span>
+                    )}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant="outline">
+                    {decision.year === undefined ? "Turn" : "Year"}{" "}
+                    {decision.year ?? decision.turn}
+                  </Badge>
+                </ItemActions>
+              </Item>
+            ))}
           </ItemGroup>
         )}
       </DashboardSheet>

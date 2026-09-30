@@ -313,6 +313,10 @@ export function GameView({
           play("paper");
           setActivePanel("chronicle");
         }}
+        onOpenDecisions={() => {
+          play("paper");
+          setActivePanel("decisions");
+        }}
         turnReportAvailable={turnReport !== undefined}
         onOpenTurnReport={() => {
           if (turnReport) {
