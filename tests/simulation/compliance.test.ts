@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { exampleScenario } from "../../src/scenarios/example";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   assessStanceEnactment,
   assessStanceRepeal,
   executeCommand,
@@ -36,6 +36,13 @@ import {
   toPercent,
 } from "../../src/ui/formatValue";
 
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
+const exampleScenario = {
+  ...bundledScenario,
+  dilemmas: [bundledScenario.dilemmas[0]],
+};
+
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
 const editNode = (
@@ -55,7 +62,10 @@ export function runComplianceTests() {
   assert.ok(Object.isFrozen(loaded.scenario.nodes[0].initial));
   assert.equal(loaded.scenario.nodes[0].graphVisible, true);
   assert.equal(loaded.scenario.effects[0].inertiaTurns, 1);
-  assert.deepEqual(loaded.scenario.events, []);
+  assert.deepEqual(
+    loaded.scenario.events?.map(({ id }) => id),
+    exampleScenario.events.map(({ id }) => id),
+  );
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
   const minimal: ScenarioDefinition = {
     schemaVersion: 3,
@@ -1094,7 +1104,10 @@ export function runComplianceTests() {
   const failure = createGameSession({});
   assert.ok(!failure.ok);
   assert.strictEqual(
-    reduceGameSession(failure, { type: "advance", randomValue: 0 }),
+    reduceGameSession(failure, {
+      type: "advance",
+      randomValue: 0,
+    }),
     failure,
   );
 }

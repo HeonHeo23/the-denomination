@@ -1,4 +1,7 @@
-import type { ScenarioDefinition } from "../domain/definitions";
+import type {
+  DilemmaDefinition,
+  ScenarioDefinition,
+} from "../domain/definitions";
 import type { CommandResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
@@ -16,11 +19,9 @@ export function queueDilemmas(
     (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1)
   )
     throw new RangeError("Dilemma random value must be in [0, 1).");
-
-  const pending: string[] = [];
-  const dilemmas = { ...state.dilemmas };
+  const eligible: DilemmaDefinition[] = [];
   for (const definition of scenario.dilemmas) {
-    const progress = dilemmas[definition.id];
+    const progress = state.dilemmas[definition.id];
     if (
       !conditionsMet(scenario, definition.requires) ||
       (progress.lastTriggerTurn !== null &&
@@ -45,15 +46,30 @@ export function queueDilemmas(
       0,
     );
     if (score < definition.threshold) continue;
-    pending.push(definition.id);
-    dilemmas[definition.id] = {
-      lastTriggerTurn: state.turn,
-      triggerCount: progress.triggerCount + 1,
-    };
+    eligible.push(definition);
   }
-  return pending.length
-    ? { ...state, dilemmas, pendingDilemmaIds: pending }
-    : state;
+  if (!eligible.length) return state;
+  const candidates = eligible.sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  if (candidates.length > 1 && randomValue === undefined)
+    throw new RangeError("A random value is required to select a Dilemma.");
+  const selected =
+    candidates.length === 1
+      ? candidates[0]
+      : candidates[Math.floor(randomValue! * candidates.length)];
+  const progress = state.dilemmas[selected.id];
+  return {
+    ...state,
+    dilemmas: {
+      ...state.dilemmas,
+      [selected.id]: {
+        lastTriggerTurn: state.turn,
+        triggerCount: progress.triggerCount + 1,
+      },
+    },
+    pendingDilemmaIds: [selected.id],
+  };
 }
 
 /** Apply one queued player's choice without rerunning turn calculations. */

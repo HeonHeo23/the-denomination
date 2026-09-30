@@ -124,7 +124,6 @@ function validEffectState(
 function validRuntimeState(
   value: unknown,
   scenario: ScenarioDefinition,
-  legacy = false,
 ): value is SimulationState {
   if (
     !exactObject(
@@ -138,7 +137,7 @@ function validRuntimeState(
         "history",
         "nodeValueHistory",
         "dilemmas",
-        ...(legacy ? [] : ["events"]),
+        "events",
         "pendingDilemmaIds",
         "gameOverProgress",
         "outcome",
@@ -164,11 +163,10 @@ function validRuntimeState(
       value.dilemmas,
       (scenario.dilemmas ?? []).map(({ id }) => id),
     ) ||
-    (!legacy &&
-      !exactObject(
-        value.events,
-        (scenario.events ?? []).map(({ id }) => id),
-      )) ||
+    !exactObject(
+      value.events,
+      (scenario.events ?? []).map(({ id }) => id),
+    ) ||
     !Array.isArray(value.pendingDilemmaIds) ||
     !exactObject(
       value.gameOverProgress,
@@ -187,25 +185,24 @@ function validRuntimeState(
   const effects = value.effects as ObjectValue;
   const gameOverProgress = value.gameOverProgress as ObjectValue;
   const dilemmaProgress = value.dilemmas as ObjectValue;
-  const eventProgress = legacy ? {} : (value.events as ObjectValue);
+  const eventProgress = value.events as ObjectValue;
 
-  if (!legacy)
-    for (const definition of scenario.events ?? []) {
-      const progress = eventProgress[definition.id];
-      if (
-        !exactObject(progress, ["lastTriggerTurn", "triggerCount"]) ||
-        !finite(progress.triggerCount) ||
-        !Number.isInteger(progress.triggerCount) ||
-        progress.triggerCount < 0 ||
-        (progress.lastTriggerTurn === null) !== (progress.triggerCount === 0) ||
-        (progress.lastTriggerTurn !== null &&
-          (!finite(progress.lastTriggerTurn) ||
-            !Number.isInteger(progress.lastTriggerTurn) ||
-            progress.lastTriggerTurn <= scenario.start.turn ||
-            progress.lastTriggerTurn > value.turn))
-      )
-        return false;
-    }
+  for (const definition of scenario.events ?? []) {
+    const progress = eventProgress[definition.id];
+    if (
+      !exactObject(progress, ["lastTriggerTurn", "triggerCount"]) ||
+      !finite(progress.triggerCount) ||
+      !Number.isInteger(progress.triggerCount) ||
+      progress.triggerCount < 0 ||
+      (progress.lastTriggerTurn === null) !== (progress.triggerCount === 0) ||
+      (progress.lastTriggerTurn !== null &&
+        (!finite(progress.lastTriggerTurn) ||
+          !Number.isInteger(progress.lastTriggerTurn) ||
+          progress.lastTriggerTurn <= scenario.start.turn ||
+          progress.lastTriggerTurn > value.turn))
+    )
+      return false;
+  }
 
   const pendingIds = new Set<string>();
   for (const pendingId of value.pendingDilemmaIds) {
@@ -417,7 +414,7 @@ function validRuntimeState(
         "consequence",
         "game-over",
         "dilemma",
-        ...(legacy ? [] : ["event"]),
+        "event",
       ].includes(String(entry.kind)) ||
       !nonempty(entry.title) ||
       typeof entry.detail !== "string"
@@ -432,7 +429,6 @@ function validSavedTurnReport(
   value: unknown,
   scenario: ScenarioDefinition,
   state: SimulationState,
-  legacy = false,
 ): value is SavedTurnReport {
   if (
     !exactObject(
@@ -444,7 +440,7 @@ function validSavedTurnReport(
         "situationTransitions",
         "grudges",
         "crisisTransitions",
-        ...(legacy ? [] : ["eventIds"]),
+        "eventIds",
       ],
       ["year"],
     ) ||
@@ -457,7 +453,7 @@ function validSavedTurnReport(
     !Array.isArray(value.situationTransitions) ||
     !Array.isArray(value.grudges) ||
     !Array.isArray(value.crisisTransitions) ||
-    (!legacy && !Array.isArray(value.eventIds))
+    !Array.isArray(value.eventIds)
   )
     return false;
 
@@ -466,17 +462,15 @@ function validSavedTurnReport(
   const gameOvers = new Map(
     (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
   );
-  if (!legacy) {
-    const eventIds = new Set((scenario.events ?? []).map(({ id }) => id));
-    if (
-      (value.eventIds as unknown[]).some(
-        (id) => typeof id !== "string" || !eventIds.has(id),
-      ) ||
-      new Set(value.eventIds as unknown[]).size !==
-        (value.eventIds as unknown[]).length
-    )
-      return false;
-  }
+  const eventIds = new Set((scenario.events ?? []).map(({ id }) => id));
+  if (
+    (value.eventIds as unknown[]).some(
+      (id) => typeof id !== "string" || !eventIds.has(id),
+    ) ||
+    new Set(value.eventIds as unknown[]).size !==
+      (value.eventIds as unknown[]).length
+  )
+    return false;
 
   const changeIds = new Set<string>();
   for (const change of value.changes) {
@@ -586,7 +580,6 @@ function validSavedTurnReport(
 function validateSavedGameVersion(
   value: unknown,
   catalog: readonly LoadedScenarioCatalogEntry[],
-  version: 3 | 4,
 ): SavedGame | undefined {
   if (
     !exactObject(
@@ -601,7 +594,7 @@ function validateSavedGameVersion(
       ],
       ["turnReport"],
     ) ||
-    value.version !== version ||
+    value.version !== 4 ||
     typeof value.scenarioId !== "string" ||
     !finite(value.scenarioContentVersion) ||
     !Number.isInteger(value.scenarioContentVersion) ||
@@ -617,13 +610,10 @@ function validateSavedGameVersion(
   const entry = catalog.find(
     ({ scenario, contentVersion }) =>
       scenario.id === value.scenarioId &&
-      (contentVersion === value.scenarioContentVersion ||
-        (version === 3 &&
-          scenario.id === "connectional-fellowship-1980" &&
-          value.scenarioContentVersion === 4 &&
-          contentVersion === 5)),
+      contentVersion === value.scenarioContentVersion,
   );
-  if (!entry || !validRuntimeState(value.state, entry.scenario, version === 3))
+  if (!entry) return undefined;
+  if (!validRuntimeState(value.state, entry.scenario))
     return undefined;
   if (
     value.turnReport !== undefined &&
@@ -631,7 +621,6 @@ function validateSavedGameVersion(
       value.turnReport,
       entry.scenario,
       value.state,
-      version === 3,
     )
   )
     return undefined;
@@ -642,40 +631,7 @@ export function validateSavedGame(
   value: unknown,
   catalog: readonly LoadedScenarioCatalogEntry[],
 ): SavedGame | undefined {
-  return validateSavedGameVersion(value, catalog, 4);
-}
-
-function migrateV3Save(
-  value: unknown,
-  catalog: readonly LoadedScenarioCatalogEntry[],
-): SavedGame | undefined {
-  const old = validateSavedGameVersion(value, catalog, 3);
-  if (!old) return undefined;
-  const entry = catalog.find(
-    ({ scenario, contentVersion }) =>
-      scenario.id === old.scenarioId &&
-      (contentVersion === old.scenarioContentVersion ||
-        (scenario.id === "connectional-fellowship-1980" &&
-          old.scenarioContentVersion === 4 &&
-          contentVersion === 5)),
-  )!;
-  return {
-    ...old,
-    version: 4,
-    scenarioContentVersion: entry.contentVersion,
-    state: {
-      ...old.state,
-      events: Object.fromEntries(
-        (entry.scenario.events ?? []).map(({ id }) => [
-          id,
-          { lastTriggerTurn: null, triggerCount: 0 },
-        ]),
-      ),
-    },
-    ...(old.turnReport
-      ? { turnReport: { ...old.turnReport, eventIds: [] } }
-      : {}),
-  };
+  return validateSavedGameVersion(value, catalog);
 }
 
 export function loadSavedGame(
@@ -696,24 +652,6 @@ export function loadSavedGame(
   if (serialized === null) {
     try {
       const previous = storage.getItem(PREVIOUS_SAVE_STORAGE_KEY);
-      if (previous !== null) {
-        let parsedPrevious: unknown;
-        try {
-          parsedPrevious = JSON.parse(previous);
-        } catch {
-          parsedPrevious = undefined;
-        }
-        const migrated = migrateV3Save(parsedPrevious, catalog);
-        if (migrated) {
-          try {
-            storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(migrated));
-            storage.removeItem(PREVIOUS_SAVE_STORAGE_KEY);
-          } catch {
-            /* Continue with the validated in-memory save. */
-          }
-          return { status: "ready", save: migrated };
-        }
-      }
       if (
         previous !== null ||
         storage.getItem(V2_SAVE_STORAGE_KEY) !== null ||
@@ -722,9 +660,7 @@ export function loadSavedGame(
         return {
           status: "unavailable",
           message:
-            previous === null
-              ? "The previous saved game uses an older format and cannot be restored."
-              : "The previous saved game was invalid or incompatible and could not be restored.",
+            "The previous saved game uses an older format and cannot be restored.",
           discardInvalid: true,
         };
     } catch {

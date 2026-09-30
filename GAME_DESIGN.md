@@ -222,11 +222,10 @@ Dilemmas in that turn's evaluation.
 
 At the end of each nonterminal turn, all qualifying Events and Dilemmas are
 captured from the same post-persistent, post-decay, post-Game-Over snapshot.
-Every qualifying Event fires once and every qualifying Dilemma is queued.
-Event consequences apply after candidate capture, in Event ID order, without
-recalculating persistent values or Game Overs that turn. The player may resolve
-queued Dilemmas in any order. Event consequences and later choices do not
-retract queued Dilemmas or cause another incident evaluation that turn.
+Every qualifying Event fires once. Event consequences apply after candidate
+capture, in Event ID order, without recalculating persistent values or Game
+Overs that turn. Event consequences and the player's choice do not cause
+another incident evaluation that turn.
 Declaration order does not affect Event selection or consequence order.
 
 ### Event
@@ -234,15 +233,18 @@ Declaration order does not affect Event selection or consequence order.
 An Event resolves automatically when selected. Its immediate consequences may
 create Grudges, change Resources, or explicitly change allowed activation state.
 
-### Dilemma
+## Dilemmas
 
-A Dilemma requires the player to choose among at least two defined options.
-Each choice has its own immediate consequences. A pending Dilemma blocks turn
-advancement until resolved. Triggering records its last trigger turn and count;
-`cooldownTurns` excludes that Dilemma for the following number of turns.
-Choice consequences apply immediately without recalculating persistent values
-or Game Overs until the next turn. Stance commands remain available while a
-Dilemma is pending.
+At most one qualifying Dilemma queues per turn. If several qualify, select
+randomly from all candidates, sorted by ID, using the shared incident random
+value. This policy could change to longest-wait selection later. Only the
+selected Dilemma records a trigger.
+
+Each Dilemma offers at least two choices. A pending Dilemma blocks turn
+advancement until resolved, while Stance commands remain available. Triggering
+records its turn and count; `cooldownTurns` excludes it for the following
+turns. Choice consequences apply immediately without recalculating persistent
+values or Game Overs until the next turn.
 
 Temporary incident consequences SHOULD normally use Grudges rather than mutate
 an unrelated node's underlying baseline.
@@ -345,7 +347,7 @@ following partial ordering is authoritative:
   newly reached stage or recovery consequences are applied;
 - Game Over resolution precedes and blocks normal Ending resolution;
 - pending Dilemmas prevent another turn from advancing;
-- all qualifying Dilemmas are queued from one shared snapshot;
+- at most one qualifying Dilemma is selected from one shared snapshot;
 
 Randomness may influence explicitly random mechanics, especially incidents. It
 should be bounded, causally constrained, and injectable or seedable where
@@ -416,7 +418,7 @@ counterpart in this design:
 | ------------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [Modding basics](https://www.positech.co.uk/democracy4/modding.html)           | [Simulation model](#simulation-model)                     | Data-defined objects connected by causal Effects                                         |
 | [Policies](https://www.positech.co.uk/democracy4/mod_policies.html)            | [Stance](#stance)                                         | Player-controlled positions with values, availability, costs, and outputs                |
-| [Dilemmas](https://www.positech.co.uk/democracy4/mod_dilemmas.html)            | [Dilemma](#dilemma)                                       | Triggered incidents resolved by a player choice                                          |
+| [Dilemmas](https://www.positech.co.uk/democracy4/mod_dilemmas.html)            | [Dilemma](#dilemmas)                                      | Triggered incidents resolved by a player choice                                          |
 | [Events](https://www.positech.co.uk/democracy4/mod_events.html)                | [Event](#event)                                           | Triggered incidents that resolve automatically                                           |
 | [Situations](https://www.positech.co.uk/democracy4/mod_situations.html)        | [Situation](#situation)                                   | Persistent conditions with inputs, outputs, and separate start/stop thresholds           |
 | [Simulation values](https://www.positech.co.uk/democracy4/mod_simulation.html) | [Indicator](#indicator)                                   | Continuously simulated values with causal inputs and outputs                             |

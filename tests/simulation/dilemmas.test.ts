@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   executeCommand,
   initializeScenario,
   validateScenario,
   type DilemmaDefinition,
   type ScenarioDefinition,
 } from "../../src/simulation";
+
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
 
 const makeDilemma = (id: string, amount: number): DilemmaDefinition => ({
   kind: "dilemma",
@@ -35,9 +38,39 @@ const makeDilemma = (id: string, amount: number): DilemmaDefinition => ({
 });
 
 export function runDilemmaTests() {
+  assert.equal(exampleScenario.dilemmas.length, 11);
+  assert.equal(
+    exampleScenario.dilemmas.filter(
+      (definition) =>
+        !definition.requires?.length &&
+        definition.influences.length === 1 &&
+        definition.influences[0].source === "_random_",
+    ).length,
+    3,
+  );
+  assert.deepEqual(validateScenario(exampleScenario), []);
+  const ungatedRandom = {
+    ...exampleScenario,
+    conditions: [],
+    gameOvers: [],
+    dilemmas: [
+      exampleScenario.dilemmas.find(
+        ({ id }) => id === "christological-teaching-request",
+      )!,
+    ],
+  };
+  assert.deepEqual(
+    advanceTurn(ungatedRandom, initializeScenario(ungatedRandom), 0.99).state
+      .pendingDilemmaIds,
+    ["christological-teaching-request"],
+  );
+  const governanceOnly = {
+    ...exampleScenario,
+    dilemmas: [exampleScenario.dilemmas[0]],
+  };
   const raisedCentralization = executeCommand(
-    exampleScenario,
-    initializeScenario(exampleScenario),
+    governanceOnly,
+    initializeScenario(governanceOnly),
     { type: "set-stance", stanceId: "centralization", value: 1 },
   );
   assert.equal(raisedCentralization.accepted, true);
@@ -47,7 +80,7 @@ export function runDilemmaTests() {
     index < 5 && !exampleTurn.pendingDilemmaIds.length;
     index += 1
   )
-    exampleTurn = advanceTurn(exampleScenario, exampleTurn).state;
+    exampleTurn = advanceTurn(governanceOnly, exampleTurn).state;
   assert.ok(
     exampleTurn.pendingDilemmaIds.includes("assembly-governance-dispute"),
     "The bundled governance Dilemma must be reachable through play",
@@ -64,11 +97,9 @@ export function runDilemmaTests() {
   assert.deepEqual(validateScenario(scenario), []);
   const initial = initializeScenario(scenario);
   const first = advanceTurn(scenario, initial, 0.2).state;
-  assert.deepEqual(first.pendingDilemmaIds, [
-    "first-decision",
-    "second-decision",
-  ]);
+  assert.deepEqual(first.pendingDilemmaIds, ["first-decision"]);
   assert.equal(first.dilemmas["first-decision"].triggerCount, 1);
+  assert.equal(first.dilemmas["second-decision"].triggerCount, 0);
   assert.strictEqual(
     advanceTurn(scenario, first).state,
     first,
@@ -82,22 +113,13 @@ export function runDilemmaTests() {
   });
   assert.equal(rejected.accepted, false);
   assert.strictEqual(rejected.state, first);
-  const secondResolved = executeCommand(scenario, first, {
+  const unqueued = executeCommand(scenario, first, {
     type: "resolve-dilemma",
     dilemmaId: "second-decision",
     choiceId: "accept",
   });
-  assert.equal(secondResolved.accepted, true);
-  assert.deepEqual(secondResolved.state.pendingDilemmaIds, ["first-decision"]);
-  assert.equal(
-    secondResolved.state.nodes.authority.value,
-    first.nodes.authority.value + 3,
-  );
-  assert.equal(
-    secondResolved.state.nodeValueHistory.at(-1)?.values.authority.value,
-    secondResolved.state.nodes.authority.value,
-  );
-  const firstResolved = executeCommand(scenario, secondResolved.state, {
+  assert.equal(unqueued.accepted, false);
+  const firstResolved = executeCommand(scenario, first, {
     type: "resolve-dilemma",
     dilemmaId: "first-decision",
     choiceId: "accept",
@@ -106,7 +128,7 @@ export function runDilemmaTests() {
   assert.deepEqual(firstResolved.state.pendingDilemmaIds, []);
   assert.equal(
     firstResolved.state.nodes.authority.value,
-    first.nodes.authority.value + 5,
+    first.nodes.authority.value + 2,
   );
   assert.equal(
     executeCommand(scenario, firstResolved.state, {
@@ -132,29 +154,51 @@ export function runDilemmaTests() {
     frozenScenario,
     initializeScenario(frozenScenario),
   ).state;
-  assert.equal(frozenQueue.pendingDilemmaIds.length, 2);
+  assert.deepEqual(frozenQueue.pendingDilemmaIds, ["first-decision"]);
   const drainedAuthority = executeCommand(frozenScenario, frozenQueue, {
     type: "resolve-dilemma",
     dilemmaId: "first-decision",
     choiceId: "accept",
   }).state;
   assert.equal(drainedAuthority.nodes.authority.value, 0);
-  assert.deepEqual(
-    drainedAuthority.pendingDilemmaIds,
-    ["second-decision"],
-    "A choice cannot retract another Dilemma captured at year end",
-  );
+  assert.deepEqual(drainedAuthority.pendingDilemmaIds, []);
+  assert.equal(drainedAuthority.dilemmas["second-decision"].triggerCount, 0);
 
   const turnTwo = advanceTurn(scenario, firstResolved.state).state;
-  const turnThree = advanceTurn(scenario, turnTwo).state;
-  assert.deepEqual(turnTwo.pendingDilemmaIds, []);
+  assert.deepEqual(turnTwo.pendingDilemmaIds, ["second-decision"]);
+  const secondResolved = executeCommand(scenario, turnTwo, {
+    type: "resolve-dilemma",
+    dilemmaId: "second-decision",
+    choiceId: "accept",
+  });
+  assert.equal(secondResolved.accepted, true);
+  const turnThree = advanceTurn(scenario, secondResolved.state).state;
   assert.deepEqual(turnThree.pendingDilemmaIds, []);
   const turnFour = advanceTurn(scenario, turnThree).state;
-  assert.deepEqual(turnFour.pendingDilemmaIds, [
-    "first-decision",
-    "second-decision",
-  ]);
+  assert.deepEqual(turnFour.pendingDilemmaIds, ["first-decision"]);
+  assert.equal(turnFour.dilemmas["second-decision"].triggerCount, 1);
   assert.equal(turnFour.dilemmas["first-decision"].triggerCount, 2);
+  const tiedByRandom = advanceTurn(scenario, initial, 0.99).state;
+  assert.deepEqual(tiedByRandom.pendingDilemmaIds, ["second-decision"]);
+  const mixedWait = advanceTurn(
+    scenario,
+    {
+      ...initial,
+      turn: 4,
+      dilemmas: {
+        ...initial.dilemmas,
+        "second-decision": { lastTriggerTurn: 1, triggerCount: 1 },
+      },
+    },
+    0.99,
+  ).state;
+  assert.deepEqual(
+    mixedWait.pendingDilemmaIds,
+    ["second-decision"],
+    "Random selection includes Dilemmas with different wait times",
+  );
+  assert.throws(() => advanceTurnRaw(scenario, initial), /random value/);
+  assert.throws(() => advanceTurnRaw(scenario, initial, 1), RangeError);
 
   const missingTag = { ...scenario, conditions: [] };
   assert.deepEqual(
@@ -190,7 +234,7 @@ export function runDilemmaTests() {
     ["random-decision"],
   );
   assert.throws(
-    () => advanceTurn(randomScenario, initializeScenario(randomScenario)),
+    () => advanceTurnRaw(randomScenario, initializeScenario(randomScenario)),
     RangeError,
   );
   assert.throws(

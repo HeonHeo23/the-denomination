@@ -1,9 +1,9 @@
-import { exampleScenario } from "../../src/scenarios/example";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import { runComplianceTests } from "./compliance.test";
 import { runDilemmaTests } from "./dilemmas.test";
 import { runEventTests } from "./events.test";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   executeCommand,
   initializeScenario,
   validateScenario,
@@ -15,6 +15,14 @@ import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
 import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+
+const exampleScenario = {
+  ...bundledScenario,
+  dilemmas: [bundledScenario.dilemmas[0]],
+};
+
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

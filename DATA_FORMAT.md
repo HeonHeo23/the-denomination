@@ -325,10 +325,11 @@ interface BaseIncidentDefinition {
 positive integer. Influence sources other than `_random_` must reference
 nodes.
 
-The format declares candidates and their thresholds. All qualifying Dilemmas
-are queued from one snapshot; all qualifying Events resolve from that snapshot
-in Event ID order. Dilemma declaration order does not determine the player's
-resolution order.
+The format declares candidates and their thresholds. One qualifying Dilemma
+is selected randomly from the shared snapshot using the same random value as
+incident influences; all qualifying Events resolve from that snapshot in Event
+ID order.
+Dilemma declaration order has no selection meaning.
 
 ### Event
 

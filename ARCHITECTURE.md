@@ -211,7 +211,7 @@ Scenario + prior snapshot + injected incident random value
     -> Game Over stage/recovery consequences
     -> terminal Game Over resolution
     -> capture all qualifying Events and Dilemmas from the nonterminal snapshot
-    -> queue Dilemmas and resolve Events in Event ID order
+    -> select at most one Dilemma and resolve Events in Event ID order
     -> future normal Ending resolution only when nonterminal
     -> next snapshot + trace/messages
 ```
@@ -228,8 +228,9 @@ their exact responsibilities once the mechanics and data contract are
 specified.
 
 Incident candidate calculation belongs in the engine after Game Over resolution.
-All qualifying Events resolve and all qualifying Dilemmas queue from the same
-snapshot; Event consequences apply after candidate capture in Event ID order.
+All qualifying Events and Dilemmas are captured from the same snapshot; the
+engine randomly selects one Dilemma from all qualifying candidates using the
+incident random value, then applies Event consequences in Event ID order.
 
 Reusable runtime-prerequisite evaluation and consequence application belong in
 the simulation engine. Consumers such as Game Overs or future incidents own

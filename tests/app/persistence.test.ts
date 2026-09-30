@@ -43,7 +43,7 @@ class MemoryStorage implements SaveStorage {
 }
 
 const catalogResult = loadScenarioCatalog([
-  { contentVersion: 5, content: exampleScenario },
+  { contentVersion: 4, content: exampleScenario },
 ]);
 assert.deepEqual(catalogResult.diagnostics, []);
 const catalog = catalogResult.entries;
@@ -55,18 +55,27 @@ assert.match(
 assert.match(
   loadScenarioCatalog([
     { contentVersion: 1, content: exampleScenario },
-    { contentVersion: 5, content: exampleScenario },
+    { contentVersion: 4, content: exampleScenario },
   ]).diagnostics[0],
   /duplicate Scenario id/,
 );
 const initialState = initializeScenario(catalog[0].scenario);
-const state = advanceTurn(catalog[0].scenario, initialState, 0).state;
+const firstTurn = advanceTurn(catalog[0].scenario, initialState, 0).state;
+const state = firstTurn.pendingDilemmaIds.length
+  ? executeCommand(catalog[0].scenario, firstTurn, {
+      type: "resolve-dilemma",
+      dilemmaId: firstTurn.pendingDilemmaIds[0],
+      choiceId: catalog[0].scenario.dilemmas!.find(
+        ({ id }) => id === firstTurn.pendingDilemmaIds[0],
+      )!.choices[0].id,
+    }).state
+  : firstTurn;
 const turnReport = projectTurnReport(catalog[0].scenario, initialState, state);
 const savedTurnReport = serializeTurnReport(turnReport);
 const save: SavedGame = {
   version: 4,
   scenarioId: exampleScenario.id,
-  scenarioContentVersion: 5,
+  scenarioContentVersion: 4,
   playerName: "Avery Morgan",
   denominationName: "The Common Fellowship",
   state,
@@ -92,12 +101,8 @@ const queued = advanceTurn(
   initializeScenario(queuedScenario),
   0,
 ).state;
-assert.equal(queued.pendingDilemmaIds.length, 2);
-const partiallyResolved = executeCommand(queuedScenario, queued, {
-  type: "resolve-dilemma",
-  dilemmaId: queued.pendingDilemmaIds[1],
-  choiceId: "convene-mediation",
-}).state;
+assert.equal(queued.pendingDilemmaIds.length, 1);
+const partiallyResolved = queued;
 const pendingSave: SavedGame = {
   ...save,
   scenarioContentVersion: 6,
@@ -105,7 +110,7 @@ const pendingSave: SavedGame = {
 };
 assert.ok(
   validateSavedGame(pendingSave, queuedCatalog),
-  "A partially resolved queue can be saved",
+  "A pending Dilemma can be saved",
 );
 const adjustedWhilePending = executeCommand(queuedScenario, partiallyResolved, {
   type: "set-stance",
@@ -125,9 +130,10 @@ assert.equal(storeSavedGame(pendingStorage, pendingSave), undefined);
 const pendingLoaded = loadSavedGame(pendingStorage, queuedCatalog);
 assert.equal(pendingLoaded.status, "ready");
 if (pendingLoaded.status === "ready")
-  assert.deepEqual(pendingLoaded.save.state.pendingDilemmaIds, [
-    exampleDilemma.id,
-  ]);
+  assert.deepEqual(
+    pendingLoaded.save.state.pendingDilemmaIds,
+    queued.pendingDilemmaIds,
+  );
 assert.equal(
   validateSavedGame(
     {
@@ -165,36 +171,41 @@ assert.equal(
   undefined,
 );
 const reportSave: SavedGame = { ...save, turnReport: savedTurnReport };
-const priorScenario = { ...exampleScenario, events: [] };
-const priorInitial = initializeScenario(priorScenario);
-const priorState = advanceTurn(priorScenario, priorInitial, 0).state;
-const { events: _priorEvents, ...priorRuntime } = priorState;
-const priorReport = serializeTurnReport(
-  projectTurnReport(priorScenario, priorInitial, priorState),
-);
-const { eventIds: _priorEventIds, ...priorReportRecord } = priorReport;
-const priorStorage = new MemoryStorage();
-priorStorage.setItem(
-  "the-denomination.save.v3",
+const previousContentState = {
+  ...initialState,
+  dilemmas: { [exampleDilemma.id]: initialState.dilemmas[exampleDilemma.id] },
+};
+const previousContentStorage = new MemoryStorage();
+previousContentStorage.setItem(
+  SAVE_STORAGE_KEY,
   JSON.stringify({
-    version: 3,
-    scenarioId: exampleScenario.id,
+    ...save,
     scenarioContentVersion: 4,
-    playerName: "Avery Morgan",
-    denominationName: "The Common Fellowship",
-    state: priorRuntime,
-    turnReport: priorReportRecord,
+    state: previousContentState,
   }),
 );
-const migrated = loadSavedGame(priorStorage, catalog);
-assert.equal(migrated.status, "ready");
-if (migrated.status === "ready") {
-  assert.equal(migrated.save.version, 4);
-  assert.equal(migrated.save.scenarioContentVersion, 5);
-  assert.equal(migrated.save.state.events["regional-petition"].triggerCount, 0);
-  assert.deepEqual(migrated.save.turnReport?.eventIds, []);
-  assert.ok(validateSavedGame(migrated.save, catalog));
-}
+const oldContentSave = loadSavedGame(previousContentStorage, catalog);
+assert.equal(oldContentSave.status, "unavailable");
+const oldPendingScenario = {
+  ...exampleScenario,
+  dilemmas: [{ ...exampleDilemma, threshold: -1 }],
+};
+const oldPending = advanceTurn(
+  oldPendingScenario,
+  initializeScenario(oldPendingScenario),
+  0,
+).state;
+const oldPendingStorage = new MemoryStorage();
+oldPendingStorage.setItem(
+  SAVE_STORAGE_KEY,
+  JSON.stringify({
+    ...save,
+    scenarioContentVersion: 4,
+    state: oldPending,
+  }),
+);
+const oldPendingSave = loadSavedGame(oldPendingStorage, catalog);
+assert.equal(oldPendingSave.status, "unavailable");
 assert.ok(
   validateSavedGame(reportSave, catalog),
   "A save with a turn report should be accepted",
@@ -461,5 +472,13 @@ if (previous.status === "unavailable")
   assert.match(previous.message, /older format/);
 assert.equal(clearSavedGame(storage), undefined);
 assert.equal(storage.getItem("the-denomination.save.v2"), null);
+
+storage.setItem("the-denomination.save.v3", JSON.stringify({ version: 3 }));
+const previousV3 = loadSavedGame(storage, catalog);
+assert.equal(previousV3.status, "unavailable");
+if (previousV3.status === "unavailable")
+  assert.match(previousV3.message, /older format/);
+assert.equal(clearSavedGame(storage), undefined);
+assert.equal(storage.getItem("the-denomination.save.v3"), null);
 
 console.log("Application persistence checks passed.");

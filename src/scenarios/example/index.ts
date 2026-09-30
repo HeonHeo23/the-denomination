@@ -90,6 +90,452 @@ export const exampleScenario = {
         },
       ],
     },
+    {
+      kind: "dilemma",
+      id: "christological-teaching-request",
+      title: "A request for teaching on the nature of Christ",
+      description:
+        "Pastors ask for guidance after their congregations hear conflicting accounts of Christ's divinity and humanity.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.72,
+      cooldownTurns: 8,
+      choices: [
+        {
+          id: "publish-confession",
+          label: "Publish a common confession",
+          description:
+            "State the fellowship's teaching on Christ's full divinity and full humanity.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.035,
+              decay: 0.75,
+              label: "Shared Christological teaching",
+            },
+          ],
+        },
+        {
+          id: "host-study",
+          label: "Host a theological study",
+          description:
+            "Invite clergy and congregations into a guided study before issuing guidance.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "Open theological study",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "seminary-christology-curriculum",
+      title: "Seminary faculty debate the Christology curriculum",
+      description:
+        "Faculty disagree over how much time to give historical creeds and contemporary interpretation.",
+      influences: [{ source: "clergy-formation", coefficient: 1 }],
+      threshold: 0.35,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "expand-creedal-study",
+          label: "Expand study of the creeds",
+          description:
+            "Fund additional teaching on the early councils and their language about Christ.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Expanded creedal study",
+            },
+          ],
+        },
+        {
+          id: "support-local-dialogue",
+          label: "Support local theological dialogue",
+          description:
+            "Give faculty room to develop material for questions arising in congregations.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "renewal-network",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Theological dialogue",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "pastoral-appointment-policy",
+      title: "Districts seek a new appointment policy",
+      description:
+        "Rural congregations want longer pastoral appointments while the central office needs flexibility.",
+      influences: [{ source: "rural-congregations", coefficient: 1 }],
+      threshold: 0.35,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "lengthen-appointments",
+          label: "Lengthen appointments",
+          description:
+            "Give rural pastors more time to build local relationships.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "rural-congregations",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Stable rural appointments",
+            },
+          ],
+        },
+        {
+          id: "keep-flexibility",
+          label: "Keep flexible assignments",
+          description:
+            "Preserve the ability to send clergy where need is most urgent.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: 2 },
+            {
+              kind: "grudge",
+              target: "rural-congregations",
+              magnitude: -0.035,
+              decay: 0.75,
+              label: "Unsettled appointment concerns",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "shared-worship-guidance",
+      title: "Congregations request worship guidance",
+      description:
+        "Different local practices prompt a request for a common worship guide.",
+      influences: [{ source: "worship-practice", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "publish-guide",
+          label: "Publish a common guide",
+          description:
+            "Prepare shared resources while leaving room for local adaptation.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "worship-participation",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Common worship resources",
+            },
+          ],
+        },
+        {
+          id: "leave-local",
+          label: "Leave practice to congregations",
+          description:
+            "Let each congregation discern its own forms of worship.",
+          consequences: [
+            {
+              kind: "grudge",
+              target: "lay-leadership",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local worship discretion",
+            },
+            {
+              kind: "grudge",
+              target: "traditionalist-coalition",
+              magnitude: -0.02,
+              decay: 0.75,
+              label: "Unsettled worship guidance",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "relief-fund-policy",
+      title: "A proposal for a shared relief fund",
+      description:
+        "Congregations ask for a common fund to meet sudden local hardship.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.78,
+      cooldownTurns: 8,
+      choices: [
+        {
+          id: "create-fund",
+          label: "Create the fund",
+          description:
+            "Set aside money for local relief and invite congregations to participate.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -4 },
+            {
+              kind: "grudge",
+              target: "charitable-impact",
+              magnitude: 0.045,
+              decay: 0.75,
+              label: "Shared relief fund",
+            },
+          ],
+        },
+        {
+          id: "coordinate-existing",
+          label: "Coordinate existing ministries",
+          description:
+            "Ask districts to connect families with the help already available.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "lay-leadership",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Coordinated local relief",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "financial-reporting-policy",
+      title: "Delegates call for clearer financial reports",
+      description:
+        "Local treasurers want to understand how shared contributions are spent.",
+      influences: [{ source: "giving-strength", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "publish-accounts",
+          label: "Publish detailed accounts",
+          description:
+            "Prepare a regular report that congregations can inspect.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Open financial reporting",
+            },
+          ],
+        },
+        {
+          id: "district-briefings",
+          label: "Brief district leaders",
+          description:
+            "Explain spending in smaller meetings with local delegates.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "District financial briefings",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "youth-leadership-voice",
+      title: "Young leaders ask for a voice",
+      description:
+        "Emerging leaders request a formal place in district planning.",
+      influences: [{ source: "youth-engagement", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "seat-delegates",
+          label: "Seat youth delegates",
+          description:
+            "Give young leaders voting representation in district councils.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "emerging-leaders",
+              magnitude: 0.05,
+              decay: 0.75,
+              label: "Youth delegates seated",
+            },
+          ],
+        },
+        {
+          id: "fund-mentoring",
+          label: "Fund mentoring instead",
+          description:
+            "Build a training path before changing council membership.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "Youth mentoring",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "ecumenical-christology-forum",
+      title: "An invitation to discuss Christ across traditions",
+      description:
+        "Nearby churches invite the fellowship to a public forum on their shared and differing claims about Christ.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.82,
+      cooldownTurns: 9,
+      choices: [
+        {
+          id: "join-forum",
+          label: "Join the forum",
+          description:
+            "Send theologians to explain the fellowship's convictions and hear its neighbors.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "newcomer-welcome",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Christology forum",
+            },
+          ],
+        },
+        {
+          id: "hold-local-classes",
+          label: "Hold local classes",
+          description:
+            "Focus on teaching the fellowship's own congregations first.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -1 },
+            {
+              kind: "grudge",
+              target: "traditionalist-coalition",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local doctrinal classes",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "volunteer-sabbath-policy",
+      title: "Volunteers ask for a rest policy",
+      description:
+        "Ministry teams report that recurring duties leave little time for rest.",
+      influences: [{ source: "volunteer-fatigue", coefficient: 1 }],
+      threshold: 0.25,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "rotate-duties",
+          label: "Rotate duties",
+          description:
+            "Ask ministries to schedule rest and share responsibilities more widely.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "volunteer-health",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Volunteer rest rotation",
+            },
+          ],
+        },
+        {
+          id: "fund-support",
+          label: "Fund practical support",
+          description:
+            "Pay for temporary help so current volunteers can step back.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -4 },
+            {
+              kind: "grudge",
+              target: "ministry-capacity",
+              magnitude: 0.035,
+              decay: 0.75,
+              label: "Volunteer support",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "digital-pastoral-care-policy",
+      title: "A policy for online pastoral care",
+      description:
+        "Ministers seek guidance on confidential conversations conducted online.",
+      influences: [{ source: "digital-ministry", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "train-pastors",
+          label: "Train pastors",
+          description:
+            "Develop guidance and training for privacy and follow-up.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Online care training",
+            },
+          ],
+        },
+        {
+          id: "local-protocols",
+          label: "Let districts set protocols",
+          description:
+            "Ask district leaders to set safeguards suited to local practice.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "lay-leadership",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local online care protocols",
+            },
+          ],
+        },
+      ],
+    },
   ],
   gameOvers: [
     {

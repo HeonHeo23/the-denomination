@@ -1,6 +1,6 @@
-import { exampleScenario } from "../../src/scenarios/example";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   executeCommand,
   initializeScenario,
   previewStanceEffects,
@@ -10,6 +10,13 @@ import type {
   SimulationState,
 } from "../../src/simulation/index";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
+
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
+const exampleScenario = {
+  ...bundledScenario,
+  dilemmas: [bundledScenario.dilemmas[0]],
+};
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
