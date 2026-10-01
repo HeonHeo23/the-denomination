@@ -17,6 +17,7 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly category: string;
   readonly categoryIndex: number;
   readonly value: number;
+  readonly netFlow?: number;
   readonly referenceMarkers: readonly NodeReferenceMarker[];
   readonly domain: NumericDomain;
   readonly active: boolean;
@@ -340,6 +341,9 @@ export function projectToReactFlow(
             category,
             categoryIndex: clusterIndex,
             value: runtime.value,
+            ...(definition.type === "resource"
+              ? { netFlow: runtime.netFlow }
+              : {}),
             referenceMarkers: projectNodeReferenceMarkers(definition),
             domain: definition.domain,
             active: runtime.isActive,

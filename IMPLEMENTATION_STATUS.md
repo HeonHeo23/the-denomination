@@ -30,6 +30,7 @@ Statuses used here are:
 | Runtime activation                     | Implemented | `src/simulation/domain/runtime.ts`, `initialize.ts`, `evaluatePersistentState.ts`      | `isActive` controls participation; `isForced` prevents ordinary deactivation. Forced nodes are active.                                                                                                                              |
 | Activation schema migration            | Implemented | `src/simulation/domain/definitions.ts`, `validateScenario.ts`, `src/scenarios/example` | Scenarios use `initial.isActive` and `initial.isForced`; legacy activation strings are rejected.                                                                                                                                    |
 | Persistent Effects and inertia         | Implemented | `src/simulation/engine/evaluatePersistentState.ts`                                     | Uses synchronous snapshots and per-Effect history. Newly activated Situations exert Effects starting next turn.                                                                                                                     |
+| Resource balances                      | Implemented | `src/simulation/engine/advanceTurn.ts`, `evaluatePersistentState.ts`, `playerActions.ts`, `consequences.ts` | Clamped Resources discard overflow and underflow at turn start. Flows, costs, and consequences can move the balance outside bounds until the next turn. Unclamped Resources retain all changes. |
 | Static conditions and requirements     | Partial     | `src/simulation/engine/shared.ts`, `playerActions.ts`, `evaluatePersistentState.ts`    | Scenario conditions are matched against node requirements for supported checks.                                                                                                                                                     |
 | Stance assessment and execution        | Implemented | `src/simulation/engine/playerActions.ts`                                               | Supports Stance changes, enactment, and non-forced repeal, including fixed transition costs.                                                                                                                                        |
 | Application session ownership          | Implemented | `src/app/gameSession.ts`, `useGameSession.ts`                                          | A reducer owns the active Scenario, runtime snapshot, messages, traces, commands, turn advancement, reset, and validated restoration.                                                                                               |
@@ -42,11 +43,14 @@ Statuses used here are:
 | Runtime prerequisites and consequences | Implemented | `src/simulation/engine/prerequisites.ts`, `consequences.ts`                            | Grouped node predicates and immutable Resource, Grudge, and activation consequences support Game Overs.                                                                                                                             |
 | Scenario Game Overs                    | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game`                            | Crises track consecutive qualifying turns, apply warning and recovery consequences, combine terminal causes, block later actions, persist, and appear in reports.                                                                   |
 
+The bundled Money Resource is unclamped and can carry debt below -100. The existing insolvency
+trajectory also qualifies at -30 Money, even without Financial Strain.
+
 The Game Over UI reuses Crisis projections and dossier navigation across
 overview, sheet, dossier, and terminal reports. These presentation structures
 are not part of simulation state or saves.
 
-Version 4 saves retain node history and incident state. Older save formats and older Scenario content cannot be restored. Known gaps:
+Saves retain node history, incident state, and Resource balance and flow. Known gaps:
 initial `requires` checks, non-`0..1` Effect displays,
 negative change costs, and a stale product-preview test.
 
@@ -59,7 +63,6 @@ The following remain deferred or incomplete:
 - runtime-prerequisite consumers beyond Game Overs and static `requires` tag
   derivation;
 - complete within-turn phase ordering;
-- full Resource accumulation and baseline semantics;
 - injected or seedable runtime dependencies for deterministic replay;
 - additional Scenario content beyond the bundled example;
 - additional response-function and contextual-input semantics;

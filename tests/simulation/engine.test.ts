@@ -2,6 +2,7 @@ import { exampleScenario as bundledScenario } from "../../src/scenarios/example"
 import { runComplianceTests } from "./compliance.test";
 import { runDilemmaTests } from "./dilemmas.test";
 import { runEventTests } from "./events.test";
+import { runResourceTests } from "./resources.test";
 import {
   advanceTurn as advanceTurnRaw,
   executeCommand,
@@ -53,11 +54,6 @@ assert(
   exampleScenario.nodes.find((node) => node.id === "institutional-authority")
     ?.type === "indicator",
   "Institutional Authority should be a simulated Indicator",
-);
-assert(
-  exampleScenario.nodes.find((node) => node.id === "authority")?.baseline ===
-    25,
-  "Authority should have a lower underlying baseline",
 );
 assert(
   exampleScenario.nodes.find((node) => node.id === "ministry-capacity")
@@ -128,6 +124,10 @@ for (const effect of exampleScenario.effects) {
 }
 
 const initial = initializeScenario(exampleScenario);
+assert(
+  initial.nodes.authority.value === 40 && initial.nodes.money.value === 40,
+  "Both Resources should start with 40 visible stock",
+);
 assert(
   !initial.nodes["governance-tension"].isActive,
   "Governance Tension should start inactive",
@@ -297,7 +297,6 @@ const terminalScenario: ScenarioDefinition = {
       description: "Available reserve.",
       domain: { min: 0, max: 10, clamp: true },
       initial: { value: 10, isActive: true, isForced: true },
-      baseline: 10,
     },
     {
       id: "confidence",
@@ -387,7 +386,6 @@ let terminalState = advanceTurn(
 assert(
   terminalState.gameOverProgress.collapse.consecutiveTurns === 1 &&
     terminalState.nodes.reserve.value === 7 &&
-    terminalState.nodes.reserve.baseValue === 7 &&
     !terminalState.nodes.council.isActive &&
     terminalState.grudges.some(({ label }) => label === "Crisis shock"),
   "A warning stage should apply every reusable consequence exactly once",
@@ -500,6 +498,8 @@ assert(
   simultaneousState.outcome?.causes.length === 2,
   "Every trajectory becoming terminal on the same turn should be reported",
 );
+
+runResourceTests();
 
 runComplianceTests();
 runNodeEffectProjectionTests();

@@ -13,6 +13,7 @@ import { NodeValueHistoryChart } from "./NodeValueHistoryChart";
 import { DossierDialogFrame } from "./DossierDialogFrame";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
+import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import "./panels.css";
 
 interface NodeDetailsDialogProps {
@@ -101,6 +102,13 @@ export function NodeDetailsDialog({
               </div>
               <DialogTitle>{definition.name}</DialogTitle>
               <DialogDescription>{definition.description}</DialogDescription>
+              {definition.type === "resource" && (
+                <p className="font-mono text-sm">
+                  {formatValue(runtime.value, definition.domain)} (
+                  {formatSignedValue(runtime.netFlow ?? 0, definition.domain)}
+                  /turn)
+                </p>
+              )}
             </div>
             {definition.type !== "stance" && (
               <NodeValueHistoryChart

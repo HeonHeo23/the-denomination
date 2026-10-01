@@ -3,7 +3,7 @@ import type {
   ScenarioDefinition,
 } from "../domain/definitions";
 import type { SimulationState } from "../domain/runtime";
-import { clampValue, indexNodes } from "./shared";
+import { indexNodes } from "./shared";
 
 /** Apply reusable authored consequences as one immutable occurrence. */
 export function applyConsequences(
@@ -26,22 +26,17 @@ export function applyConsequences(
     const historyId = `${occurrenceId}:consequence:${index}`;
 
     if (consequence.kind === "resource") {
-      const value = clampValue(runtime.value + consequence.amount, definition);
-      const actualChange = value - runtime.value;
+      const value = runtime.value + consequence.amount;
       nodes[consequence.target] = {
         ...runtime,
         value,
-        baseValue: clampValue(
-          runtime.baseValue + consequence.amount,
-          definition,
-        ),
       };
       history.push({
         id: historyId,
         turn: state.turn,
         kind: "consequence",
         title: `${definition.name} changed`,
-        detail: `Resource balance changed by ${actualChange}.`,
+        detail: `Resource balance changed by ${consequence.amount}.`,
       });
       return;
     }

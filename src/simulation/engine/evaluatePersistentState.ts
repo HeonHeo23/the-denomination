@@ -56,7 +56,8 @@ function evaluateEffect(
 }
 
 /**
- * Calculates the next persistent node values from one shared prior snapshot.
+ * Normalizes turn-start Resource balances, then calculates persistent values
+ * from one shared snapshot.
  *
  * Using the same input state for every Effect keeps results independent of
  * node and Effect declaration order. Stances remain player-controlled, while
@@ -66,13 +67,25 @@ export function evaluatePersistentState(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): EvaluationResult {
+  // Normalize clamped Resource balances at the turn boundary before any
+  // Effect reads them as sources.
+  const nodes = { ...state.nodes };
+  for (const definition of scenario.nodes) {
+    if (definition.type !== "resource" || !definition.domain.clamp) continue;
+    const runtime = nodes[definition.id];
+    nodes[definition.id] = {
+      ...runtime,
+      value: clampValue(runtime.value, definition),
+    };
+  }
+  const evaluationState = { ...state, nodes };
   const effects = { ...state.effects };
   // Maps each target node ID string to its summed Effect contributions number
   const effectTotalByTarget: Record<string, number> = Object.create(null);
 
   // Sample every Effect and total contributions for eligible targets
   for (const effect of scenario.effects) {
-    const effectResult = evaluateEffect(effect, state);
+    const effectResult = evaluateEffect(effect, evaluationState);
     effects[effect.id] = effectResult.runtime;
 
     effectTotalByTarget[effect.target] =
@@ -81,7 +94,6 @@ export function evaluatePersistentState(
   }
 
   // Defer writes until all Effect totals have been sampled from prior state.
-  const nodes = { ...state.nodes };
   const trace: CalculationTrace[] = [];
   const history: HistoryEntry[] = [...state.history];
 
@@ -92,7 +104,7 @@ export function evaluatePersistentState(
    */
   for (const definition of scenario.nodes) {
     // Read the current node state.
-    const runtime = state.nodes[definition.id];
+    const runtime = evaluationState.nodes[definition.id];
 
     // Preserve player-controlled Stances and stored state of inactive ordinary targets.
     if (
@@ -107,11 +119,15 @@ export function evaluatePersistentState(
       .filter((grudge) => grudge.target === definition.id)
       .reduce((total, grudge) => total + grudge.magnitude, 0);
 
-    // Clamp the next value to node bounds.
-    const value = clampValue(
-      runtime.baseValue + effectTotal + grudgeTotal,
-      definition,
-    );
+    // Resource flow follows the start-of-turn clamp; other nodes clamp here.
+    const netFlow = effectTotal + grudgeTotal;
+    const value =
+      definition.type === "resource"
+        ? runtime.value + netFlow
+        : clampValue(
+            (runtime.baseValue ?? runtime.value) + netFlow,
+            definition,
+          );
 
     // Carry forward the current activation.
     let activation = runtime.isActive;
@@ -148,19 +164,26 @@ export function evaluatePersistentState(
     }
 
     // Store the resolved node state.
-    nodes[definition.id] = { ...runtime, value, isActive: activation };
+    nodes[definition.id] = {
+      ...runtime,
+      value,
+      isActive: activation,
+      ...(definition.type === "resource" ? { netFlow } : {}),
+    };
 
     // Record the calculation breakdown.
     trace.push({
       targetId: definition.id,
-      baseline: runtime.baseValue,
+      ...(definition.type === "resource"
+        ? { netFlow }
+        : { baseline: runtime.baseValue }),
       effectTotal,
       grudgeTotal,
       result: value,
     });
   }
 
-  return { state: { ...state, nodes, effects, history }, trace };
+  return { state: { ...evaluationState, nodes, effects, history }, trace };
 }
 
 /**
@@ -254,8 +277,7 @@ function hypotheticalStanceCandidate(
     const runtime = nodes[resource.id];
     nodes[resource.id] = {
       ...runtime,
-      baseValue: clampValue(runtime.baseValue - cost, resource),
-      value: clampValue(runtime.value - cost, resource),
+      value: runtime.value - cost,
     };
   }
 

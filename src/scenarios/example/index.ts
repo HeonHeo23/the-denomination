@@ -741,6 +741,18 @@ export const exampleScenario = {
             },
           ],
         },
+        {
+          id: "severe-debt",
+          title: "Severe institutional debt",
+          allOf: [
+            {
+              kind: "node-value",
+              nodeId: "money",
+              comparison: "at-most",
+              value: -30,
+            },
+          ],
+        },
       ],
       terminalAfterTurns: 3,
       stages: [
@@ -899,7 +911,6 @@ export const exampleScenario = {
       category: "Governance",
       domain: { min: 0, max: 100, clamp: true },
       initial: { value: 40, isActive: true, isForced: true },
-      baseline: 25,
       graphVisible: false,
     },
     {
@@ -907,11 +918,10 @@ export const exampleScenario = {
       type: "resource",
       name: "Money",
       description:
-        "The calculated budget remaining after recurring revenue and expenditure are accounted for.",
+        "The accumulated treasury balance for shared ministry; negative values are debt.",
       category: "Finance and Assets",
-      domain: { min: 0, max: 100, clamp: true },
-      initial: { value: 56, isActive: true, isForced: true },
-      baseline: 40,
+      domain: { min: -100, max: 100, clamp: false },
+      initial: { value: 40, isActive: true, isForced: true },
       graphVisible: false,
     },
     {
@@ -1493,7 +1503,7 @@ export const exampleScenario = {
       id: "institutional-authority-to-authority-resource",
       source: "institutional-authority",
       target: "authority",
-      response: { kind: "linear", coefficient: 50 },
+      response: { kind: "linear", coefficient: 10 },
       label: "usable institutional latitude",
     },
     {
@@ -1838,7 +1848,7 @@ export const exampleScenario = {
       id: "revenue-to-money",
       source: "revenue",
       target: "money",
-      response: { kind: "linear", coefficient: 44 },
+      response: { kind: "linear", coefficient: 20 },
       inertiaTurns: 2,
       label: "income available",
     },
@@ -1846,7 +1856,7 @@ export const exampleScenario = {
       id: "expenditure-to-money",
       source: "expenditure",
       target: "money",
-      response: { kind: "linear", coefficient: -42 },
+      response: { kind: "linear", coefficient: -20 },
       inertiaTurns: 2,
       label: "committed spending",
     },

@@ -42,7 +42,7 @@ export function runDilemmaTests() {
   assert.equal(
     exampleScenario.dilemmas.filter(
       (definition) =>
-        !definition.requires?.length &&
+        !("requires" in definition && definition.requires?.length) &&
         definition.influences.length === 1 &&
         definition.influences[0].source === "_random_",
     ).length,
@@ -160,7 +160,10 @@ export function runDilemmaTests() {
     dilemmaId: "first-decision",
     choiceId: "accept",
   }).state;
-  assert.equal(drainedAuthority.nodes.authority.value, 0);
+  assert.equal(
+    drainedAuthority.nodes.authority.value,
+    frozenQueue.nodes.authority.value - 100,
+  );
   assert.deepEqual(drainedAuthority.pendingDilemmaIds, []);
   assert.equal(drainedAuthority.dilemmas["second-decision"].triggerCount, 0);
 

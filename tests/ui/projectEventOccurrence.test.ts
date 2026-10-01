@@ -41,16 +41,13 @@ export function runEventDetailTests() {
   assert.equal(gift.year, 1981);
   assert.equal(gift.consequences.length, 1);
   assert.equal(gift.consequences[0].target?.id, "money");
-  assert.equal(gift.consequences[0].endOfTurnValue, 100);
+  assert.equal(gift.consequences[0].endOfTurnValue, first.nodes.money.value);
   assert.equal(gift.consequences[0].kind, "resource");
   const applied = first.history.find(
     (entry) => entry.id === `${ids[1]}:consequence:0`,
   );
   assert.equal(gift.consequences[0].detail, applied?.detail);
-  assert.notEqual(
-    gift.consequences[0].detail,
-    "Resource balance changed by 100.",
-  );
+  assert.equal(gift.consequences[0].detail, "Resource balance changed by 100.");
   assert.equal(
     gift.consequences[0].appliedAmount,
     Number(applied?.detail.match(/changed by (-?\d+(?:\.\d+)?)/)?.[1]),
@@ -58,14 +55,14 @@ export function runEventDetailTests() {
 
   const petition = projectEventOccurrence(scenario, first, ids[0]);
   assert.equal(petition?.consequences[1].kind, "grudge");
-  assert.equal(
-    petition?.consequences[1].appliedAmount,
-    -0.02,
-  );
+  assert.equal(petition?.consequences[1].appliedAmount, -0.02);
 
   const second = advanceTurn(scenario, first, 0.2).state;
   const historical = projectEventOccurrence(scenario, second, ids[1]);
-  assert.equal(historical?.consequences[0].endOfTurnValue, 100);
+  assert.equal(
+    historical?.consequences[0].endOfTurnValue,
+    first.nodes.money.value,
+  );
   assert.deepEqual(
     eventOccurrenceIdsForTurn(scenario, second, second.turn),
     [],

@@ -85,11 +85,10 @@ interface BaseNodeDefinition {
 }
 ```
 
-`initial.value` is authoritative at turn zero. `baseline`, where present, is
-the underlying term used by persistent-state calculation after initialization;
-it is not an alternate initial value. If omitted, it defaults to
-`initial.value`. Resource baseline behavior beyond the current MVP is still a
-design TBD.
+`initial.value` sets the turn-zero value. For non-Resources, `baseline`,
+where present, is the underlying term used by persistent-state calculation;
+if omitted, it defaults to `initial.value`. Resources do not permit `baseline`:
+their `initial.value` is the starting balance, clamped when the domain enables it.
 
 `isActive` controls participation; `isForced` prevents normal deactivation.
 
@@ -175,12 +174,19 @@ interface FactionDefinition extends BaseNodeDefinition {
 ```ts
 interface ResourceDefinition extends BaseNodeDefinition {
   type: "resource";
+  baseline?: never;
   initial: InitialNodeState & { isActive: true; isForced: true };
 }
 ```
 
-Resources use the same domain, initial state, baseline, visibility, and Effect
-references as other nodes.
+Resources use the same domain, visibility, and Effect references as other nodes.
+Incoming Effects and active Grudges are per-turn flows. Runtime state stores
+one balance (`value`) and signed `netFlow`. When `domain.clamp` is true, the
+balance clamps once at the start of each turn, before Effect sampling; excess
+and deficit are discarded then. Flows and transactions can move the balance
+outside the domain during the turn. An unclamped Resource has no effective
+minimum or maximum; its domain bounds remain available to presentation and
+content validation. Resource domains may include a negative minimum to show debt.
 
 ### Situation
 
@@ -401,7 +407,7 @@ conditions. Runtime state records what has happened:
 
 | Static content                                  | Runtime state                                                 |
 | ----------------------------------------------- | ------------------------------------------------------------- |
-| Node domain, metadata, baseline, initial state  | Current value and activation                                  |
+| Node domain, metadata, non-Resource baseline, initial state | Current value and activation; Resource balance and net flow                                |
 | Effect source, target, response, Inertia window | Source-value history and last contribution                    |
 | Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
 | Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
@@ -428,7 +434,8 @@ A Scenario is accepted only if:
 - all required fields are present and finite numeric fields are valid;
 - IDs are unique in their applicable namespaces;
 - all references resolve to compatible definitions;
-- initial values and baselines lie within their domains;
+- non-Resource initial values and baselines lie within their domains;
+- Resource initial values are finite and are clamped when their domain enables it;
 - separate activation and forced-state requirements are respected;
 - Situation thresholds and discrete Stance states are valid;
 - Inertia and cooldown values are positive integers;

@@ -2,13 +2,14 @@ import type { ScenarioDefinition } from "../domain/definitions";
 import type { EffectRuntimeState, SimulationState } from "../domain/runtime";
 import { loadScenario } from "./loadScenario";
 import { responseValue } from "./responseValue";
+import { clampValue } from "./shared";
 
 /**
  * Validates a Scenario and creates its authoritative turn-zero snapshot.
  *
- * Initial node values are preserved rather than recalculated. Each Effect's
- * inertia window is seeded with its source's initial value so the first turn
- * begins with a stable causal history.
+ * Initial non-Resource values are preserved. Resource values follow their
+ * domain rule. Each Effect's inertia window is
+ * seeded with its source's initial value.
  *
  * @throws {Error} When the Scenario contains invalid definitions or references.
  */
@@ -22,8 +23,13 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     scenario.nodes.map((node) => [
       node.id,
       {
-        value: node.initial.value,
-        baseValue: node.baseline ?? node.initial.value,
+        value:
+          node.type === "resource"
+            ? clampValue(node.initial.value, node)
+            : node.initial.value,
+        ...(node.type === "resource"
+          ? { netFlow: 0 }
+          : { baseValue: node.baseline ?? node.initial.value }),
         isActive: node.initial.isActive,
         isForced: node.initial.isForced,
       },
@@ -107,6 +113,15 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
             state,
           )
         : 0,
+    };
+  }
+  for (const node of scenario.nodes) {
+    if (node.type !== "resource") continue;
+    nodes[node.id] = {
+      ...nodes[node.id],
+      netFlow: scenario.effects
+        .filter((effect) => effect.target === node.id)
+        .reduce((sum, effect) => sum + effects[effect.id].lastContribution, 0),
     };
   }
   return state;

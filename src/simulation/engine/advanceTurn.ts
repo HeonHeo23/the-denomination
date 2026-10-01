@@ -11,8 +11,8 @@ const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 /**
  * Advances a runtime snapshot by one turn.
  *
- * Persistent values are evaluated before Grudges decay, so each Grudge
- * contributes its current magnitude for the turn.
+ * Persistent evaluation applies the turn-start Resource clamp before Effects
+ * sample sources. Grudges contribute at current magnitude before decaying.
  */
 export function advanceTurn(
   scenario: ScenarioDefinition,

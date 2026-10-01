@@ -136,8 +136,26 @@ different UI. It may source or receive Effects and may be changed directly by
 costs or incident consequences. A direct debit or credit changes a balance; it
 is not a persistent Effect and MUST NOT be reapplied every turn.
 
-The longer-term interaction between direct balance changes, baselines, and
-persistent recalculation is not yet fully specified; see **Deferred decisions**.
+Each incoming Effect targeting a Resource is a per-turn flow. On each turn:
+
+```text
+value(start) = applyDomain(value(previous turn), Resource domain)
+netFlow = incoming Effect contributions + active Grudge contributions
+value(after flow) = value(start) + netFlow
+```
+
+`applyDomain` clamps to the authored minimum and maximum when `clamp` is true;
+otherwise it leaves the value unchanged. This happens once at the start of
+each turn, before Effects sample their sources. Turn-zero initialization applies
+the same rule to `initial.value`. Clamping discards any excess or deficit at
+that point. Resource domains MAY include negative values to show debt, or
+disable clamping to allow an unbounded balance. Flows and transactions after
+the turn-start clamp can move the balance outside the domain until the next
+turn begins. Positive costs check the current balance, then subtract the cost;
+zero-cost actions remain available even during debt. Immediate Resource
+consequences add their amount once. Neither transaction changes the last
+`netFlow` reading. At turn zero that reading projects seeded Effects; after a
+turn it records the flow applied on that turn. Resources do not use a baseline.
 
 ### Situation
 
@@ -164,7 +182,7 @@ target. It defines a source, target, response function, and optional Inertia.
 A special constant/default source may represent pressure that has no node
 source.
 
-For a normal simulated target:
+For a non-Resource simulated target:
 
 ```text
 value = underlying baseline
@@ -173,9 +191,9 @@ value = underlying baseline
       + other explicitly defined direct modifiers
 ```
 
-An Effect contribution is recalculated from causal state; it is not permanently
-added to the prior target value each turn. An unchanged source therefore yields
-an unchanged steady contribution rather than runaway accumulation.
+An Effect contribution is recalculated from causal state. For non-Resource
+targets it is not permanently added to the prior target value. For Resources,
+the contribution is a flow added to stock each turn.
 
 Response functions may be constant, linear, nonlinear, or depend on explicitly
 referenced contextual node values. Positive and negative contributions have no
@@ -269,7 +287,7 @@ defines the change, not its trigger or timing.
 
 | Kind         | Effect                                                                              | Constraint                                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `resource`   | Add `amount` to a Resource's runtime balance;                                       | The change survives persistent recalculation. Subject to the Resource domain.                                  |
+| `resource`   | Add `amount` once to a Resource's balance. | The balance may exceed domain bounds until the next turn starts. |
 | `grudge`     | Create a temporary contribution; does not permanently change its target's baseline. | `0 < decay <= 1`; it contributes before decaying. A factor closer to `1` lasts longer, and `1` means no decay. |
 | `activation` | Set a node's ordinary activation.                                                   | MUST NOT deactivate a forced-active node or change forced status.                                              |
 
@@ -364,7 +382,7 @@ universal mechanics.
 4. Situations are persistent nodes with separate start and stop thresholds.
 5. Inactive Situations evaluate incoming start pressure but have no outgoing
    contribution.
-6. Effects are persistent causal contributions, not per-turn accumulation.
+6. Effects are persistent causal contributions; those targeting Resources are per-turn flows.
 7. Response functions may be nonlinear and context-dependent.
 8. Inertia is per Effect and uses that Effect's runtime history.
 9. Grudges are temporary decaying contributions created by occurrences.
@@ -385,7 +403,6 @@ Do not infer or implement the following until this document is revised:
 - the complete within-turn phase order beyond the partial ordering above;
 - runtime-prerequisite use outside explicitly supported consumers;
 - the supported scope and merge semantics of Scenario overrides;
-- complete Resource accumulation and baseline interaction rules;
 - additional response-function semantics, including exact constant-source and
   contextual-input behavior;
 - specialized governance procedures such as votes, ratification, vetoes, or

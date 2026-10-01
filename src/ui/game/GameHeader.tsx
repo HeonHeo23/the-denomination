@@ -29,7 +29,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatValue } from "@/ui/formatValue";
+import { formatSignedValue, formatValue } from "@/ui/formatValue";
+import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { crisisTurnsLabel } from "./crisisPresentation";
 
@@ -38,6 +39,8 @@ interface GameHeaderProps {
   readonly playerName: string;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
+  readonly onResourceHover: (nodeId?: string) => void;
+  readonly onResourceSelect: (nodeId: string) => void;
   readonly activeCrisisCount: number;
   readonly urgentGameOverWarning?: {
     readonly title: string;
@@ -123,20 +126,40 @@ function TurnDisplay({ state }: Pick<GameHeaderProps, "state">) {
 function ResourceStrip({
   resources,
   state,
-}: Pick<GameHeaderProps, "resources" | "state">) {
+  onResourceHover,
+  onResourceSelect,
+}: Pick<
+  GameHeaderProps,
+  "resources" | "state" | "onResourceHover" | "onResourceSelect"
+>) {
   return (
     <dl className="hidden h-full items-stretch xl:flex" data-game-resources>
       {resources.map((resource) => (
         <div
-          className="flex min-w-24 flex-col justify-center px-3"
+          className="flex min-w-24 cursor-pointer flex-col justify-center px-3 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
           data-game-resource
           key={resource.id}
+          onMouseEnter={() => onResourceHover(resource.id)}
+          onMouseLeave={() => onResourceHover(undefined)}
+          {...getDossierTriggerProps(`Open ${resource.name} node dossier`, () =>
+            onResourceSelect(resource.id),
+          )}
         >
           <dt className="truncate font-mono text-[0.52rem] tracking-[0.12em] uppercase">
             {resource.name}
           </dt>
           <dd className="font-heading text-lg leading-none font-semibold">
             {formatValue(state.nodes[resource.id].value, resource.domain)}
+          </dd>
+          <dd
+            className="font-heading text-xs font-semibold"
+            aria-label={`${resource.name} flow per turn`}
+          >
+            {formatSignedValue(
+              state.nodes[resource.id].netFlow ?? 0,
+              resource.domain,
+            )}
+            /turn
           </dd>
         </div>
       ))}
@@ -374,6 +397,8 @@ export function GameHeader(props: GameHeaderProps) {
     playerName,
     state,
     resources,
+    onResourceHover,
+    onResourceSelect,
     activeCrisisCount,
     urgentGameOverWarning,
     gameOver,
@@ -433,7 +458,12 @@ export function GameHeader(props: GameHeaderProps) {
           playerName={playerName}
         />
         <TurnDisplay state={state} />
-        <ResourceStrip resources={resources} state={state} />
+        <ResourceStrip
+          resources={resources}
+          state={state}
+          onResourceHover={onResourceHover}
+          onResourceSelect={onResourceSelect}
+        />
         <PanelActions
           activeCrisisCount={activeCrisisCount}
           urgentGameOverWarning={urgentGameOverWarning}

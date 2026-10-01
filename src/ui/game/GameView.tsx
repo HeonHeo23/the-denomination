@@ -272,6 +272,8 @@ export function GameView({
         playerName={playerName}
         state={session.state}
         resources={resources}
+        onResourceHover={setSheetHoveredNodeId}
+        onResourceSelect={selectNode}
         activeCrisisCount={gameOverWarnings.length}
         urgentGameOverWarning={
           urgentGameOverWarning

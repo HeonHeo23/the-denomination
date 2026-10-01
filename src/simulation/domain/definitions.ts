@@ -100,6 +100,7 @@ export interface FactionDefinition extends BaseNodeDefinition {
 /** A spendable or accumulable capacity represented as a node. */
 export interface ResourceDefinition extends BaseNodeDefinition {
   readonly type: "resource";
+  readonly baseline?: never;
   readonly initial: InitialNodeState & {
     readonly isActive: true;
     readonly isForced: true;

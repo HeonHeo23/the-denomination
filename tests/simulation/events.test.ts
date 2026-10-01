@@ -146,7 +146,7 @@ export function runEventTests() {
     initializeScenario(snapshotScenario),
     0.2,
   ).state;
-  assert.equal(snapshotTurn.nodes.authority.value, 0);
+  assert.ok(snapshotTurn.nodes.authority.value < 0);
   assert.equal(snapshotTurn.pendingDilemmaIds.length, 1);
 
   assert.ok(

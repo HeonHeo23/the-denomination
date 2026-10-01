@@ -158,7 +158,10 @@ export function runComplianceTests() {
       "$.nodes[0].initial.value",
     ],
     [
-      editNode("centralization", (n) => ({ ...n, baseline: 2 })),
+      editNode(
+        "centralization",
+        (n) => ({ ...n, baseline: 2 }) as NodeDefinition,
+      ),
       "$.nodes[0].baseline",
     ],
     [
@@ -177,21 +180,21 @@ export function runComplianceTests() {
         "governance-tension",
         (n) => ({ ...n, startThreshold: 2 }) as NodeDefinition,
       ),
-      "$.nodes[10].startThreshold",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "governance-tension")}].startThreshold`,
     ],
     [
       editNode(
         "governance-tension",
         (n) => ({ ...n, stopThreshold: 0.9 }) as NodeDefinition,
       ),
-      "$.nodes[10].stopThreshold",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "governance-tension")}].stopThreshold`,
     ],
     [
       editNode(
         "localist-movement",
-        (n) => ({ ...n, valueMeaning: "" }) as NodeDefinition,
+        (n) => ({ ...n, valueMeaning: 3 }) as unknown as NodeDefinition,
       ),
-      "$.nodes[6].valueMeaning",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "localist-movement")}].valueMeaning`,
     ],
     [
       {
@@ -823,11 +826,9 @@ export function runComplianceTests() {
   assert.ok(hiddenResource && hiddenResource.type === "resource");
   assert.ok(!graph.nodes.some((node) => node.id === hiddenResource.id));
   assert.deepEqual(
-    projectNodeReferenceMarkers(hiddenResource).map(
-      ({ kind, value, positionPercent }) => ({ kind, value, positionPercent }),
-    ),
-    [{ kind: "baseline", value: 25, positionPercent: 25 }],
-    "Hidden Resources should keep their baseline available to dossier meters",
+    projectNodeReferenceMarkers(hiddenResource),
+    [],
+    "Resources have no baseline marker",
   );
   assert.deepEqual(
     graph.nodes.map(({ id, position }) => ({ id, position })),
@@ -1049,9 +1050,7 @@ export function runComplianceTests() {
     "effect-edge effect-edge--turn-changed",
     "Changed Effects should receive reveal styling",
   );
-  assert.ok(
-    normalTurn.nodes.authority.value !== initial.nodes.authority.baseValue,
-  );
+  assert.ok(normalTurn.nodes.authority.value !== initial.nodes.authority.value);
 
   const namedConstructor: ScenarioDefinition = {
     ...minimal,

@@ -92,19 +92,27 @@ function validNodeState(
   definition: ScenarioDefinition["nodes"][number],
 ): boolean {
   if (
-    !exactObject(value, ["value", "baseValue", "isActive", "isForced"]) ||
+    !exactObject(
+      value,
+      definition.type === "resource"
+        ? ["value", "netFlow", "isActive", "isForced"]
+        : ["value", "baseValue", "isActive", "isForced"],
+    ) ||
     !finite(value.value) ||
-    !finite(value.baseValue) ||
+    (definition.type !== "resource" && !finite(value.baseValue)) ||
     typeof value.isActive !== "boolean" ||
     typeof value.isForced !== "boolean" ||
     value.isForced !== definition.initial.isForced ||
     (value.isForced && !value.isActive)
   )
     return false;
-  if (!definition.domain.clamp) return true;
+  if (definition.type === "resource" && !finite(value.netFlow)) return false;
+  if (definition.type === "resource" || !definition.domain.clamp) return true;
   return [value.value, value.baseValue].every(
     (number) =>
-      number >= definition.domain.min && number <= definition.domain.max,
+      finite(number) &&
+      number >= definition.domain.min &&
+      number <= definition.domain.max,
   );
 }
 
@@ -261,11 +269,18 @@ function validRuntimeState(
         !exactObject(reading, ["value", "isActive"]) ||
         !finite(reading.value) ||
         typeof reading.isActive !== "boolean" ||
-        (node.domain.clamp &&
+        (node.type !== "resource" &&
+          node.domain.clamp &&
           (reading.value < node.domain.min ||
             reading.value > node.domain.max)) ||
         (index === 0 &&
-          (reading.value !== node.initial.value ||
+          (reading.value !==
+            (node.type === "resource" && node.domain.clamp
+              ? Math.min(
+                  node.domain.max,
+                  Math.max(node.domain.min, node.initial.value),
+                )
+              : node.initial.value) ||
             reading.isActive !== node.initial.isActive)) ||
         (index === historyLength - 1 &&
           (reading.value !== (nodes[node.id] as ObjectValue).value ||
@@ -613,15 +628,10 @@ function validateSavedGameVersion(
       contentVersion === value.scenarioContentVersion,
   );
   if (!entry) return undefined;
-  if (!validRuntimeState(value.state, entry.scenario))
-    return undefined;
+  if (!validRuntimeState(value.state, entry.scenario)) return undefined;
   if (
     value.turnReport !== undefined &&
-    !validSavedTurnReport(
-      value.turnReport,
-      entry.scenario,
-      value.state,
-    )
+    !validSavedTurnReport(value.turnReport, entry.scenario, value.state)
   )
     return undefined;
   return value as unknown as SavedGame;

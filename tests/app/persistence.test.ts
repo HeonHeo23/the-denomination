@@ -297,6 +297,23 @@ assert.equal(
 );
 assert.equal(
   validateSavedGame(
+    {
+      ...save,
+      state: {
+        ...save.state,
+        nodes: {
+          ...save.state.nodes,
+          money: { ...save.state.nodes.money, stockValue: 999 },
+        },
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "A saved Resource must not contain the removed stock field",
+);
+assert.equal(
+  validateSavedGame(
     { ...save, state: { ...save.state, nodeValueHistory: [] } },
     catalog,
   ),

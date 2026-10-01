@@ -104,7 +104,11 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
             </span>
           ))}
         </div>
-        <output>{label}</output>
+        <output>
+          {label}
+          {data.nodeType === "resource" &&
+            ` (${formatSignedValue(data.netFlow ?? 0, data.domain)}/turn)`}
+        </output>
       </div>
       {!data.active && (
         <span className="simulation-node__inactive">Inactive</span>

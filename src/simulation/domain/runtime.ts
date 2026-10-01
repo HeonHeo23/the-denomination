@@ -3,7 +3,10 @@ import type { EffectId, NodeId } from "./definitions";
 /** Mutable-in-time values for one persistent node in a snapshot. */
 export interface NodeRuntimeState {
   readonly value: number;
-  readonly baseValue: number;
+  /** Non-Resource baseline; absent for Resources. */
+  readonly baseValue?: number;
+  /** Resource flow projected at turn zero or applied on the latest turn. */
+  readonly netFlow?: number;
   readonly isActive: boolean;
   readonly isForced: boolean;
 }

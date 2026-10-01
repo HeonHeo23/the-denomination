@@ -24,7 +24,7 @@ import type {
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
-import { formatValue, meterPercent } from "@/ui/formatValue";
+import { formatSignedValue, formatValue, meterPercent } from "@/ui/formatValue";
 import { institutionEra, type InstitutionEra } from "@/ui/institutionEra";
 import { projectCrises, type CrisisView } from "./projectGameOvers";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
@@ -166,7 +166,15 @@ export function InstitutionOverview({
                     <div className="flex items-baseline justify-between gap-3">
                       <ItemTitle>{resource.name}</ItemTitle>
                       <strong className="font-mono text-base text-primary">
-                        {formatted}
+                        {formatted}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          (
+                          {formatSignedValue(
+                            state.nodes[resource.id].netFlow ?? 0,
+                            resource.domain,
+                          )}
+                          /turn)
+                        </span>
                       </strong>
                     </div>
                     <Progress

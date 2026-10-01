@@ -18,9 +18,7 @@ export function runNodeValueHistoryProjectionTests() {
     historyYearMarkLabels(11).has(5) ||
     historyYearMarkLabels(12).size !== 2
   )
-    throw new Error(
-      "Only the first and last years should be labeled",
-    );
+    throw new Error("Only the first and last years should be labeled");
   const initial = initializeScenario(exampleScenario);
   const node = exampleScenario.nodes.find(
     (candidate) => candidate.id === "money",
@@ -28,13 +26,8 @@ export function runNodeValueHistoryProjectionTests() {
   const initialChart = projectNodeValueHistory(exampleScenario, node, initial);
   if (initialChart.points.length !== 1 || initialChart.points[0].x !== 584)
     throw new Error("The initial reading should render at the right edge");
-  if (
-    initialChart.guides[0]?.kind !== "baseline" ||
-    Math.abs(initialChart.guides[0].y - 60) > 0.001
-  )
-    throw new Error(
-      "A clamped node baseline should align with the chart scale",
-    );
+  if (initialChart.guides.length !== 0)
+    throw new Error("Resources should not show a baseline guide");
 
   const expandedNode = { ...node, domain: { min: 0, max: 100, clamp: false } };
   const expanded = projectNodeValueHistory(exampleScenario, expandedNode, {
@@ -49,11 +42,8 @@ export function runNodeValueHistoryProjectionTests() {
       },
     ],
   });
-  if (
-    expanded.maximum !== 140 ||
-    Math.abs(expanded.guides[0].y - (100 - (40 / 140) * 100)) > 0.001
-  )
-    throw new Error("Reference guides should use the expanded unclamped range");
+  if (expanded.maximum !== 140 || expanded.guides.length !== 0)
+    throw new Error("Resource charts should expand without baseline guides");
 
   const rangeEnds = projectNodeValueHistory(exampleScenario, node, {
     ...initial,

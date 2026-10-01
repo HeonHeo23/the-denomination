@@ -9,7 +9,7 @@ import type {
   StanceTransitionAssessment,
 } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
-import { clampValue, conditionsMet, indexNodes } from "./shared";
+import { conditionsMet, indexNodes } from "./shared";
 import { resolveDilemma } from "./dilemmas";
 
 type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
@@ -60,7 +60,7 @@ function assessTransitionCost(
   const resource = indexNodes(scenario)[resourceId];
   if (!resource || resource.type !== "resource")
     return reject(`The configured ${action} cost is invalid.`, cost);
-  if (state.nodes[resource.id].value < cost)
+  if (cost > 0 && state.nodes[resource.id].value < cost)
     return reject(
       `Not enough ${resource.name}. This ${action} costs ${cost.toFixed(1)}.`,
       cost,
@@ -113,7 +113,7 @@ export function assessStanceChange(
     if (!resource || resource.type !== "resource")
       return reject("The configured Stance cost is invalid.", cost);
     resourceName = resource.name;
-    if (state.nodes[resource.id].value < cost)
+    if (cost > 0 && state.nodes[resource.id].value < cost)
       return reject(
         `Not enough ${resource.name}. This change costs ${cost.toFixed(1)}.`,
         cost,
@@ -192,18 +192,15 @@ export function assessStanceRepeal(
 }
 
 function debitCost(
-  scenario: ScenarioDefinition,
   nodes: Record<string, SimulationState["nodes"][string]>,
   resourceId: string | undefined,
   cost: number,
 ) {
   if (!resourceId || cost === 0) return;
   const resource = nodes[resourceId];
-  const definition = indexNodes(scenario)[resourceId];
   nodes[resourceId] = {
     ...resource,
-    baseValue: clampValue(resource.baseValue - cost, definition),
-    value: clampValue(resource.value - cost, definition),
+    value: resource.value - cost,
   };
 }
 
@@ -233,13 +230,13 @@ export function executeCommand(
     return { accepted: false, state, message: "That node is not a Stance." };
   const nodes = { ...state.nodes };
   if (command.type === "set-stance") {
-    debitCost(scenario, nodes, stance.cost?.resourceId, assessment.cost);
+    debitCost(nodes, stance.cost?.resourceId, assessment.cost);
   } else {
     const transitionCost =
       command.type === "enact-stance"
         ? stance.enactmentCost
         : stance.repealCost;
-    debitCost(scenario, nodes, transitionCost?.resourceId, assessment.cost);
+    debitCost(nodes, transitionCost?.resourceId, assessment.cost);
   }
   if (command.type === "repeal-stance") {
     nodes[stance.id] = { ...nodes[stance.id], isActive: false };

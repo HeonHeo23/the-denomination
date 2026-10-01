@@ -279,7 +279,6 @@ export function runNodeEffectProjectionTests() {
       authority: {
         ...initial.nodes.authority,
         value: 3,
-        baseValue: 3,
       },
     },
   };
@@ -322,8 +321,8 @@ export function runNodeEffectProjectionTests() {
     "A blocked proposal should provide a clearly marked estimate",
   );
   assert(
-    blockedPreview?.contribution === 0,
-    "A blocked estimate should use the post-cost Resource value after clamping",
+    blockedPreview?.contribution === -1.5,
+    "A blocked estimate should use the Resource value after the projected cost",
   );
   assert(
     blockedEnactmentState.nodes.authority.value === 3,
@@ -353,7 +352,7 @@ export function runNodeEffectProjectionTests() {
     0.4,
   ).find((effect) => effect.effectId === "formation-to-quality");
   assert(
-    Math.abs((productPreview?.contribution ?? 0) - 0.147) < 0.000001,
+    Math.abs((productPreview?.contribution ?? 0) - 0.15) < 0.000001,
     "Product previews should use contextual values from the cost-adjusted candidate state",
   );
 

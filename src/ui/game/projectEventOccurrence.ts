@@ -67,8 +67,7 @@ export function projectEventOccurrence(
           item.turn === occurrence.turn,
       );
       if (!entry) return [];
-      // Resource history records the clamped change, which can differ from the
-      // authored amount. Use that saved value for historical detail displays.
+      // Use the saved Resource change for historical detail displays.
       const resourceChange =
         consequence.kind === "resource"
           ? /^Resource balance changed by (-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\.$/.exec(
