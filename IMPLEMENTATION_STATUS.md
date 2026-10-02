@@ -35,20 +35,28 @@ Statuses used here are:
 | Stance assessment and execution        | Implemented | `src/simulation/engine/playerActions.ts`                                               | Supports Stance changes, enactment, and non-forced repeal, including fixed transition costs.                                                                                                                                        |
 | Application session ownership          | Implemented | `src/app/gameSession.ts`, `useGameSession.ts`                                          | A reducer owns the active Scenario, runtime snapshot, messages, traces, commands, turn advancement, reset, and validated restoration.                                                                                               |
 | Scenario catalog and launcher          | Implemented | `src/app/scenarioCatalog.ts`, `src/App.tsx`, `src/ui/landing`, `src/main.tsx`          | Validates catalog entries and launches or continues a session. The catalog has one bundled Scenario.                                                                                                                                |
-| Browser persistence                    | Partial     | `src/app/persistence.ts`                                                               | A versioned local save stores identity, Scenario/content identity, runtime state, and an optional validated Turn report. Restoration validates against current content.                                                             |
+| Browser persistence                    | Partial     | `src/app/persistence.ts`                                                               | A versioned local save stores identity, Scenario/content identity, runtime state, and an optional validated Turn report. Current-slot restoration validates structure, references, and runtime invariants; no legacy-slot handling or ending reevaluation.                                                             |
 | Domain-aware UI projection             | Partial     | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels`                | Provides domain-aware formatting, graph navigation, Crisis views, node search, dossiers, and Effect analysis. The graph shows active nodes and briefly retains just-ended nodes. Inactive Stances have a dedicated enactment index. |
 | Interface audio                        | Implemented | `src/ui/sound`                                                                         | UI-only Web Audio cues use an independently saved mute preference and are gesture-initialized, throttled, and cleaned up on unmount.                                                                                                |
 | Dilemmas                               | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx`                   | One qualifying Dilemma queues per turn, selected randomly from all qualifying Dilemmas. Cooldowns, history, UI, and saves are supported. Resolved choices appear in a dedicated Decisions sheet projected from saved history. |
 | Events                                 | Implemented | `src/simulation/engine/events.ts`, `advanceTurn.ts`, `src/ui/game/EventDetailDialog.tsx` | All qualifying Events resolve in ID order from the shared incident snapshot; automatic detail dialogs, report and Chronicle reopening, cooldowns, and saves are supported.                                                       |
-| Runtime prerequisites and consequences | Implemented | `src/simulation/engine/prerequisites.ts`, `consequences.ts`                            | Grouped node predicates and immutable Resource, Grudge, and activation consequences support Game Overs.                                                                                                                             |
+| Runtime prerequisites and consequences | Implemented | `prerequisites.ts`, `consequences.ts` | Grouped node, turn, incident, and Situation-history predicates with shared validation and consequences. |
+| Normal endings | Implemented | `resolveEnding.ts`, `EndingReportDialog.tsx` | Turn-only completion checks, prerequisite groups, prioritized outcomes, fallback, persistence, and reports. |
 | Scenario Game Overs                    | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game`                            | Crises track consecutive qualifying turns, apply warning and recovery consequences, combine terminal causes, block later actions, persist, and appear in reports.                                                                   |
 
 The bundled Money Resource is unclamped and can carry debt below -100. The existing insolvency
 trajectory also qualifies at -30 Money, even without Financial Strain.
 
+Prerequisite titles, descriptions, status, and optional node links share
+`src/ui/game/projectPrerequisite.ts`.
+
 The Game Over UI reuses Crisis projections and dossier navigation across
 overview, sheet, dossier, and terminal reports. These presentation structures
 are not part of simulation state or saves.
+Ending reports show actors and selected readings with an illustration placeholder.
+Choice commands do not resolve endings. Saves with same-turn choice endings
+fail validation, as do older saves missing required fields. The bundled Scenario reaches
+Expansion in turn 1 (1981).
 
 Saves retain node history, incident state, and Resource balance and flow. Known gaps:
 initial `requires` checks, non-`0..1` Effect displays,
@@ -58,10 +66,8 @@ negative change costs, and a stale product-preview test.
 
 The following remain deferred or incomplete:
 
-- normal Ending definitions and resolution; Game Over precedence is established
-  for that future phase;
-- runtime-prerequisite consumers beyond Game Overs and static `requires` tag
-  derivation;
+- runtime-prerequisite consumers beyond Game Overs, normal endings, and static
+  `requires` derivation;
 - complete within-turn phase ordering;
 - injected or seedable runtime dependencies for deterministic replay;
 - additional Scenario content beyond the bundled example;

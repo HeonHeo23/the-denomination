@@ -46,7 +46,8 @@ interface GameHeaderProps {
     readonly title: string;
     readonly turnsRemaining: number;
   };
-  readonly gameOver: boolean;
+  readonly terminal: boolean;
+  readonly normalEnding: boolean;
   readonly canLoad: boolean;
   readonly resolvingTurn: boolean;
   readonly pendingDilemmaCount: number;
@@ -61,7 +62,7 @@ interface GameHeaderProps {
   readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
   readonly onOpenTurnReport: () => void;
-  readonly onOpenGameOver: () => void;
+  readonly onOpenFinalReport: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
 }
@@ -401,7 +402,8 @@ export function GameHeader(props: GameHeaderProps) {
     onResourceSelect,
     activeCrisisCount,
     urgentGameOverWarning,
-    gameOver,
+    terminal,
+    normalEnding,
     canLoad,
     resolvingTurn,
     onAdvance,
@@ -416,7 +418,7 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
-    onOpenGameOver,
+    onOpenFinalReport,
     musicMuted,
     onToggleMusic,
   } = props;
@@ -473,7 +475,7 @@ export function GameHeader(props: GameHeaderProps) {
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />
-        {urgentGameOverWarning && !gameOver && (
+        {urgentGameOverWarning && !terminal && (
           <Button
             type="button"
             variant="outline"
@@ -498,12 +500,14 @@ export function GameHeader(props: GameHeaderProps) {
           size="lg"
           className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
           data-game-advance
-          onClick={gameOver ? onOpenGameOver : onAdvance}
-          disabled={resolvingTurn && !gameOver}
+          onClick={terminal ? onOpenFinalReport : onAdvance}
+          disabled={resolvingTurn && (!terminal || normalEnding)}
         >
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
-            {gameOver
-              ? "Game over"
+            {terminal
+              ? normalEnding
+                ? "Scenario complete"
+                : "Game over"
               : pendingDilemmaCount > 0
                 ? `${pendingDilemmaCount} pending`
                 : state.year === undefined
@@ -512,7 +516,7 @@ export function GameHeader(props: GameHeaderProps) {
           </span>
           <span className="flex items-center gap-2 sm:contents">
             <span className="hidden xl:inline">
-              {gameOver
+              {terminal
                 ? "View final report"
                 : pendingDilemmaCount > 0
                   ? `Resolve ${pendingDilemmaCount} ${pendingDilemmaCount === 1 ? "Dilemma" : "Dilemmas"}`
@@ -521,7 +525,7 @@ export function GameHeader(props: GameHeaderProps) {
                     : "Advance the year"}
             </span>
             <span className="xl:hidden">
-              {gameOver
+              {terminal
                 ? "Final report"
                 : pendingDilemmaCount > 0
                   ? pendingDilemmaCount === 1
@@ -531,8 +535,12 @@ export function GameHeader(props: GameHeaderProps) {
                     ? "Recording"
                     : "Advance"}
             </span>
-            {gameOver ? (
-              <ShieldAlert data-icon="inline-end" />
+            {terminal ? (
+              normalEnding ? (
+                <ArrowRight data-icon="inline-end" />
+              ) : (
+                <ShieldAlert data-icon="inline-end" />
+              )
             ) : (
               <ArrowRight data-icon="inline-end" />
             )}

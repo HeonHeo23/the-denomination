@@ -10,12 +10,12 @@ interface DossierItemButtonProps extends Omit<
   readonly description?: ReactNode;
   readonly leading?: ReactNode;
   readonly trailing?: ReactNode;
-  readonly onSelect: () => void;
+  readonly onSelect?: () => void;
   readonly variant?: "muted" | "outline";
   readonly size?: "sm" | "default";
 }
 
-/** A native button styled as an Item, with a list item wrapper. */
+/** An Item row with a native button when selection is available. */
 export function DossierItemButton({
   title,
   description,
@@ -27,31 +27,41 @@ export function DossierItemButton({
   className,
   ...buttonProps
 }: DossierItemButtonProps) {
+  const content = (
+    <>
+      {leading}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate text-sm font-medium">{title}</span>
+        {description !== undefined && (
+          <span className="line-clamp-2 text-sm leading-normal text-muted-foreground">
+            {description}
+          </span>
+        )}
+      </span>
+      {trailing !== undefined && (
+        <span className="flex shrink-0 items-center gap-2">{trailing}</span>
+      )}
+    </>
+  );
   return (
     <div role="listitem" className="min-w-0">
       <Item
-        asChild
+        asChild={!!onSelect}
         variant={variant}
         size={size}
         className={cn(
-          "cursor-pointer text-left hover:bg-accent focus-visible:bg-accent",
+          onSelect &&
+            "cursor-pointer text-left hover:bg-accent focus-visible:bg-accent",
           className,
         )}
       >
-        <button type="button" onClick={onSelect} {...buttonProps}>
-          {leading}
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="truncate text-sm font-medium">{title}</span>
-            {description !== undefined && (
-              <span className="line-clamp-2 text-sm leading-normal text-muted-foreground">
-                {description}
-              </span>
-            )}
-          </span>
-          {trailing !== undefined && (
-            <span className="flex shrink-0 items-center gap-2">{trailing}</span>
-          )}
-        </button>
+        {onSelect ? (
+          <button type="button" onClick={onSelect} {...buttonProps}>
+            {content}
+          </button>
+        ) : (
+          content
+        )}
       </Item>
     </div>
   );

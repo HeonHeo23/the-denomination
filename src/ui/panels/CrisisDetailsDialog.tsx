@@ -154,34 +154,35 @@ export function CrisisDetailsDialog({
                   </CardHeader>
                   <CardContent>
                     <ItemGroup className="gap-1 md:grid md:grid-cols-2">
-                      {prerequisites.map((prerequisite) => (
-                        <DossierItemButton
-                          key={`${group.id}:${prerequisite.prerequisite.nodeId}`}
-                          className="gap-2 py-1.5"
-                          aria-label={`Open ${prerequisite.nodeName} node dossier`}
-                          onSelect={() =>
-                            onNodeSelect(prerequisite.prerequisite.nodeId)
-                          }
-                          leading={
-                            prerequisite.met ? (
-                              <CircleAlert aria-hidden="true" />
-                            ) : (
-                              <CircleDashed aria-hidden="true" />
-                            )
-                          }
-                          title={prerequisite.nodeName}
-                          description={prerequisite.description}
-                          trailing={
-                            <Badge
-                              variant={
-                                prerequisite.met ? "destructive" : "outline"
-                              }
-                            >
-                              {prerequisite.met ? "Breached" : "Clear"}
-                            </Badge>
-                          }
-                        />
-                      ))}
+                      {prerequisites.map(
+                        ({ nodeId, title, description, met }, index) => (
+                          <DossierItemButton
+                            key={`${group.id}:${index}`}
+                            className="gap-2 py-1.5"
+                            aria-label={
+                              nodeId ? `Open ${title} node dossier` : undefined
+                            }
+                            onSelect={
+                              nodeId ? () => onNodeSelect(nodeId) : undefined
+                            }
+                            leading={
+                              nodeId &&
+                              (met ? (
+                                <CircleAlert aria-hidden="true" />
+                              ) : (
+                                <CircleDashed aria-hidden="true" />
+                              ))
+                            }
+                            title={title}
+                            description={description}
+                            trailing={
+                              <Badge variant={met ? "destructive" : "outline"}>
+                                {met ? "Breached" : "Clear"}
+                              </Badge>
+                            }
+                          />
+                        ),
+                      )}
                     </ItemGroup>
                   </CardContent>
                 </Card>

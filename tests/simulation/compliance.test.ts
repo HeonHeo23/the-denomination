@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "./fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
@@ -40,6 +41,7 @@ const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
   advanceTurnRaw(args[0], args[1], args[2] ?? 0);
 const exampleScenario = {
   ...bundledScenario,
+  completion: ongoingCompletion,
   dilemmas: [bundledScenario.dilemmas[0]],
 };
 
@@ -69,6 +71,8 @@ export function runComplianceTests() {
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
   const minimal: ScenarioDefinition = {
     schemaVersion: 3,
+    historicalActors: [],
+    completion: ongoingCompletion,
     id: "minimal",
     title: "Minimal",
     description: "Empty content",
@@ -388,6 +392,7 @@ export function runComplianceTests() {
 
   const accessor = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     get title(): string {
       throw new Error("must not execute content");
     },
@@ -1082,6 +1087,7 @@ export function runComplianceTests() {
 
   const session = createGameSession({
     ...exampleScenario,
+    completion: ongoingCompletion,
     start: { turn: 7, year: 2040 },
   });
   assert.ok(session.ok);

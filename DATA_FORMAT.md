@@ -41,6 +41,8 @@ interface ScenarioDefinition {
   events?: EventDefinition[];
   dilemmas?: DilemmaDefinition[];
   gameOvers?: GameOverDefinition[];
+  historicalActors: HistoricalActorDefinition[];
+  completion: CompletionDefinition;
 }
 ```
 
@@ -53,6 +55,27 @@ ambiguous use of `prerequisites` for both provided and required tags.
 
 `schemaVersion` versions the representation, not game balance or saved
 runtime state.
+
+```ts
+type HistoricalActorDefinition = { id: string; name: string; role: string; description: string };
+type EndingNarrative = { id: string; title: string; narrative: string };
+type EndingDefinition = EndingNarrative & { priority: number; prerequisiteGroups: PrerequisiteGroupDefinition[] };
+interface CompletionDefinition {
+  prerequisiteGroups: Array<PrerequisiteGroupDefinition & { description: string }>;
+  endings: EndingDefinition[];
+  fallbackEnding: EndingNarrative; reportNodeIds: string[];
+}
+```
+
+Actors require all four fields. Completion groups are non-empty and require
+descriptions; endings, actors, and report nodes may be empty. IDs are unique;
+the fallback shares the ending namespace. Priorities are integers (higher wins;
+ID breaks ties). Prerequisites use the shared validation rules.
+
+Runtime Dilemmas store the latest resolved turn and choice; ending outcomes store
+the ending, turn, matched trigger/group IDs, and fallback flag. An ending turn
+must follow any recorded Dilemma resolution turn. Versions remain
+unchanged; old content and saves missing required fields fail validation.
 
 ## Nodes
 
@@ -248,7 +271,7 @@ are settled. Every `product.factors` entry must reference a node.
 
 ## Runtime prerequisites
 
-Runtime prerequisites are reusable predicates over canonical node state. They
+Runtime prerequisites are reusable predicates over canonical runtime state. They
 are distinct from static `requires` tags.
 
 ```ts
@@ -259,18 +282,27 @@ type PrerequisiteDefinition =
       comparison: "at-most" | "at-least";
       value: number;
     }
-  | { kind: "node-activation"; nodeId: string; active: boolean };
+  | { kind: "node-activation"; nodeId: string; active: boolean }
+  | { kind: "turn"; atTurn: number }
+  | { kind: "event"; eventId: string }
+  | { kind: "dilemma-choice"; dilemmaId: string; choiceId?: string }
+  | { kind: "situation-resolved"; nodeId: string };
 
 interface PrerequisiteGroupDefinition {
   id: string;
   title: string;
+  description?: string;
   allOf: PrerequisiteDefinition[];
 }
 ```
 
 Every `nodeId` must resolve. A node-value threshold must lie within its node's
 domain. A group contains at least one prerequisite. IDs are unique within the
-consumer that owns the groups.
+consumer that owns the groups. Turn thresholds are integers after `start.turn`.
+Event and Dilemma references (including optional choices) must resolve;
+`situation-resolved` must reference a Situation active in retained history but
+inactive now. Groups are alternatives; their predicates are conjunctive.
+Completion group IDs remain `matchedTriggerIds` in ending outcomes.
 
 ## Game Overs
 
@@ -455,6 +487,13 @@ does not replace runtime validation for parsed content.
   title: 'The Connectional Fellowship',
   description: 'A growing fellowship under institutional strain.',
   start: { turn: 0, year: 1980 },
+  historicalActors: [],
+  completion: { prerequisiteGroups: [{ id: 'review',
+    title: 'Institutional review', description: 'Review two decades of ministry.',
+    allOf: [{ kind: 'turn', atTurn: 20 }] }],
+    endings: [], fallbackEnding: { id: 'preservation', title: 'Preservation',
+      narrative: 'The fellowship passes its commitments to a new period of leadership.' },
+    reportNodeIds: ['clergy-quality'] },
   conditions: ['has-seminary'],
   nodes: [
     {

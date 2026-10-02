@@ -210,7 +210,7 @@ Scenario + prior snapshot + injected incident random value
     -> terminal Game Over resolution
     -> capture all qualifying Events and Dilemmas from the nonterminal snapshot
     -> select at most one Dilemma and resolve Events in Event ID order
-    -> future normal Ending resolution only when nonterminal
+    -> normal Ending resolution after Events, unless terminal or awaiting a Dilemma
     -> next snapshot + trace/messages
 ```
 
@@ -237,11 +237,14 @@ engine randomly selects one Dilemma from all qualifying candidates using the
 incident random value, then applies Event consequences in Event ID order.
 
 Reusable runtime-prerequisite evaluation and consequence application belong in
-the simulation engine. Consumers such as Game Overs or future incidents own
-when they evaluate and why a consequence occurs; sharing these helpers MUST NOT
-collapse their distinct timing or selection semantics. Game Over evaluation
-reads the completed persistent snapshot, owns its episode counters, and records
-the sole terminal outcome before any future normal Ending resolver runs.
+the simulation engine. Completion and ending conditions share predicate groups
+and validation; predicates may read turn, incident, and retained node history.
+Consumers such as Game Overs or future incidents own when they evaluate and
+why a consequence occurs; sharing these helpers MUST NOT collapse their distinct
+timing or selection semantics. Game Over evaluation
+reads the completed persistent snapshot and records Game Overs before normal
+completion, evaluated only by turn advancement after Events. Dilemma commands
+apply choices without resolving endings.
 
 ### Engine functions
 
@@ -251,7 +254,7 @@ private helpers. It describes current code rather than adding game semantics;
 
 | Function                                                                                    | Visibility      | Current flow                                                                                                                                                                                                                                                         |
 | ------------------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Capture incidents and resolve Events. <br>7. Record completed-turn node values and return state, message, and trace. |
+| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Capture incidents and resolve Events. <br>7. Record completed-turn values; resolve normal completion unless terminal or awaiting a Dilemma. <br>8. Return state, message, and trace. |
 | `evaluateGameOvers`<br>`evaluateGameOvers.ts`                                               | Engine-internal | Evaluate grouped prerequisites, advance or recover crisis episodes, apply stage consequences, and record all simultaneous terminal causes.                                                                                                                           |
 | `applyConsequences`<br>`consequences.ts`                                                    | Engine-internal | Apply validated Resource, Grudge, and activation consequences immutably for one deterministic occurrence.                                                                                                                                                            |
 | `responseValue`<br>`responseValue.ts`                                                       | Engine-internal | 1. Select response kind. <br>2. Calculate its contribution.                                                                                                                                                                                                          |
@@ -308,13 +311,15 @@ Browser persistence belongs behind the application/session layer and stores:
 Do not persist React state, React Flow objects, arbitrary cached projections, or
 function references. The Turn report record is an explicit player-facing save
 record, keyed by Scenario IDs and rehydrated into a UI projection after load.
-Loading must validate and, when necessary, explicitly migrate saved data before
-passing the runtime state to the engine. The engine itself remains independent
-of storage technology.
+Loading MUST validate saved data before passing runtime state to the engine.
+The MVP uses only the current save slot and rejects incompatible formats without
+migration. The engine remains independent of storage technology.
 
 The current browser adapter owns one versioned local save slot. It validates
 the save format, identity limits, Scenario and catalog-version compatibility,
 and the complete canonical runtime snapshot before offering restoration.
+Validation checks structure, references, and runtime invariants; it does not
+reevaluate recorded endings or compare Chronicle prose with authored text.
 Invalid or incompatible saves are never passed to the session or engine.
 
 ## Architectural invariants

@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "./fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
@@ -27,6 +28,7 @@ const resourceEvent = (id: string, amount: number): EventDefinition => ({
 export function runEventTests() {
   const scenario: ScenarioDefinition = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     gameOvers: [],
     dilemmas: [],
     events: [resourceEvent("second", 3), resourceEvent("first", -2)],
@@ -177,6 +179,7 @@ export function runEventTests() {
 
   const terminalScenario: ScenarioDefinition = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     events: [resourceEvent("terminal-test", 2)],
     dilemmas: [],
   };

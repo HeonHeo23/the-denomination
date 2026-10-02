@@ -1,3 +1,5 @@
+import { runEndingTests } from "./endings.test";
+import { ongoingCompletion } from "./fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import { runComplianceTests } from "./compliance.test";
 import { runDilemmaTests } from "./dilemmas.test";
@@ -20,6 +22,7 @@ import { runDilemmaDecisionProjectionTests } from "../ui/projectDilemmaDecisions
 
 const exampleScenario = {
   ...bundledScenario,
+  completion: ongoingCompletion,
   dilemmas: [bundledScenario.dilemmas[0]],
 };
 
@@ -37,6 +40,7 @@ function closeTo(actual: number, expected: number, message: string) {
   );
 }
 
+runEndingTests();
 runDilemmaTests();
 runEventTests();
 runEventDetailTests();
@@ -276,6 +280,8 @@ assert(
 
 const terminalScenario: ScenarioDefinition = {
   schemaVersion: 3,
+  historicalActors: [],
+  completion: ongoingCompletion,
   id: "terminal-test",
   title: "Terminal test",
   description: "Exercises reusable prerequisites and consequences.",
@@ -405,7 +411,8 @@ assert(
 );
 terminalState = advanceTurn(terminalScenario, terminalState).state;
 assert(
-  terminalState.outcome?.causes[0]?.gameOverId === "collapse",
+  terminalState.outcome?.kind === "game-over" &&
+    terminalState.outcome.causes[0]?.gameOverId === "collapse",
   "A persistent trajectory should become terminal on its authored turn",
 );
 assert(
@@ -495,7 +502,8 @@ for (let index = 0; index < 3; index += 1)
     simultaneousState,
   ).state;
 assert(
-  simultaneousState.outcome?.causes.length === 2,
+  simultaneousState.outcome?.kind === "game-over" &&
+    simultaneousState.outcome.causes.length === 2,
   "Every trajectory becoming terminal on the same turn should be reported",
 );
 

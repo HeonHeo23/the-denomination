@@ -135,6 +135,8 @@ export function validateScenario(input: unknown): readonly string[] {
       "events",
       "dilemmas",
       "gameOvers",
+      "completion",
+      "historicalActors",
     ])
   )
     return errors;
@@ -556,6 +558,208 @@ export function validateScenario(input: unknown): readonly string[] {
   incidents(input.events, "$.events", "event");
   incidents(input.dilemmas, "$.dilemmas", "dilemma");
 
+  const scenarioContent = input;
+  const startTurn = (input.start as ObjectValue | null | undefined)?.turn;
+  function prerequisiteGroups(
+    value: unknown,
+    path: string,
+    descriptions = false,
+  ) {
+    const groupIds = new Set<unknown>();
+    const groups = array(value, path);
+    if (groups.length === 0) error(path, "expected at least one group");
+    groups.forEach((group, groupIndex) => {
+      const groupPath = `${path}[${groupIndex}]`;
+      if (!object(group, groupPath, ["id", "title", "description", "allOf"]))
+        return;
+      id(group.id, `${groupPath}.id`);
+      if (groupIds.has(group.id))
+        error(`${groupPath}.id`, "duplicate prerequisite group identifier");
+      groupIds.add(group.id);
+      string(group.title, `${groupPath}.title`);
+      if (descriptions || group.description !== undefined)
+        string(group.description, `${groupPath}.description`);
+      const prerequisites = array(group.allOf, `${groupPath}.allOf`);
+      if (prerequisites.length === 0)
+        error(`${groupPath}.allOf`, "expected at least one prerequisite");
+      prerequisites.forEach((prerequisite, prerequisiteIndex) => {
+        const p = `${groupPath}.allOf[${prerequisiteIndex}]`;
+        if (
+          !object(prerequisite, p, [
+            "kind",
+            "nodeId",
+            "comparison",
+            "value",
+            "active",
+            "atTurn",
+            "eventId",
+            "dilemmaId",
+            "choiceId",
+          ])
+        )
+          return;
+        switch (prerequisite.kind) {
+          case "node-value": {
+            only(prerequisite, p, ["kind", "nodeId", "comparison", "value"]);
+            refs.push({ value: prerequisite.nodeId, path: `${p}.nodeId` });
+            if (
+              !["at-most", "at-least"].includes(String(prerequisite.comparison))
+            )
+              error(`${p}.comparison`, "unknown comparison");
+            const target =
+              typeof prerequisite.nodeId === "string"
+                ? nodes.get(prerequisite.nodeId)
+                : undefined;
+            bounded(
+              prerequisite.value,
+              `${p}.value`,
+              (target?.domain as ObjectValue | undefined) ??
+                (Object.create(null) as ObjectValue),
+            );
+            break;
+          }
+          case "node-activation":
+            only(prerequisite, p, ["kind", "nodeId", "active"]);
+            refs.push({ value: prerequisite.nodeId, path: `${p}.nodeId` });
+            if (typeof prerequisite.active !== "boolean")
+              error(`${p}.active`, "expected a boolean");
+            break;
+          case "turn":
+            only(prerequisite, p, ["kind", "atTurn"]);
+            if (
+              number(prerequisite.atTurn, `${p}.atTurn`) &&
+              (!Number.isInteger(prerequisite.atTurn) ||
+                prerequisite.atTurn < 0 ||
+                (typeof startTurn === "number" &&
+                  prerequisite.atTurn <= startTurn))
+            )
+              error(
+                `${p}.atTurn`,
+                "expected an integer greater than start.turn",
+              );
+            break;
+          case "event":
+            only(prerequisite, p, ["kind", "eventId"]);
+            id(prerequisite.eventId, `${p}.eventId`);
+            if (
+              !Array.isArray(scenarioContent.events) ||
+              !scenarioContent.events.some(
+                (event) => event && event.id === prerequisite.eventId,
+              )
+            )
+              error(`${p}.eventId`, "unknown Event reference");
+            break;
+          case "dilemma-choice": {
+            only(prerequisite, p, ["kind", "dilemmaId", "choiceId"]);
+            id(prerequisite.dilemmaId, `${p}.dilemmaId`);
+            const dilemma = Array.isArray(scenarioContent.dilemmas)
+              ? scenarioContent.dilemmas.find(
+                  (dilemma) => dilemma && dilemma.id === prerequisite.dilemmaId,
+                )
+              : undefined;
+            if (!dilemma) error(`${p}.dilemmaId`, "unknown Dilemma reference");
+            if (prerequisite.choiceId !== undefined) {
+              id(prerequisite.choiceId, `${p}.choiceId`);
+              if (
+                !Array.isArray(dilemma?.choices) ||
+                !dilemma.choices.some(
+                  (choice: ObjectValue) =>
+                    choice && choice.id === prerequisite.choiceId,
+                )
+              )
+                error(`${p}.choiceId`, "unknown choice reference");
+            }
+            break;
+          }
+          case "situation-resolved":
+            only(prerequisite, p, ["kind", "nodeId"]);
+            id(prerequisite.nodeId, `${p}.nodeId`);
+            if (
+              typeof prerequisite.nodeId !== "string" ||
+              nodes.get(prerequisite.nodeId)?.type !== "situation"
+            )
+              error(`${p}.nodeId`, "expected a Situation reference");
+            break;
+          default:
+            error(`${p}.kind`, "unknown prerequisite kind");
+        }
+      });
+    });
+  }
+
+  const actorIds = new Set<unknown>();
+  array(input.historicalActors, "$.historicalActors").forEach(
+    (actor, index) => {
+      const path = `$.historicalActors[${index}]`;
+      if (!object(actor, path, ["id", "name", "role", "description"])) return;
+      id(actor.id, `${path}.id`);
+      if (actorIds.has(actor.id))
+        error(`${path}.id`, "duplicate actor identifier");
+      actorIds.add(actor.id);
+      for (const field of ["name", "role", "description"])
+        string(actor[field], `${path}.${field}`);
+    },
+  );
+  if (
+    object(input.completion, "$.completion", [
+      "prerequisiteGroups",
+      "endings",
+      "fallbackEnding",
+      "reportNodeIds",
+    ])
+  ) {
+    const completion = input.completion;
+    prerequisiteGroups(
+      completion.prerequisiteGroups,
+      "$.completion.prerequisiteGroups",
+      true,
+    );
+    const endingIds = new Set<unknown>();
+    function ending(value: unknown, path: string, conditional: boolean) {
+      if (
+        !object(value, path, [
+          "id",
+          "title",
+          "narrative",
+          ...(conditional ? ["priority", "prerequisiteGroups"] : []),
+        ])
+      )
+        return;
+      id(value.id, `${path}.id`);
+      if (endingIds.has(value.id))
+        error(`${path}.id`, "duplicate ending identifier");
+      endingIds.add(value.id);
+      string(value.title, `${path}.title`);
+      string(value.narrative, `${path}.narrative`);
+      if (conditional) {
+        if (
+          number(value.priority, `${path}.priority`) &&
+          !Number.isInteger(value.priority)
+        )
+          error(`${path}.priority`, "expected an integer");
+        prerequisiteGroups(
+          value.prerequisiteGroups,
+          `${path}.prerequisiteGroups`,
+        );
+      }
+    }
+    array(completion.endings, "$.completion.endings").forEach((value, index) =>
+      ending(value, `$.completion.endings[${index}]`, true),
+    );
+    ending(completion.fallbackEnding, "$.completion.fallbackEnding", false);
+    const reportIds = new Set<unknown>();
+    array(completion.reportNodeIds, "$.completion.reportNodeIds").forEach(
+      (value, index) => {
+        const path = `$.completion.reportNodeIds[${index}]`;
+        id(value, path);
+        refs.push({ value, path });
+        if (reportIds.has(value))
+          error(path, "duplicate report node reference");
+        reportIds.add(value);
+      },
+    );
+  }
+
   if (input.gameOvers !== undefined) {
     const gameOverIds = new Set<unknown>();
     array(input.gameOvers, "$.gameOvers").forEach((definition, index) => {
@@ -587,68 +791,10 @@ export function validateScenario(input: unknown): readonly string[] {
           "expected an integer of at least 2",
         );
 
-      const groupIds = new Set<unknown>();
-      const groups = array(
+      prerequisiteGroups(
         definition.prerequisiteGroups,
         `${path}.prerequisiteGroups`,
       );
-      if (groups.length === 0)
-        error(`${path}.prerequisiteGroups`, "expected at least one group");
-      groups.forEach((group, groupIndex) => {
-        const groupPath = `${path}.prerequisiteGroups[${groupIndex}]`;
-        if (!object(group, groupPath, ["id", "title", "allOf"])) return;
-        id(group.id, `${groupPath}.id`);
-        if (groupIds.has(group.id))
-          error(`${groupPath}.id`, "duplicate prerequisite group identifier");
-        groupIds.add(group.id);
-        string(group.title, `${groupPath}.title`);
-        const prerequisites = array(group.allOf, `${groupPath}.allOf`);
-        if (prerequisites.length === 0)
-          error(`${groupPath}.allOf`, "expected at least one prerequisite");
-        prerequisites.forEach((prerequisite, prerequisiteIndex) => {
-          const prerequisitePath = `${groupPath}.allOf[${prerequisiteIndex}]`;
-          if (
-            !object(prerequisite, prerequisitePath, [
-              "kind",
-              "nodeId",
-              "comparison",
-              "value",
-              "active",
-            ])
-          )
-            return;
-          refs.push({
-            value: prerequisite.nodeId,
-            path: `${prerequisitePath}.nodeId`,
-          });
-          if (prerequisite.kind === "node-value") {
-            only(prerequisite, prerequisitePath, [
-              "kind",
-              "nodeId",
-              "comparison",
-              "value",
-            ]);
-            if (
-              !["at-most", "at-least"].includes(String(prerequisite.comparison))
-            )
-              error(`${prerequisitePath}.comparison`, "unknown comparison");
-            const target =
-              typeof prerequisite.nodeId === "string"
-                ? nodes.get(prerequisite.nodeId)
-                : undefined;
-            bounded(
-              prerequisite.value,
-              `${prerequisitePath}.value`,
-              (target?.domain as ObjectValue | undefined) ??
-                (Object.create(null) as ObjectValue),
-            );
-          } else if (prerequisite.kind === "node-activation") {
-            only(prerequisite, prerequisitePath, ["kind", "nodeId", "active"]);
-            if (typeof prerequisite.active !== "boolean")
-              error(`${prerequisitePath}.active`, "expected a boolean");
-          } else error(`${prerequisitePath}.kind`, "unknown prerequisite kind");
-        });
-      });
 
       const stageIds = new Set<unknown>();
       const stageTurns = new Set<unknown>();

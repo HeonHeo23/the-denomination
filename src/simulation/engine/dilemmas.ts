@@ -64,6 +64,7 @@ export function queueDilemmas(
     dilemmas: {
       ...state.dilemmas,
       [selected.id]: {
+        ...progress,
         lastTriggerTurn: state.turn,
         triggerCount: progress.triggerCount + 1,
       },
@@ -124,6 +125,14 @@ export function resolveDilemma(
     message: `${definition.title}: ${choice.label}.`,
     state: {
       ...applied,
+      dilemmas: {
+        ...applied.dilemmas,
+        [dilemmaId]: {
+          ...applied.dilemmas[dilemmaId],
+          lastResolvedTurn: state.turn,
+          lastResolvedChoiceId: choiceId,
+        },
+      },
       nodeValueHistory,
       pendingDilemmaIds: state.pendingDilemmaIds.filter(
         (id) => id !== dilemmaId,

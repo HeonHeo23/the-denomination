@@ -1,19 +1,16 @@
 import type {
   GameOverDefinition,
   GameOverStageDefinition,
-  PrerequisiteDefinition,
   PrerequisiteGroupDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
-import { formatSignedValue, formatValue } from "../formatValue";
+import { formatSignedValue } from "../formatValue";
 
-export interface PrerequisiteStatus {
-  readonly prerequisite: PrerequisiteDefinition;
-  readonly nodeName: string;
-  readonly description: string;
-  readonly met: boolean;
-}
+import {
+  projectPrerequisite,
+  type PrerequisiteView,
+} from "./projectPrerequisite";
 
 export interface GameOverWarningView {
   readonly definition: GameOverDefinition;
@@ -24,7 +21,7 @@ export interface GameOverWarningView {
   readonly allGroups: readonly GameOverGroupView[];
   readonly matchedGroups: readonly {
     readonly group: PrerequisiteGroupDefinition;
-    readonly prerequisites: readonly PrerequisiteStatus[];
+    readonly prerequisites: readonly PrerequisiteView[];
   }[];
   readonly matchedPrerequisiteNodeIds: readonly string[];
 }
@@ -32,7 +29,7 @@ export interface GameOverWarningView {
 export interface GameOverGroupView {
   readonly group: PrerequisiteGroupDefinition;
   readonly matched: boolean;
-  readonly prerequisites: readonly PrerequisiteStatus[];
+  readonly prerequisites: readonly PrerequisiteView[];
 }
 
 export interface CrisisTurnTransition {
@@ -49,35 +46,6 @@ export interface CrisisView extends GameOverWarningView {
   readonly status: CrisisStatus;
 }
 
-export function prerequisiteStatus(
-  prerequisite: PrerequisiteDefinition,
-  scenario: ScenarioDefinition,
-  state: SimulationState,
-): PrerequisiteStatus {
-  const definition = scenario.nodes.find(
-    ({ id }) => id === prerequisite.nodeId,
-  )!;
-  const runtime = state.nodes[prerequisite.nodeId];
-  if (prerequisite.kind === "node-activation") {
-    return {
-      prerequisite,
-      nodeName: definition.name,
-      met: runtime.isActive === prerequisite.active,
-      description: `${definition.name} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
-    };
-  }
-  const met =
-    prerequisite.comparison === "at-most"
-      ? runtime.value <= prerequisite.value
-      : runtime.value >= prerequisite.value;
-  return {
-    prerequisite,
-    nodeName: definition.name,
-    met,
-    description: `${definition.name} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
-  };
-}
-
 export function getGroups(
   definition: GameOverDefinition,
   matchedGroupIds: readonly string[],
@@ -89,7 +57,7 @@ export function getGroups(
     group,
     matched: matchedIds.has(group.id),
     prerequisites: group.allOf.map((prerequisite) =>
-      prerequisiteStatus(prerequisite, scenario, state),
+      projectPrerequisite(prerequisite, scenario, state),
     ),
   }));
 }
@@ -143,8 +111,8 @@ export function projectGameOverWarnings(
           matchedGroups,
           matchedPrerequisiteNodeIds: [
             ...new Set(
-              matchedGroups.flatMap(({ group }) =>
-                group.allOf.map(({ nodeId }) => nodeId),
+              matchedGroups.flatMap(({ prerequisites }) =>
+                prerequisites.flatMap(({ nodeId }) => (nodeId ? [nodeId] : [])),
               ),
             ),
           ],
@@ -166,7 +134,9 @@ export function projectCrises(
 ): readonly CrisisView[] {
   const warnings = projectGameOverWarnings(scenario, state);
   const terminalIds = new Set(
-    state.outcome?.causes.map(({ gameOverId }) => gameOverId) ?? [],
+    state.outcome?.kind === "game-over"
+      ? state.outcome.causes.map(({ gameOverId }) => gameOverId)
+      : [],
   );
   const items: CrisisView[] = warnings.map((warning) => ({
     ...warning,
@@ -306,7 +276,7 @@ export function projectGameOverReport(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): readonly GameOverReportCauseView[] {
-  if (!state.outcome) return [];
+  if (state.outcome?.kind !== "game-over") return [];
   return state.outcome.causes.flatMap((cause) => {
     const definition = scenario.gameOvers?.find(
       ({ id }) => id === cause.gameOverId,
@@ -321,8 +291,8 @@ export function projectGameOverReport(
       .filter(({ matched }) => matched)
       .map(({ group, prerequisites }) => ({ group, prerequisites }));
     const affectedNodeIds = new Set(
-      matchedGroups.flatMap(({ group }) =>
-        group.allOf.map(({ nodeId }) => nodeId),
+      matchedGroups.flatMap(({ prerequisites }) =>
+        prerequisites.flatMap(({ nodeId }) => (nodeId ? [nodeId] : [])),
       ),
     );
     const contributions = projectGameOverContributions(scenario, state, [

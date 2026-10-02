@@ -171,12 +171,21 @@ export type PrerequisiteDefinition =
       readonly kind: "node-activation";
       readonly nodeId: NodeId;
       readonly active: boolean;
-    };
+    }
+  | { readonly kind: "turn"; readonly atTurn: number }
+  | { readonly kind: "event"; readonly eventId: string }
+  | {
+      readonly kind: "dilemma-choice";
+      readonly dilemmaId: string;
+      readonly choiceId?: string;
+    }
+  | { readonly kind: "situation-resolved"; readonly nodeId: NodeId };
 
 /** A named conjunction; consumers may treat several groups as alternatives. */
 export interface PrerequisiteGroupDefinition {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
   readonly allOf: readonly PrerequisiteDefinition[];
 }
 
@@ -261,12 +270,41 @@ export interface DilemmaDefinition {
   }[];
 }
 
+export interface HistoricalActorDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly description: string;
+}
+
+export interface EndingNarrativeDefinition {
+  readonly id: string;
+  readonly title: string;
+  readonly narrative: string;
+}
+
+export interface EndingDefinition extends EndingNarrativeDefinition {
+  readonly priority: number;
+  readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
+}
+
+export interface CompletionDefinition {
+  readonly prerequisiteGroups: readonly (PrerequisiteGroupDefinition & {
+    readonly description: string;
+  })[];
+  readonly endings: readonly EndingDefinition[];
+  readonly fallbackEnding: EndingNarrativeDefinition;
+  readonly reportNodeIds: readonly NodeId[];
+}
+
 /** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
   readonly schemaVersion: 3;
+  readonly historicalActors: readonly HistoricalActorDefinition[];
+  readonly completion: CompletionDefinition;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
   readonly events?: readonly EventDefinition[];

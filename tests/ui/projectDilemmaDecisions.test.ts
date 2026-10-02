@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "../simulation/fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
@@ -16,6 +17,7 @@ export function runDilemmaDecisionProjectionTests() {
   };
   const scenario = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     events: [],
     gameOvers: [],
     dilemmas: [definition],

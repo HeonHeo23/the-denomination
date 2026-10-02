@@ -33,6 +33,7 @@ import {
 } from "./eventDialogFlow";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
+import { EndingReportDialog } from "./EndingReportDialog";
 import { GameOverReportDialog } from "./GameOverReportDialog";
 import { projectCrises, projectGameOverWarnings } from "./projectGameOvers";
 import { useDossierNavigation } from "./useDossierNavigation";
@@ -149,7 +150,7 @@ export function GameView({
       setDilemmaOpen(false);
       setToastMessage(undefined);
       const presentCompletedTurn = () => {
-        if (session.state.outcome) {
+        if (session.state.outcome?.kind === "game-over") {
           openReport();
           return;
         }
@@ -159,8 +160,12 @@ export function GameView({
           session.state,
           report.turn,
         );
-        const presentation = beginAutomaticEvents(ids);
+        const presentation = beginAutomaticEvents(
+          ids,
+          session.state.outcome?.kind === "ending" ? "ending" : undefined,
+        );
         if (presentation) setEventPresentation(presentation);
+        else if (session.state.outcome?.kind === "ending") openReport();
         else setTurnReportOpen(true);
       };
       if (reducedMotion) {
@@ -283,7 +288,8 @@ export function GameView({
               }
             : undefined
         }
-        gameOver={Boolean(session.state.outcome)}
+        terminal={Boolean(session.state.outcome)}
+        normalEnding={session.state.outcome?.kind === "ending"}
         pendingDilemmaCount={session.state.pendingDilemmaIds.length}
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
@@ -326,7 +332,7 @@ export function GameView({
             setTurnReportOpen(true);
           }
         }}
-        onOpenGameOver={navigation.openReport}
+        onOpenFinalReport={navigation.openReport}
         musicMuted={musicMuted}
         onToggleMusic={onToggleMusic}
       />
@@ -446,6 +452,7 @@ export function GameView({
             if (open || !eventPresentation) return;
             const next = closeEventPresentation(eventPresentation);
             setEventPresentation(next.next);
+            if (next.returnTo === "ending") openReport();
             if (next.returnTo === "report") setTurnReportOpen(true);
             if (next.returnTo === "chronicle") setActivePanel("chronicle");
           }}
@@ -467,11 +474,29 @@ export function GameView({
         />
       )}
 
-      {navigation.reportOpen && session.state.outcome && (
+      {navigation.reportOpen && session.state.outcome?.kind === "game-over" && (
         <GameOverReportDialog
           scenario={scenario}
           state={session.state}
           onCrisisSelect={selectCrisis}
+          onReview={navigation.reviewFinalState}
+          onRestart={() => {
+            navigation.reset();
+            session.reset();
+          }}
+          onMainMenu={() => {
+            navigation.reset();
+            onMainMenu(session.state, savedTurnReport);
+          }}
+        />
+      )}
+
+      {navigation.reportOpen && session.state.outcome?.kind === "ending" && (
+        <EndingReportDialog
+          scenario={scenario}
+          state={session.state}
+          denominationName={denominationName}
+          onNodeSelect={selectNode}
           onReview={navigation.reviewFinalState}
           onRestart={() => {
             navigation.reset();

@@ -79,7 +79,12 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     dilemmas: Object.fromEntries(
       (scenario.dilemmas ?? []).map(({ id }) => [
         id,
-        { lastTriggerTurn: null, triggerCount: 0 },
+        {
+          lastTriggerTurn: null,
+          triggerCount: 0,
+          lastResolvedTurn: null,
+          lastResolvedChoiceId: null,
+        },
       ]),
     ),
     events: Object.fromEntries(

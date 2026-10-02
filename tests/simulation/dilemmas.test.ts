@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "./fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
@@ -51,6 +52,7 @@ export function runDilemmaTests() {
   assert.deepEqual(validateScenario(exampleScenario), []);
   const ungatedRandom = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     conditions: [],
     gameOvers: [],
     dilemmas: [
@@ -66,6 +68,7 @@ export function runDilemmaTests() {
   );
   const governanceOnly = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     dilemmas: [exampleScenario.dilemmas[0]],
   };
   const raisedCentralization = executeCommand(
@@ -88,6 +91,7 @@ export function runDilemmaTests() {
 
   const scenario: ScenarioDefinition = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     gameOvers: [],
     dilemmas: [
       makeDilemma("first-decision", 2),
@@ -190,7 +194,12 @@ export function runDilemmaTests() {
       turn: 4,
       dilemmas: {
         ...initial.dilemmas,
-        "second-decision": { lastTriggerTurn: 1, triggerCount: 1 },
+        "second-decision": {
+          lastTriggerTurn: 1,
+          triggerCount: 1,
+          lastResolvedTurn: 1,
+          lastResolvedChoiceId: "accept",
+        },
       },
     },
     0.99,

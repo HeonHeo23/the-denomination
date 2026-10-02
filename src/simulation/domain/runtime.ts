@@ -37,6 +37,7 @@ export interface HistoryEntry {
     | "crisis"
     | "consequence"
     | "game-over"
+    | "ending"
     | "dilemma"
     | "event";
   readonly title: string;
@@ -68,7 +69,18 @@ export interface GameOverOutcome {
   readonly causes: readonly GameOverOutcomeCause[];
 }
 
+export interface EndingOutcome {
+  readonly kind: "ending";
+  readonly turn: number;
+  readonly endingId: string;
+  readonly matchedTriggerIds: readonly string[];
+  readonly matchedPrerequisiteGroupIds: readonly string[];
+  readonly usedFallback: boolean;
+}
+
 export interface DilemmaRuntimeState {
+  readonly lastResolvedTurn: number | null;
+  readonly lastResolvedChoiceId: string | null;
   readonly lastTriggerTurn: number | null;
   readonly triggerCount: number;
 }
@@ -94,5 +106,5 @@ export interface SimulationState {
   readonly gameOverProgress: Readonly<
     Record<string, GameOverProgressRuntimeState>
   >;
-  readonly outcome: GameOverOutcome | null;
+  readonly outcome: GameOverOutcome | EndingOutcome | null;
 }

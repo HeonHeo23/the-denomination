@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "../simulation/fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
   advanceTurn as advanceTurnRaw,
@@ -15,6 +16,7 @@ const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
   advanceTurnRaw(args[0], args[1], args[2] ?? 0);
 const exampleScenario = {
   ...bundledScenario,
+  completion: ongoingCompletion,
   dilemmas: [bundledScenario.dilemmas[0]],
 };
 

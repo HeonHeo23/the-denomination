@@ -275,10 +275,14 @@ forms are:
 | Form                  | Input                           | Semantics                                                                                                                                       |
 | --------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Static `requires` tag | Immutable Scenario `conditions` | Every required tag MUST be present. It gates supported Stances, Situations, Events, and Dilemmas; runtime-derived or mutable tags are deferred. |
-| Runtime predicate     | Canonical node snapshot         | Inclusive `at-most`/`at-least` value threshold, or active/inactive state.                                                                       |
+| Runtime predicate     | Canonical runtime snapshot      | Node value/activation, reached turn, fired Event, latest resolved Dilemma choice, or resolved Situation.                                                                       |
 | Group                 | Non-empty predicate set         | Every predicate MUST hold; several groups are alternatives.                                                                                     |
 
-Referenced nodes MUST exist and value thresholds MUST be in their node domains.
+Node thresholds are inclusive. References MUST resolve and value thresholds
+MUST be in their node domains.
+A resolved Situation is inactive now and was active in retained history; initial
+inactivity does not qualify. Dilemma predicates use structured latest-resolution
+state, optionally requiring a choice. Consumers retain their own evaluation timing.
 
 ## Consequences
 
@@ -316,8 +320,8 @@ prerequisites hold; any satisfied group qualifies the trajectory.
 
 Prerequisites are evaluated before stage or recovery consequences. Simultaneous
 terminal trajectories are recorded as one outcome with multiple causes. Terminal
-Game Over resolution takes precedence over nonterminal occurrences and blocks
-normal endings, player commands, and further turn advancement.
+Game Over resolution takes precedence over normal completion and blocks player
+commands and further turn advancement.
 
 ## Scenario and runtime state
 
@@ -338,7 +342,8 @@ least:
 - incident cooldown/recurrence state;
 - pending Dilemmas, if any;
 - per-trajectory Game Over episode and consecutive-turn progress;
-- a terminal Game Over outcome, if reached;
+- a terminal Game Over or normal Ending outcome, if reached;
+- latest resolved Dilemma turn and choice;
 - player-visible history where retained.
 
 Declared initial node values are authoritative at turn zero. Initialization
@@ -363,9 +368,18 @@ following partial ordering is authoritative:
 - a Grudge contributes before it decays for that turn;
 - Game Over prerequisites read the post-persistent, post-decay snapshot before
   newly reached stage or recovery consequences are applied;
-- Game Over resolution precedes and blocks normal Ending resolution;
+- Game Over resolution precedes normal completion;
 - pending Dilemmas prevent another turn from advancing;
 - at most one qualifying Dilemma is selected from one shared snapshot;
+
+Each Scenario defines completion prerequisite groups, prioritized endings, and a
+fallback. Check completion once per advanced turn after Events. Any matching
+group triggers completion unless a Dilemma is pending. Choices do not evaluate
+completion; their consequences and resolution state enter the next turn’s check.
+Game Over blocks completion and is not rechecked after incidents. Resolve the
+highest-priority matching ending (ties by ID), or the fallback; record once and
+lock commands. Actors are descriptive. Reports show narrative, actors, and
+selected final readings.
 
 Randomness may influence explicitly random mechanics, especially incidents. It
 should be bounded, causally constrained, and injectable or seedable where

@@ -1,7 +1,8 @@
+import { ongoingCompletion } from "../simulation/fixtures";
+import { runEndingPersistenceTests } from "./endings.test";
 import assert from "node:assert/strict";
 import {
   clearSavedGame,
-  LEGACY_SAVE_STORAGE_KEY,
   loadSavedGame,
   SAVE_STORAGE_KEY,
   storeSavedGame,
@@ -14,7 +15,7 @@ import {
   reduceGameSession,
 } from "../../src/app/gameSession";
 import { loadScenarioCatalog } from "../../src/app/scenarioCatalog";
-import { exampleScenario } from "../../src/scenarios/example";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
   advanceTurn,
   executeCommand,
@@ -25,6 +26,8 @@ import {
   restoreTurnReport,
   serializeTurnReport,
 } from "../../src/ui/panels/projectTurnReport";
+
+const exampleScenario = { ...bundledScenario, completion: ongoingCompletion };
 
 class MemoryStorage implements SaveStorage {
   readonly values = new Map<string, string>();
@@ -209,6 +212,21 @@ assert.equal(oldPendingSave.status, "unavailable");
 assert.ok(
   validateSavedGame(reportSave, catalog),
   "A save with a turn report should be accepted",
+);
+const effectId = exampleScenario.effects[0].id;
+assert.equal(
+  validateSavedGame(
+    {
+      ...reportSave,
+      turnReport: {
+        ...savedTurnReport,
+        changedEffectIds: [effectId, effectId],
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "Duplicate Effect references in turn reports must be rejected",
 );
 assert.deepEqual(
   restoreTurnReport(catalog[0].scenario, savedTurnReport),
@@ -472,30 +490,34 @@ assert.match(clearSavedGame(failingStorage) ?? "", /could not be removed/);
 assert.equal(clearSavedGame(storage), undefined);
 assert.equal(storage.getItem(SAVE_STORAGE_KEY), null);
 
-storage.setItem(LEGACY_SAVE_STORAGE_KEY, JSON.stringify({ version: 1 }));
-const legacy = loadSavedGame(storage, catalog);
-assert.equal(legacy.status, "unavailable");
-if (legacy.status === "unavailable") {
-  assert.equal(legacy.discardInvalid, true);
-  assert.match(legacy.message, /older format/);
-}
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(storage.getItem(LEGACY_SAVE_STORAGE_KEY), null);
-
-storage.setItem("the-denomination.save.v2", JSON.stringify({ version: 2 }));
-const previous = loadSavedGame(storage, catalog);
-assert.equal(previous.status, "unavailable");
-if (previous.status === "unavailable")
-  assert.match(previous.message, /older format/);
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(storage.getItem("the-denomination.save.v2"), null);
-
-storage.setItem("the-denomination.save.v3", JSON.stringify({ version: 3 }));
-const previousV3 = loadSavedGame(storage, catalog);
-assert.equal(previousV3.status, "unavailable");
-if (previousV3.status === "unavailable")
-  assert.match(previousV3.message, /older format/);
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(storage.getItem("the-denomination.save.v3"), null);
+const touchedKeys: string[] = [];
+const currentSlotStorage: SaveStorage = {
+  getItem(key) {
+    touchedKeys.push(key);
+    return storage.getItem(key);
+  },
+  setItem(key, value) {
+    touchedKeys.push(key);
+    storage.setItem(key, value);
+  },
+  removeItem(key) {
+    touchedKeys.push(key);
+    storage.removeItem(key);
+  },
+};
+storage.setItem("unrelated-setting", "preserved");
+assert.deepEqual(loadSavedGame(currentSlotStorage, catalog), {
+  status: "empty",
+});
+assert.equal(storeSavedGame(currentSlotStorage, save), undefined);
+assert.equal(clearSavedGame(currentSlotStorage), undefined);
+assert.deepEqual(
+  touchedKeys,
+  [SAVE_STORAGE_KEY, SAVE_STORAGE_KEY, SAVE_STORAGE_KEY],
+  "Persistence touches only its current save slot",
+);
+assert.equal(storage.getItem("unrelated-setting"), "preserved");
 
 console.log("Application persistence checks passed.");
+
+runEndingPersistenceTests();

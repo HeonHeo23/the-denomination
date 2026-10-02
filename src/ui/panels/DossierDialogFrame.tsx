@@ -11,7 +11,8 @@ import { cn } from "@/lib/utils";
 interface DossierDialogFrameProps {
   readonly open: boolean;
   readonly onOpenChange?: (open: boolean) => void;
-  readonly surface: "node" | "crisis" | "game-over" | "chronicle" | "dilemma";
+  readonly surface:
+    "node" | "crisis" | "game-over" | "ending" | "chronicle" | "dilemma";
   readonly header: ReactNode;
   readonly children: ReactNode;
   readonly footer?: ReactNode;
@@ -36,6 +37,7 @@ export function DossierDialogFrame({
         showCloseButton={showCloseButton}
         data-game-node-record={surface === "node" ? true : undefined}
         data-game-crisis-dossier={surface === "crisis" ? true : undefined}
+        data-game-ending-report={surface === "ending" ? true : undefined}
         data-game-over-report={surface === "game-over" ? true : undefined}
         data-game-chronicle={surface === "chronicle" ? true : undefined}
         data-game-dilemma={surface === "dilemma" ? true : undefined}

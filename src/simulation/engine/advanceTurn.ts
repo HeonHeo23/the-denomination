@@ -2,6 +2,7 @@ import type { ScenarioDefinition } from "../domain/definitions";
 import type { TurnResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { evaluatePersistentState } from "./evaluatePersistentState";
+import { resolveEnding } from "./resolveEnding";
 import { evaluateGameOvers } from "./evaluateGameOvers";
 import { queueDilemmas } from "./dilemmas";
 import { resolveEvents, selectEvents } from "./events";
@@ -51,7 +52,7 @@ export function advanceTurn(
   const selectedEvents = selectEvents(scenario, resolved, randomValue);
   const queued = queueDilemmas(scenario, resolved, randomValue);
   const afterEvents = resolveEvents(scenario, queued, selectedEvents);
-  const completed = {
+  const completed = resolveEnding(scenario, {
     ...afterEvents,
     nodeValueHistory: [
       ...afterEvents.nodeValueHistory,
@@ -68,12 +69,14 @@ export function advanceTurn(
         ),
       },
     ],
-  };
+  });
   return {
     state: completed,
     message: resolved.outcome
       ? "Game over. The institution can no longer continue under your leadership."
-      : `Advanced to turn ${turn}.`,
+      : completed.outcome?.kind === "ending"
+        ? "Scenario complete. Review the institution’s final report."
+        : `Advanced to turn ${turn}.`,
     trace: evaluated.trace,
   };
 }

@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "./fixtures";
 import { exampleScenario } from "../../src/scenarios/example";
 import { applyConsequences } from "../../src/simulation/engine/consequences";
 import {
@@ -17,6 +18,8 @@ function resourceScenario(
 ): ScenarioDefinition {
   return {
     schemaVersion: 3,
+    historicalActors: [],
+    completion: ongoingCompletion,
     id,
     title: "Resource test",
     description: "Exercises Resource balance and flow.",
@@ -192,6 +195,7 @@ export function runResourceTests() {
   assert(insolvency, "The sample should define institutional insolvency");
   const scenario: ScenarioDefinition = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     id: "resource-insolvency-test",
     effects: [],
     events: [],
@@ -206,11 +210,12 @@ export function runResourceTests() {
   );
   state = turns(scenario, 3, state);
   assert(
-    state.outcome?.causes.some(
-      ({ gameOverId, matchedPrerequisiteGroupIds }) =>
-        gameOverId === "institutional-insolvency" &&
-        matchedPrerequisiteGroupIds.includes("severe-debt"),
-    ),
+    state.outcome?.kind === "game-over" &&
+      state.outcome.causes.some(
+        ({ gameOverId, matchedPrerequisiteGroupIds }) =>
+          gameOverId === "institutional-insolvency" &&
+          matchedPrerequisiteGroupIds.includes("severe-debt"),
+      ),
     "Sustained Resource debt should trigger the authored insolvency outcome",
   );
 }

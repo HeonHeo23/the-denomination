@@ -1,3 +1,4 @@
+import { ongoingCompletion } from "../simulation/fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
 import { advanceTurn, initializeScenario } from "../../src/simulation";
@@ -13,6 +14,7 @@ import {
 export function runEventDetailTests() {
   const scenario = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     dilemmas: [],
     gameOvers: [],
     events: [

@@ -2,12 +2,159 @@ import type { ScenarioDefinition } from "../../simulation";
 
 const percentDomain = { min: 0, max: 1, clamp: true } as const;
 
+const expansionGroups = [
+  {
+    id: "stable-expansion",
+    title: "Sustainable mission and institutional stability",
+    allOf: [
+      {
+        kind: "node-value",
+        nodeId: "mission-reach",
+        comparison: "at-least",
+        value: 0.7,
+      },
+      {
+        kind: "node-value",
+        nodeId: "financial-stability",
+        comparison: "at-least",
+        value: 0.6,
+      },
+      {
+        kind: "node-value",
+        nodeId: "congregational-cohesion",
+        comparison: "at-least",
+        value: 0.65,
+      },
+    ],
+  },
+] as const;
+
 export const exampleScenario = {
   id: "connectional-fellowship-1980",
   title: "The Connectional Fellowship",
   description:
     "Guide a growing fellowship through competing demands for institutional strength, local trust, ministry investment, and sustainable mission.",
   schemaVersion: 3,
+  historicalActors: [
+    {
+      id: "central-office",
+      name: "Central church office",
+      role: "Institutional coordination",
+      description:
+        "Leaders coordinating the fellowship’s common ministries and commitments.",
+    },
+    {
+      id: "regional-delegates",
+      name: "Regional delegates",
+      role: "Local representation",
+      description:
+        "Delegates bringing congregational concerns to the General Assembly.",
+    },
+    {
+      id: "seminary-faculty",
+      name: "Seminary faculty",
+      role: "Clergy formation",
+      description:
+        "Teachers preparing clergy and debating the fellowship’s teaching traditions.",
+    },
+  ],
+  completion: {
+    prerequisiteGroups: [
+      {
+        id: "millennium-review",
+        allOf: [{ kind: "turn", atTurn: 20 }],
+        title: "The 2000 institutional review",
+        description:
+          "The fellowship reviews two decades of institutional leadership.",
+      },
+      {
+        id: "sustainable-expansion",
+        title: "Sustainable expansion achieved",
+        description:
+          "Mission reach, financial stability, and congregational cohesion support a durable expansion.",
+        allOf: expansionGroups[0].allOf,
+      },
+    ],
+    endings: [
+      {
+        id: "expansion",
+        title: "Expansion",
+        priority: 30,
+        prerequisiteGroups: expansionGroups,
+        narrative:
+          "The fellowship extends its mission while preserving the finances and connections that sustain it. New communities join an institution capable of supporting their shared work.",
+      },
+      {
+        id: "revival",
+        title: "Revival",
+        priority: 20,
+        prerequisiteGroups: [
+          {
+            id: "renewed-participation",
+            title: "Renewed worship and membership",
+            allOf: [
+              {
+                kind: "node-value",
+                nodeId: "worship-participation",
+                comparison: "at-least",
+                value: 0.65,
+              },
+              {
+                kind: "node-value",
+                nodeId: "member-retention",
+                comparison: "at-least",
+                value: 0.65,
+              },
+            ],
+          },
+        ],
+        narrative:
+          "Renewed worship and lasting congregational connections give the fellowship fresh vitality. Its institutional legacy lives in communities that continue to gather and serve.",
+      },
+      {
+        id: "preservation",
+        title: "Preservation",
+        priority: 10,
+        prerequisiteGroups: [
+          {
+            id: "institution-preserved",
+            title: "A connected and viable institution",
+            allOf: [
+              {
+                kind: "node-value",
+                nodeId: "congregational-cohesion",
+                comparison: "at-least",
+                value: 0.55,
+              },
+              {
+                kind: "node-value",
+                nodeId: "financial-stability",
+                comparison: "at-least",
+                value: 0.5,
+              },
+            ],
+          },
+        ],
+        narrative:
+          "The fellowship remains connected and financially viable. Its ministries continue, carrying inherited commitments into a new period of leadership.",
+      },
+    ],
+    fallbackEnding: {
+      id: "unresolved-crisis",
+      title: "Unresolved Crisis",
+      narrative:
+        "The review closes with the fellowship still standing, but without a settled institutional direction. Its unresolved tensions and commitments pass to those who follow.",
+    },
+    reportNodeIds: [
+      "mission-reach",
+      "financial-stability",
+      "congregational-cohesion",
+      "worship-participation",
+      "member-retention",
+      "money",
+      "authority",
+    ],
+  },
   start: { turn: 0, year: 1980 },
   conditions: ["has-seminary", "has-general-assembly"],
   events: [

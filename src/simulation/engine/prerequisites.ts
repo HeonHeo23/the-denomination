@@ -9,13 +9,39 @@ export function prerequisiteMet(
   prerequisite: PrerequisiteDefinition,
   state: SimulationState,
 ): boolean {
-  const node = state.nodes[prerequisite.nodeId];
-  if (!node) return false;
-  if (prerequisite.kind === "node-activation")
-    return node.isActive === prerequisite.active;
-  return prerequisite.comparison === "at-most"
-    ? node.value <= prerequisite.value
-    : node.value >= prerequisite.value;
+  switch (prerequisite.kind) {
+    case "node-value": {
+      const node = state.nodes[prerequisite.nodeId];
+      return (
+        !!node &&
+        (prerequisite.comparison === "at-most"
+          ? node.value <= prerequisite.value
+          : node.value >= prerequisite.value)
+      );
+    }
+    case "node-activation":
+      return state.nodes[prerequisite.nodeId]?.isActive === prerequisite.active;
+    case "turn":
+      return state.turn >= prerequisite.atTurn;
+    case "event":
+      return (state.events[prerequisite.eventId]?.triggerCount ?? 0) > 0;
+    case "dilemma-choice": {
+      const progress = state.dilemmas[prerequisite.dilemmaId];
+      return (
+        !!progress &&
+        progress.lastResolvedTurn !== null &&
+        (prerequisite.choiceId === undefined ||
+          progress.lastResolvedChoiceId === prerequisite.choiceId)
+      );
+    }
+    case "situation-resolved":
+      return (
+        state.nodes[prerequisite.nodeId]?.isActive === false &&
+        state.nodeValueHistory.some(
+          (point) => point.values[prerequisite.nodeId]?.isActive,
+        )
+      );
+  }
 }
 
 /** Return every satisfied all-of group; callers treat groups as alternatives. */
