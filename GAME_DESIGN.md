@@ -13,13 +13,13 @@ changes Stances; other persistent state responds through Effects. Events and
 Dilemmas are discrete incidents whose consequences may include temporary
 Grudges or direct Resource changes.
 
-| Type      | Meaning                                                                       | Default control                                | Default activation |
-| --------- | ----------------------------------------------------------------------------- | ---------------------------------------------- | ------------------ |
-| Stance    | Doctrinal, institutional, governance, or practical position                   | Primarily player-controlled                    | Configurable       |
-| Indicator | Continuously simulated measurement                                            | Simulated                                      | Forced active      |
-| Faction   | Constituency, movement, tendency, or interest group represented by one scalar | Simulated                                      | Configurable       |
-| Resource  | Spendable, accumulable, or constrained capacity                               | Simulated and changed by explicit transactions | Forced active      |
-| Situation | Persistent condition that may start and stop                                  | Simulated                                      | Configurable       |
+| Type      | Meaning                                                     | Default control                                | Default activation |
+| --------- | ----------------------------------------------------------- | ---------------------------------------------- | ------------------ |
+| Stance    | Doctrinal, institutional, governance, or practical position | Primarily player-controlled                    | Configurable       |
+| Indicator | Continuously simulated measurement                          | Simulated                                      | Forced active      |
+| Faction   | One metric of a categorized constituency                    | Simulated                                      | Forced active      |
+| Resource  | Spendable, accumulable, or constrained capacity             | Simulated and changed by explicit transactions | Forced active      |
+| Situation | Persistent condition that may start and stop                | Simulated                                      | Configurable       |
 
 Effects are relationships, Inertia and Grudges are temporal mechanisms, Events
 and Dilemmas are incidents, and Scenario is configuration. None is an
@@ -27,42 +27,25 @@ additional node type.
 
 ### Common node semantics
 
-Every node has a unique identity, type, numeric value, numeric domain, and
+Every node has a unique identity, type, numeric state, numeric bounds, and
 activation state. It may also have descriptive and organizational metadata.
 Numeric domains define a minimum, maximum, and whether values are clamped;
 domains are not necessarily normalized to `0..1`.
 
-The activation states are:
+| Activation state | `isActive` | `isForced` | Behavior                                                               |
+| ---------------- | ---------- | ---------- | ---------------------------------------------------------------------- |
+| Active           | `true`     | `false`    | Participates in outgoing Effects; ordinary deactivation is allowed.    |
+| Inactive         | `false`    | `false`    | Does not source outgoing Effects; retains its stored state.            |
+| Forced active    | `true`     | `true`     | Participates in outgoing Effects; ordinary deactivation is prohibited. |
 
-- `active`: participates normally;
-- `inactive`: does not exert normal outgoing Effects;
-- forced active: participates and cannot normally be deactivated.
+`isActive` controls participation; `isForced` prevents ordinary deactivation.
+A forced node MUST be active.
+Inactive nodes receive no normal persistent contributions, except that inactive Situations evaluate inputs needed to start.
 
-Authored activation is represented as one of these three states, but runtime
-state keeps two separate facts: `isActive` records whether the node currently
-participates, while `isForced` records whether ordinary deactivation is
-forbidden. The valid runtime combinations are:
+Simulation participation and presentation are independent.
+A node may be hidden from the primary graph while remaining fully simulated. In particular, a Resource remains a node even when shown only in a dedicated Resource display.
 
-| Runtime flags                        | Meaning                                                                  |
-| ------------------------------------ | ------------------------------------------------------------------------ |
-| `isActive: true`, `isForced: false`  | Normally active and participating.                                       |
-| `isActive: false`, `isForced: false` | Normally inactive and not participating in outgoing Effects.             |
-| `isActive: true`, `isForced: true`   | Forced active and participating; normal deactivation cannot turn it off. |
-
-Forced activation is therefore a constraint on deactivation, not a replacement
-for the active-state flag. A node can be active without being forced, and
-activation participation and graph visibility remain independent concerns.
-
-Ordinary inactive targets do not receive normal persistent Effect
-contributions. An inactive node retains its stored runtime state for possible
-reactivation. Situation input evaluation is the exception described below.
-
-Simulation participation and presentation are independent. A node may be
-hidden from the primary graph while remaining fully simulated. In particular,
-a Resource remains a node even when shown only in a dedicated Resource display.
-
-Thematic categories are non-mechanical metadata. They MUST NOT imply Effects,
-activation, update order, numeric meaning, or privileges.
+Thematic categories are non-mechanical metadata. They MUST NOT imply Effects, activation, update order, numeric meaning, or privileges.
 
 ## Node-specific rules
 
@@ -103,15 +86,8 @@ and will normally be authored with configurable activation. This distinction is
 currently descriptive only: activation flags and explicitly authored costs,
 rather than a Stance subtype, determine engine behavior.
 
-Under the current rules, a legal Stance change immediately updates that
-Stance's stored runtime value. This does not immediately recalculate its
-outgoing Effects. Those are evaluated during turn simulation and respond
-according to each Effect's Inertia.
-
-Enactment and repeal likewise change activation immediately. An inactive
-source contributes zero to its Effect inertia history; enactment therefore
-builds through that Effect's configured Inertia while repeal stops normal
-outgoing participation when the following turn is evaluated.
+Stance changes and enactment or repeal take effect immediately. Their causal
+effects respond during turn simulation and follow their configured Inertia.
 
 Mutually incompatible Stances and any conflict-resolution behavior require
 explicit content support; there is no universal implicit rule.
@@ -123,39 +99,43 @@ player choices. They are forced active and may receive or source Effects.
 
 ### Faction
 
-A Faction is one scalar simulation node. Its definition MUST state what that
-scalar means, such as approval, loyalty, strength, prevalence, influence, or
-commitment. The engine MUST NOT assign one universal meaning to all Faction
-values. Factions use the general activation rules and may receive or source
-Effects.
+Faction groups identify constituencies; each declared metric has its own
+Faction node. Scenario metric labels and ordering are configurable.
+Membership and Satisfaction are the bundled metrics, measuring population
+share and satisfaction within a group. Groups may overlap freely.
+
+These nodes are always active, forced, and graph-visible. Each has its own
+numeric domain, initial value, and optional baseline. They use the ordinary
+non-Resource calculation; Effects, Grudges, and numeric conditions reference
+individual node IDs. Groups have no mutable simulation state.
+
+Explicit sum-limit constraints connect two or more Faction nodes through
+an optional constraint ID. Participants have zero-minimum clamped domains and
+an initial total within the positive cap. After all Faction metrics are calculated,
+scale participants proportionally when their total exceeds the cap. Classification
+never implies a constraint. The bundled theological Membership constraints cap
+opposing sides at `1`.
+
+#### Movements
+
+Represent temporary campaigns as ordinary Situations, using faction metrics as
+inputs and existing thresholds and lifecycle. No separate Movement type exists.
 
 ### Resource
 
-A Resource is a normal simulation node despite having transactional uses or a
-different UI. It may source or receive Effects and may be changed directly by
-costs or incident consequences. A direct debit or credit changes a balance; it
-is not a persistent Effect and MUST NOT be reapplied every turn.
-
-Each incoming Effect targeting a Resource is a per-turn flow. On each turn:
+A Resource is a simulation node that can also be changed through transactions
+and incident consequences. Incoming Effects and Grudges are per-turn flows;
+direct costs and consequences change its balance once. At the start of each
+turn, clamp the prior balance if its domain requires it, then apply the flows:
 
 ```text
-value(start) = applyDomain(value(previous turn), Resource domain)
+balance(start) = applyDomain(balance(previous turn), Resource domain)
 netFlow = incoming Effect contributions + active Grudge contributions
-value(after flow) = value(start) + netFlow
+balance(after flow) = balance(start) + netFlow
 ```
 
-`applyDomain` clamps to the authored minimum and maximum when `clamp` is true;
-otherwise it leaves the value unchanged. This happens once at the start of
-each turn, before Effects sample their sources. Turn-zero initialization applies
-the same rule to `initial.value`. Clamping discards any excess or deficit at
-that point. Resource domains MAY include negative values to show debt, or
-disable clamping to allow an unbounded balance. Flows and transactions after
-the turn-start clamp can move the balance outside the domain until the next
-turn begins. Positive costs check the current balance, then subtract the cost;
-zero-cost actions remain available even during debt. Immediate Resource
-consequences add their amount once. Neither transaction changes the last
-`netFlow` reading. At turn zero that reading projects seeded Effects; after a
-turn it records the flow applied on that turn. Resources do not use a baseline.
+Transactions and flows may move the balance beyond its bounds until the next
+turn. Resources have no baseline.
 
 ### Situation
 
@@ -177,10 +157,9 @@ activates during a turn begins exerting outgoing Effects on the following turn.
 
 ## Effects
 
-An Effect is a persistent directed causal contribution from one source to one
-target. It defines a source, target, response function, and optional Inertia.
-A special constant/default source may represent pressure that has no node
-source.
+An Effect is a persistent causal contribution from one source to one target.
+Its response may use a constant source. Faction relationships reference the
+individual Faction node.
 
 For a non-Resource simulated target:
 
@@ -195,17 +174,18 @@ An Effect contribution is recalculated from causal state. For non-Resource
 targets it is not permanently added to the prior target value. For Resources,
 the contribution is a flow added to stock each turn.
 
-Response functions may be constant, linear, nonlinear, or depend on explicitly
-referenced contextual node values. Positive and negative contributions have no
-universal moral meaning. The expression representation belongs to
-`DATA_FORMAT.md`.
+Response functions may be constant, linear, nonlinear, or contextual. Their
+contribution equations (`intercept` defaults to `0`) are:
 
-| Response kind | Contribution equation (`intercept` defaults to `0`)          |
+| Response kind | Contribution                                                 |
 | ------------- | ------------------------------------------------------------ |
 | `constant`    | `value`                                                      |
 | `linear`      | `intercept + coefficient * source`                           |
 | `power`       | `intercept + coefficient * source ** exponent`               |
 | `product`     | `intercept + coefficient * source * factor1 * ... * factorN` |
+
+Positive and negative contributions have no universal moral meaning. The
+canonical content shapes are defined in `DATA_FORMAT.md`.
 
 The graph may connect any active node types where content defines a meaningful
 relationship. Stances SHOULD NOT normally be targets because their values are
@@ -214,142 +194,87 @@ result.
 
 ## Inertia
 
-Inertia delays one Effect's response when its causal input changes. It belongs
-to the Effect and sharing a source may respond at different rates.
-
-A moving average of recent source values over the Effect's configured window. The average is passed to the response function.Without explicit Inertia, an Effect uses one sample and responds without added
-delay.
-
-At Scenario initialization, each Effect's history is seeded across its full
-window with the source's authoritative turn-zero value. A stable source thus
-starts at its steady contribution. Inertia history is runtime state, not static
-content.
+Inertia belongs to an individual Effect. It averages that Effect's recent
+source values over its configured window, then passes the average to the
+response function. After a source changes, the contribution approaches its new
+level gradually; a longer window slows the response. Effects sharing a source
+may respond at different rates. Without Inertia, an Effect responds to the
+current source value.
 
 ## Incidents
 
-Events and Dilemmas are evaluated from current persistent state but are not
-persistent graph nodes. Their trigger influences may reference nodes, bounded
-random input, and prerequisites. Incident influences do not use Effect Inertia.
-Cooldown or recurrence controls prevent unintended repeated triggering.
+Events and Dilemmas are incidents evaluated from persistent state. Their trigger
+scores combine authored influences and may include bounded random input.
+Cooldowns or recurrence limits prevent unintended repetition.
 
-Each influence contributes its intercept plus its coefficient multiplied by its
-source value. The contributions are summed into the incident score; an eligible
-incident qualifies when that score reaches or exceeds its threshold. A random
-influence uses one injected value in `[0, 1)`, shared by all Events and
-Dilemmas in that turn's evaluation.
+Each influence contributes its source value scaled by a coefficient, plus any
+intercept. Sum the influences into a trigger score. An incident qualifies when
+its prerequisites hold and the score reaches its threshold.
 
-At the end of each nonterminal turn, all qualifying Events and Dilemmas are
-captured from the same post-persistent, post-decay, post-Game-Over snapshot.
-Every qualifying Event fires once. Event consequences apply after candidate
-capture, in Event ID order, without recalculating persistent values or Game
-Overs that turn. Event consequences and the player's choice do not cause
-another incident evaluation that turn.
-Declaration order does not affect Event selection or consequence order.
+Evaluate incidents against one shared turn snapshot. Every qualifying Event
+fires once; its consequences do not trigger another incident evaluation that
+turn.
 
-### Event
+### Events
 
-An Event resolves automatically when selected. Its immediate consequences may
+Events resolve automatically when selected. Their immediate consequences may
 create Grudges, change Resources, or explicitly change allowed activation state.
 
-## Dilemmas
+### Dilemmas
 
-At most one qualifying Dilemma queues per turn. If several qualify, select
-randomly from all candidates, sorted by ID, using the shared incident random
-value. This policy could change to longest-wait selection later. Only the
-selected Dilemma records a trigger.
-
-Each Dilemma offers at least two choices. A pending Dilemma blocks turn
-advancement until resolved, while Stance commands remain available. Triggering
-records its turn and count; `cooldownTurns` excludes it for the following
-turns. Choice consequences apply immediately without recalculating persistent
-values or Game Overs until the next turn.
+At most one qualifying Dilemma queues per turn. A Dilemma offers at least two
+choices and blocks turn advancement until resolved. Choices apply consequences
+immediately; persistent state responds on a later turn. Cooldowns prevent
+repeated triggering for their authored duration.
 
 Temporary incident consequences SHOULD normally use Grudges rather than mutate
 an unrelated node's underlying baseline.
 
 ## Prerequisites
 
-A prerequisite controls eligibility; it does not change state. The supported
-forms are:
+A prerequisite controls eligibility without changing state.
 
-| Form                  | Input                           | Semantics                                                                                                                                       |
-| --------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Static `requires` tag | Immutable Scenario `conditions` | Every required tag MUST be present. It gates supported Stances, Situations, Events, and Dilemmas; runtime-derived or mutable tags are deferred. |
-| Runtime predicate     | Canonical runtime snapshot      | Node value/activation, reached turn, fired Event, latest resolved Dilemma choice, or resolved Situation.                                                                       |
-| Group                 | Non-empty predicate set         | Every predicate MUST hold; several groups are alternatives.                                                                                     |
+| Form                  | Input                             | Semantics                                                                                                                        |
+| --------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Static `requires` tag | Immutable Scenario conditions     | Every required tag MUST be present on supported Stances, Situations, Events, and Dilemmas. Runtime or mutable tags are deferred. |
+| Runtime predicate     | Current state or retained history | Checks node value/activation, reached turn, fired Event, latest Dilemma choice, or resolved Situation.                           |
+| Group                 | Predicate set                     | All predicates must hold; groups are alternatives.                                                                               |
 
-Node thresholds are inclusive. References MUST resolve and value thresholds
-MUST be in their node domains.
-A resolved Situation is inactive now and was active in retained history; initial
-inactivity does not qualify. Dilemma predicates use structured latest-resolution
-state, optionally requiring a choice. Consumers retain their own evaluation timing.
+References MUST resolve; value thresholds are inclusive and within their node's domain. A resolved Situation must have been active before becoming inactive. Dilemma predicates may require a specific choice. Each consumer defines when prerequisites are evaluated.
 
 ## Consequences
 
-An authored occurrence may apply an immediate consequence. A consequence
-defines the change, not its trigger or timing.
+Occurrences may apply consequences once; they do not change the trigger or
+timing of their occurrence:
 
-| Kind         | Effect                                                                              | Constraint                                                                                                     |
-| ------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `resource`   | Add `amount` once to a Resource's balance. | The balance may exceed domain bounds until the next turn starts. |
-| `grudge`     | Create a temporary contribution; does not permanently change its target's baseline. | `0 < decay <= 1`; it contributes before decaying. A factor closer to `1` lasts longer, and `1` means no decay. |
-| `activation` | Set a node's ordinary activation.                                                   | MUST NOT deactivate a forced-active node or change forced status.                                              |
+- **Resource:** change its balance immediately.
+- **Grudge:** create a temporary contribution without changing its target's
+  baseline. It contributes before decaying; one created after turn evaluation
+  first contributes on the next turn.
+- **Activation:** change a node's activation. A forced-active node cannot be
+  deactivated.
 
-Consequences apply once per occurrence. Grudge decay follows:
+Grudge decay follows:
 
 ```text
 next magnitude = contributed magnitude * decay
 ```
 
-A post-turn Grudge first contributes on the next turn. Grudge identity,
-creation turn, and current magnitude are runtime state.
-
 ## Game Overs
 
-A Game Over is a Scenario-authored terminal trajectory. Its prerequisite groups
-may refer to any Scenario nodes. A group is satisfied only when all its
-prerequisites hold; any satisfied group qualifies the trajectory.
-
-| Trajectory state        | Rule                                                                         | Result                                                                                            |
-| ----------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Initial                 | At least one group is satisfied in the post-persistent, post-decay snapshot. | Start an episode; increment consecutive-turn progress by one; show the warning stage at turn `1`. |
-| Continued qualification | At least one group remains satisfied in that snapshot.                       | Increment consecutive-turn progress; changing matched groups does not interrupt the episode.      |
-| Broken qualification    | No group is satisfied after progress began.                                  | Reset progress; apply recovery once; the next qualification starts a new episode.                 |
-| Intermediate stage      | Progress reaches an authored stage before the terminal turn.                 | Record the stage narrative and apply consequences once.                                           |
-| Terminal turn           | Progress reaches `terminalAfterTurns`, which MUST be at least `2`.           | Record a Game Over.                                                                               |
-
-Prerequisites are evaluated before stage or recovery consequences. Simultaneous
-terminal trajectories are recorded as one outcome with multiple causes. Terminal
-Game Over resolution takes precedence over normal completion and blocks player
-commands and further turn advancement.
+A Game Over is a Scenario-authored terminal trajectory sustained by qualifying
+conditions over time. Stages may apply consequences; if conditions break,
+recovery applies and a later qualification starts a new episode. Reaching the
+terminal duration ends play. Evaluate conditions before stage or recovery
+consequences. Simultaneous terminal trajectories form one outcome with multiple
+causes. Game Over takes precedence over normal completion.
 
 ## Scenario and runtime state
 
-Scenario is the sole top-level playable configuration abstraction. There is no
-required Denomination definition above or beside it. A Scenario supplies its
-identity and starting time, nodes, Effects, incidents, prerequisites, and all
-initial conditions required to start play. Scenario-specific variation may use
-explicit overrides once their canonical form is specified.
-
-Static definition data never changes during play. Runtime state includes at
-least:
-
-- current turn and optional calendar value;
-- current node values and activation;
-- current Resource balances;
-- per-Effect Inertia history and current contribution;
-- active Grudges and their current magnitudes;
-- incident cooldown/recurrence state;
-- pending Dilemmas, if any;
-- per-trajectory Game Over episode and consecutive-turn progress;
-- a terminal Game Over or normal Ending outcome, if reached;
-- latest resolved Dilemma turn and choice;
-- player-visible history where retained.
-
-Declared initial node values are authoritative at turn zero. Initialization
-MUST NOT replace them with a freshly calculated equilibrium. Persistent Effects
-begin recalculating nodes when turn simulation begins; seeded Inertia preserves
-the intended starting causal history.
+A Scenario defines the denomination's starting conditions and all content needed
+for play. Static definitions remain fixed; runtime state changes as turns resolve.
+Declared starting values are authoritative and are not replaced with a calculated
+equilibrium.
 
 ## Turn semantics
 
@@ -372,43 +297,24 @@ following partial ordering is authoritative:
 - pending Dilemmas prevent another turn from advancing;
 - at most one qualifying Dilemma is selected from one shared snapshot;
 
-Each Scenario defines completion prerequisite groups, prioritized endings, and a
-fallback. Check completion once per advanced turn after Events. Any matching
-group triggers completion unless a Dilemma is pending. Choices do not evaluate
-completion; their consequences and resolution state enter the next turn’s check.
-Game Over blocks completion and is not rechecked after incidents. Resolve the
-highest-priority matching ending (ties by ID), or the fallback; record once and
-lock commands. Actors are descriptive. Reports show narrative, actors, and
-selected final readings.
+Each Scenario defines completion conditions, prioritized endings, and a
+fallback. Check completion after Events; a pending Dilemma delays it. Resolve
+the highest-priority qualifying ending, or use the fallback.
 
-Randomness may influence explicitly random mechanics, especially incidents. It
-should be bounded, causally constrained, and injectable or seedable where
-deterministic replay is required. Exact distributions and cadence are not yet
-universal mechanics.
+Randomness is limited to explicitly random mechanics and bounded inputs. Exact
+distributions and cadence are Scenario-specific or deferred.
 
 ## Design invariants
 
-1. The five persistent node types are Stance, Indicator, Faction, Resource,
-   and Situation.
-2. Resources remain nodes even when omitted from the primary graph.
-3. Stances are primarily player-controlled; Indicators are continuously
-   simulated; each Faction has content-defined scalar meaning.
-4. Situations are persistent nodes with separate start and stop thresholds.
-5. Inactive Situations evaluate incoming start pressure but have no outgoing
-   contribution.
-6. Effects are persistent causal contributions; those targeting Resources are per-turn flows.
-7. Response functions may be nonlinear and context-dependent.
-8. Inertia is per Effect and uses that Effect's runtime history.
-9. Grudges are temporary decaying contributions created by occurrences.
-10. Inertia and Grudges remain distinct mechanisms.
-11. Events and Dilemmas are incidents, not nodes.
-12. Scenario is the sole top-level playable configuration abstraction.
-13. Static definitions and runtime state remain distinct.
-14. Graph visibility never determines simulation participation.
-15. Effect declaration order does not determine simulation results.
-16. Categories are organizational metadata without implicit mechanics.
-17. Game Overs are Scenario-authored terminal trajectories, not nodes or incidents.
-18. Reusable prerequisites and consequences do not imply shared trigger timing across consumers.
+1. The persistent node types are Stance, Indicator, Faction, Resource, and
+   Situation; Events and Dilemmas are incidents.
+2. Faction metrics are nodes grouped by static Scenario metadata; categories classify constituencies.
+3. Inactive Situations evaluate start pressure but exert no outgoing Effects.
+4. Resources are nodes, and incoming Effects and Grudges are per-turn flows.
+5. Effects are independent of declaration order.
+6. Graph visibility does not determine simulation participation.
+7. Scenarios define play; static definitions and runtime state remain distinct.
+8. Game Overs are terminal Scenario trajectories.
 
 ## Deferred decisions
 
@@ -422,28 +328,21 @@ Do not infer or implement the following until this document is revised:
 - specialized governance procedures such as votes, ratification, vetoes, or
   polity-specific resolution;
 - a separate Denomination definition;
-- a required multi-attribute Faction model;
+- possible party membership and loyalty as organizational affiliation distinct
+  from faction Membership, Satisfaction, and temporary Movements;
 - universal incident cadence, probability constants, or random distribution;
 - incompatible-Stance resolution beyond explicit supported content;
-- Stance implementation progress and the minister-like system intended to
-  influence it. The future direction is for a chosen Stance position to be
-  implemented over time, with its rate affected by minister-like actors or
-  offices. This is separate from per-Effect Inertia. The actor model,
-  assignments, capabilities, progress formula, Resource/cost timing,
-  cancellation or reversal behavior, and persistence rules are unspecified.
-  Until those rules are defined, Stance changes remain immediate as described
-  above; do not add implementation delay or minister mechanics;
+- Stance implementation delays and minister-like mechanics. Stance changes
+  remain immediate until those rules are defined;
 - any iterative or equilibrium solver replacing synchronous snapshot updates.
 
 Governance concepts currently use the ordinary nodes, Effects, Resources,
 Situations, and incidents defined here.
 
-## Reference Model
+## Reference model
 
-The simulation is structurally inspired by the causal simulation model exposed by the _Democracy 4_ modding system.
-
-Each relevant section of the reference documentation has one primary
-counterpart in this design:
+The simulation is structurally inspired by the causal model in _Democracy 4_.
+These sections are the closest counterparts:
 
 | Reference model section                                                        | Primary counterpart                                       | Correspondence                                                                           |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -455,4 +354,5 @@ counterpart in this design:
 | [Simulation values](https://www.positech.co.uk/democracy4/mod_simulation.html) | [Indicator](#indicator)                                   | Continuously simulated values with causal inputs and outputs                             |
 | [Countries](https://www.positech.co.uk/democracy4/mod_countries.html)          | [Scenario and runtime state](#scenario-and-runtime-state) | Playable starting configuration, active starting positions, prerequisites, and overrides |
 
-This game is not required to reproduce every _Democracy 4_ rule, data format, balance constant, UI convention, or political-government mechanic.
+The game need not reproduce _Democracy 4_'s rules, format, balance, interface,
+or political systems.

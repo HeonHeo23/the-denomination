@@ -32,38 +32,28 @@ export function runNodeValueHistoryProjectionTests() {
   const expandedNode = { ...node, domain: { min: 0, max: 100, clamp: false } };
   const expanded = projectNodeValueHistory(exampleScenario, expandedNode, {
     ...initial,
-    nodeValueHistory: [
-      {
-        ...initial.nodeValueHistory[0],
-        values: {
-          ...initial.nodeValueHistory[0].values,
-          money: { value: 140, isActive: true },
-        },
+    nodeValueHistory: {
+      [initial.turn]: {
+        ...initial.nodeValueHistory[initial.turn],
+        money: { value: 140, isActive: true },
       },
-    ],
+    },
   });
   if (expanded.maximum !== 140 || expanded.guides.length !== 0)
     throw new Error("Resource charts should expand without baseline guides");
 
   const rangeEnds = projectNodeValueHistory(exampleScenario, node, {
     ...initial,
-    nodeValueHistory: [
-      {
-        ...initial.nodeValueHistory[0],
-        values: {
-          ...initial.nodeValueHistory[0].values,
-          money: { value: node.domain.min, isActive: true },
-        },
+    nodeValueHistory: {
+      [initial.turn]: {
+        ...initial.nodeValueHistory[initial.turn],
+        money: { value: node.domain.min, isActive: true },
       },
-      {
-        ...initial.nodeValueHistory[0],
-        turn: initial.turn + 1,
-        values: {
-          ...initial.nodeValueHistory[0].values,
-          money: { value: node.domain.max, isActive: true },
-        },
+      [initial.turn + 1]: {
+        ...initial.nodeValueHistory[initial.turn],
+        money: { value: node.domain.max, isActive: true },
       },
-    ],
+    },
   });
   if (rangeEnds.points[0].y !== 100 || rangeEnds.points[1].y !== 0)
     throw new Error(
@@ -96,13 +86,15 @@ export function runNodeValueHistoryProjectionTests() {
   )
     throw new Error("Close Situation thresholds should label opposite sides");
 
-  const points = Array.from({ length: 15 }, (_, index) => ({
-    turn: exampleScenario.start.turn + index,
-    values: {
-      ...initial.nodeValueHistory[0].values,
-      money: { value: index, isActive: true },
-    },
-  }));
+  const points = Object.fromEntries(
+    Array.from({ length: 15 }, (_, index) => [
+      exampleScenario.start.turn + index,
+      {
+        ...initial.nodeValueHistory[initial.turn],
+        money: { value: index, isActive: true },
+      },
+    ]),
+  );
   const chart = projectNodeValueHistory(exampleScenario, node, {
     ...initial,
     nodeValueHistory: points,
@@ -117,12 +109,16 @@ export function runNodeValueHistoryProjectionTests() {
     throw new Error(
       "The chart should show exactly the 12 newest completed turns",
     );
+  const nextPoints = {
+    ...points,
+    [exampleScenario.start.turn + 15]: {
+      ...initial.nodeValueHistory[initial.turn],
+      money: { value: 15, isActive: true },
+    },
+  };
   const nextChart = projectNodeValueHistory(exampleScenario, node, {
     ...initial,
-    nodeValueHistory: [
-      ...points,
-      { ...points[0], turn: exampleScenario.start.turn + 15 },
-    ],
+    nodeValueHistory: nextPoints,
   });
   if (
     nextChart.points[0].turn !== chart.points[1].turn ||

@@ -1,5 +1,10 @@
+import {
+  getNodeDisplayInfo,
+  projectNodeForDisplay,
+} from "../projections/projectFactionGroups";
 import type {
   EventDefinition,
+  FactionMetric,
   NodeDefinition,
   ScenarioDefinition,
   SimulationState,
@@ -11,6 +16,8 @@ export interface EventConsequenceView {
   readonly title: string;
   readonly detail: string;
   readonly target?: NodeDefinition;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly endOfTurnValue?: number;
   readonly appliedAmount?: number;
 }
@@ -55,9 +62,7 @@ export function projectEventOccurrence(
   if (!occurrence || !match) return undefined;
 
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
-  const reading = state.nodeValueHistory.find(
-    (point) => point.turn === occurrence.turn,
-  );
+  const readings = state.nodeValueHistory[occurrence.turn];
   const consequences = match.definition.consequences.flatMap(
     (consequence, index) => {
       const entry = state.history.find(
@@ -80,8 +85,22 @@ export function projectEventOccurrence(
           kind: consequence.kind,
           title: entry.title,
           detail: entry.detail,
-          target: nodes.get(consequence.target),
-          endOfTurnValue: reading?.values[consequence.target]?.value,
+          target: projectNodeForDisplay(
+            scenario,
+            nodes.get(consequence.target)!,
+          ),
+          targetMetricId: getNodeDisplayInfo(scenario, consequence.target)
+            .metricId,
+          ...(getNodeDisplayInfo(scenario, consequence.target).metric
+            ? {
+                targetMetric: getNodeDisplayInfo(scenario, consequence.target)
+                  .metric,
+              }
+            : {}),
+          endOfTurnValue:
+            readings && consequence.kind !== "activation"
+              ? readings[consequence.target].value
+              : undefined,
           appliedAmount:
             consequence.kind === "grudge"
               ? consequence.magnitude

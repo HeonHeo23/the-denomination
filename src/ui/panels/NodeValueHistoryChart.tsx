@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   useId,
   useState,
@@ -7,6 +8,7 @@ import {
 } from "react";
 import type {
   NodeDefinition,
+  FactionMetric,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
@@ -22,6 +24,8 @@ interface NodeValueHistoryChartProps {
   readonly definition: NodeDefinition;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
+  readonly metric?: FactionMetric;
+  readonly metricSelector?: ReactNode;
 }
 
 interface ChartSelection {
@@ -35,6 +39,8 @@ export function NodeValueHistoryChart({
   definition,
   scenario,
   state,
+  metric,
+  metricSelector,
 }: NodeValueHistoryChartProps) {
   const lineClipId = useId();
   const chart = projectNodeValueHistory(scenario, definition, state);
@@ -82,9 +88,23 @@ export function NodeValueHistoryChart({
   return (
     <div className="node-value-history">
       <div className="node-value-history__plot">
-        <div className="node-value-history__scale" aria-hidden="true">
-          <span>{formatValue(chart.maximum, definition.domain)}</span>
-          <span>{formatValue(chart.minimum, definition.domain)}</span>
+        <div className="node-value-history__scale">
+          <span aria-hidden="true">
+            {formatValue(chart.maximum, definition.domain)}
+          </span>
+          {metricSelector && (
+            <div
+              className="node-value-history__metric-selector"
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerMove={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {metricSelector}
+            </div>
+          )}
+          <span aria-hidden="true">
+            {formatValue(chart.minimum, definition.domain)}
+          </span>
         </div>
         <div
           className="node-value-history__canvas"
@@ -95,8 +115,8 @@ export function NodeValueHistoryChart({
           }
           role="group"
           tabIndex={0}
-          aria-label={`${definition.name} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
-          aria-describedby="node-value-history-instructions node-value-history-references"
+          aria-label={`${definition.name}${metric ? ` ${metric}` : ""} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
+          aria-describedby={`${lineClipId}-instructions ${lineClipId}-references`}
           onPointerMove={selectAtPointer}
           onPointerDown={selectAtPointer}
           onPointerLeave={() => {
@@ -210,7 +230,7 @@ export function NodeValueHistoryChart({
         </div>
       </div>
       <output
-        id="node-value-history-selection"
+        id={`${lineClipId}-selection`}
         className="sr-only"
         role="status"
         aria-live={
@@ -239,12 +259,12 @@ export function NodeValueHistoryChart({
           );
         })}
       </div>
-      <span id="node-value-history-instructions" className="sr-only">
+      <span id={`${lineClipId}-instructions`} className="sr-only">
         Move the pointer or tap the chart to inspect a turn. With the chart
         focused, use left and right arrow keys to browse, or Home and End to
         jump to the first and latest turn.
       </span>
-      <span id="node-value-history-references" className="sr-only">
+      <span id={`${lineClipId}-references`} className="sr-only">
         Reference guides:{" "}
         {chart.guides
           .map((guide) => `${guide.label} ${guide.formattedValue}`)

@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toPercent } from "@/ui/formatValue";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
+import { FactionMetricIcon, FactionMetricName } from "@/ui/FactionMetric";
 import type { NodeEffectView } from "./projectNodeEffects";
 
 interface NodeEffectCardProps {
@@ -20,12 +21,12 @@ interface NodeEffectCardProps {
   readonly direction: "incoming" | "outgoing";
   readonly effects: readonly NodeEffectView[];
   readonly onNodeSelect: (nodeId: string) => void;
-  readonly layout?: "standard" | "stance";
+  readonly layout?: "standard" | "compact";
   readonly fitContent?: boolean;
 }
 
 interface EffectTableCardProps {
-  readonly title: string;
+  readonly title: ReactNode;
   readonly legend: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
@@ -146,11 +147,19 @@ export function EffectRow({
   const linked = relatedNodeId !== undefined;
   const inertiaTurns = effect.inertiaTurns ?? 1;
   const relationshipLabel = effect.label ?? "Persistent causal relationship";
+  const relatedMetric =
+    direction === "incoming" ? effect.sourceMetric : effect.targetMetric;
+  const metricDescription = [
+    effect.sourceMetric ? `Source ${effect.sourceMetric}` : undefined,
+    effect.targetMetric ? `Target ${effect.targetMetric}` : undefined,
+  ]
+    .filter(Boolean)
+    .join("; ");
   const trigger =
     relatedNodeId === undefined
       ? undefined
       : getDossierTriggerProps(
-          `Open ${effect.relatedName} node${effect.label ? `: ${effect.label}` : ""}`,
+          `Open ${effect.relatedName} node${metricDescription ? `; ${metricDescription}` : ""}${effect.label ? `: ${effect.label}` : ""}`,
           () => onNodeSelect(relatedNodeId),
           stopPropagation,
         );
@@ -164,7 +173,7 @@ export function EffectRow({
       }
       className={cn(
         "gap-2 py-1.5",
-        layout === "stance" && "flex-nowrap px-2 py-2",
+        layout === "compact" && "flex-nowrap px-2 py-2",
         effect.kind === "grudge" && "border-dashed",
         linked && "cursor-pointer hover:bg-accent focus-visible:bg-accent",
       )}
@@ -173,38 +182,61 @@ export function EffectRow({
       variant={effect.kind === "grudge" ? "outline" : "muted"}
       data-game-effect-row
       data-game-effect-kind={effect.kind}
+      title={effect.label}
       data-game-crisis-contribution-row={!showInertia ? true : undefined}
       {...trigger}
     >
       <Icon aria-hidden="true" />
       <ItemContent
         className={
-          layout === "stance"
+          layout === "compact"
             ? "min-w-0 flex-row items-center gap-2"
             : "min-w-0 gap-1"
         }
       >
         <div
           className={
-            layout === "stance"
+            layout === "compact"
               ? "flex min-w-0 max-w-[42%] flex-1 items-baseline gap-1 overflow-hidden whitespace-nowrap"
               : "flex min-w-0 items-baseline justify-between gap-1"
           }
         >
           <ItemTitle
             className={
-              layout === "stance"
+              layout === "compact"
                 ? "min-w-0 max-w-[60%] shrink-0"
                 : "min-w-0 max-w-[55%]"
             }
           >
-            <span
-              className={layout === "stance" ? "min-w-0 truncate" : "truncate"}
-            >
-              {effect.relatedName}
-            </span>
+            {layout === "compact" ? (
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                {relatedMetric && (
+                  <FactionMetricIcon
+                    metric={relatedMetric}
+                    metricId={
+                      direction === "incoming"
+                        ? effect.sourceMetricId
+                        : effect.targetMetricId
+                    }
+                    context={direction === "incoming" ? "Source" : "Target"}
+                  />
+                )}
+                <span className="min-w-0 truncate">{effect.relatedName}</span>
+              </span>
+            ) : (
+              <FactionMetricName
+                name={effect.relatedName}
+                metric={relatedMetric}
+                metricId={
+                  direction === "incoming"
+                    ? effect.sourceMetricId
+                    : effect.targetMetricId
+                }
+                context={direction === "incoming" ? "Source" : "Target"}
+              />
+            )}
           </ItemTitle>
-          {layout === "stance" ? (
+          {layout === "compact" ? (
             <span className="min-w-0 flex-1 truncate text-[0.65rem] leading-none text-muted-foreground">
               {relationshipLabel}
             </span>
@@ -216,7 +248,7 @@ export function EffectRow({
         </div>
         <div
           className={
-            layout === "stance"
+            layout === "compact"
               ? "flex min-w-0 flex-1 items-center gap-2"
               : "flex min-w-0 items-center gap-1"
           }

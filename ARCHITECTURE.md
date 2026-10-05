@@ -189,29 +189,35 @@ duplicate mechanics.
 Initialization:
 
 ```text
-load Scenario -> validate -> create authoritative turn-zero snapshot
-              -> seed per-Effect runtime history
+initializeScenario
+    -> loadScenario validates, normalizes, and freezes the Scenario
+    -> create turn-zero node values and history
+    -> seed Effect histories and initial Resource netFlow
 ```
 
 Player action:
 
 ```text
-UI intent -> semantic command -> validate against Scenario and state
-          -> accepted next snapshot or rejected unchanged snapshot
+UI intent -> command -> assess against Scenario and current snapshot
+                     -> accepted immutable snapshot or unchanged rejection
 ```
 
 Turn advancement:
 
 ```text
-Scenario + prior snapshot + injected incident random value
-    -> persistent evaluation and Grudge decay
-    -> reusable prerequisite evaluation
-    -> Game Over stage/recovery consequences
-    -> terminal Game Over resolution
-    -> capture all qualifying Events and Dilemmas from the nonterminal snapshot
-    -> select at most one Dilemma and resolve Events in Event ID order
-    -> normal Ending resolution after Events, unless terminal or awaiting a Dilemma
-    -> next snapshot + trace/messages
+advanceTurn(scenario, state, optional randomValue)
+    -> reject terminal or pending-Dilemma snapshots
+    -> increment turn/year
+    -> evaluatePersistentState from one prior snapshot
+    -> decay Grudges after they contribute
+    -> evaluateGameOvers on the post-persistent, post-decay snapshot
+         terminal -> record outcome; incident selectors return no candidates
+         nonterminal -> advance episodes; apply any stage/recovery consequences
+    -> select Events and queue at most one Dilemma from the post-Game-Over state
+    -> apply captured Event consequences in Event ID order
+    -> record post-Event node history
+    -> resolve an Ending if eligible (skipped for terminal or pending states)
+    -> return next snapshot, trace, and messages
 ```
 
 The engine uses the synchronous prior-snapshot model and other partial ordering
@@ -219,11 +225,18 @@ rules in `GAME_DESIGN.md`. The unresolved complete phase order must remain
 localized in the turn orchestrator so it can be settled without changing UI or
 content ownership.
 
-Persistent evaluation clamps Resource balances before Effect sampling when
-their domains enable it, then adds Resource Effect and Grudge flow. Turn
-advancement calls this evaluation once at each turn start. Player costs and
-incident consequences update that same balance without clamping. The UI reads
-the balance and stored flow; persistence validates both in saves.
+A Resource combines a stored balance with recurring Effect and Grudge flows,
+plus direct transactions.
+
+`initializeScenario` seeds turn-zero `netFlow`, and `advanceTurn` delegates
+ongoing evaluation to `evaluatePersistentState`. Runtime `value` stores the
+balance; `netFlow` stores persistent Effect and Grudge contributions.
+
+Player commands are validated in `playerActions.ts`; `executeCommand` commits
+accepted Stance costs using `debitCost`. Event and Dilemma resolution delegate
+Resource consequences to `applyConsequences`. These modules implement the rules
+in `GAME_DESIGN.md`. UI projections read `value` and `netFlow`, and persistence
+validates both fields in saves.
 
 Any future gradual Stance implementation or minister-like influence must be
 modeled and calculated by the simulation engine through its public API. The
@@ -231,20 +244,13 @@ UI, session, and persistence layers MUST NOT duplicate those rules; define
 their exact responsibilities once the mechanics and data contract are
 specified.
 
-Incident candidate calculation belongs in the engine after Game Over resolution.
-All qualifying Events and Dilemmas are captured from the same snapshot; the
-engine randomly selects one Dilemma from all qualifying candidates using the
-incident random value, then applies Event consequences in Event ID order.
+`selectEvents` and `queueDilemmas` evaluate candidates from the same post-Game-Over snapshot. `queueDilemmas` records at most one selected Dilemma.
+Captured Event consequences are then applied in ID order. `resolveEnding` runs after Event resolution and skips terminal or pending-Dilemma states. Resolving a Dilemma applies its choice but does not recalculate persistent values or resolve an Ending.
 
-Reusable runtime-prerequisite evaluation and consequence application belong in
-the simulation engine. Completion and ending conditions share predicate groups
-and validation; predicates may read turn, incident, and retained node history.
-Consumers such as Game Overs or future incidents own when they evaluate and
-why a consequence occurs; sharing these helpers MUST NOT collapse their distinct
-timing or selection semantics. Game Over evaluation
-reads the completed persistent snapshot and records Game Overs before normal
-completion, evaluated only by turn advancement after Events. Dilemma commands
-apply choices without resolving endings.
+`conditionsMet` checks static Scenario tags; `matchingPrerequisiteGroups`
+evaluates runtime groups against a snapshot. These helpers do not choose
+timing: `evaluateGameOvers` checks before incident selection, and
+`resolveEnding` checks completion after Event handling.
 
 ### Engine functions
 
@@ -252,21 +258,19 @@ This is an implementation reference for `src/simulation/engine`, including
 private helpers. It describes current code rather than adding game semantics;
 `GAME_DESIGN.md` remains authoritative.
 
-| Function                                                                                    | Visibility      | Current flow                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `advanceTurn`<br>`advanceTurn.ts`                                                           | Public          | 1. Reject terminal snapshots. <br>2. Increment turn/year. <br>3. Evaluate persistence. <br>4. Decay Grudges. <br>5. Evaluate Game Overs. <br>6. Capture incidents and resolve Events. <br>7. Record completed-turn values; resolve normal completion unless terminal or awaiting a Dilemma. <br>8. Return state, message, and trace. |
-| `evaluateGameOvers`<br>`evaluateGameOvers.ts`                                               | Engine-internal | Evaluate grouped prerequisites, advance or recover crisis episodes, apply stage consequences, and record all simultaneous terminal causes.                                                                                                                           |
-| `applyConsequences`<br>`consequences.ts`                                                    | Engine-internal | Apply validated Resource, Grudge, and activation consequences immutably for one deterministic occurrence.                                                                                                                                                            |
-| `responseValue`<br>`responseValue.ts`                                                       | Engine-internal | 1. Select response kind. <br>2. Calculate its contribution.                                                                                                                                                                                                          |
-| `evaluateEffect`<br>`evaluatePersistentState.ts`                                            | Private         | 1. Read source. <br>2. Update inertia history. <br>3. Average and evaluate response.                                                                                                                                                                                 |
-| `evaluatePersistentState`<br>`evaluatePersistentState.ts`                                   | Engine-internal | 1. Clamp Resource balances at turn start. <br>2. Evaluate Effects from that snapshot. <br>3. Recalculate non-Stances. <br>4. Clamp non-Resource values and apply Situation hysteresis. <br>5. Return state and trace.                                                                                                                   |
-| `initializeScenario`<br>`initialize.ts`                                                     | Public          | 1. Validate. <br>2. Create runtime nodes. <br>3. Seed inertia histories. <br>4. Return turn-zero state.                                                                                                                                                              |
-| `validateScenario`<br>`validateScenario.ts`                                                 | Public          | 1. Collect diagnostics. <br>2. Check IDs, domains, values, thresholds, references, and costs. <br>3. Return all errors.                                                                                                                                              |
-| `reject`<br>`playerActions.ts`                                                              | Private         | 1. Create a rejected result. <br>2. Preserve the original state. <br>3. Include the message.                                                                                                                                                                         |
-| `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal`<br>`playerActions.ts` | Public          | Assess the semantic Stance action against one Scenario and runtime snapshot.                                                                                                                                                                                         |
-| `executeCommand`<br>`playerActions.ts`                                                      | Public          | Verify Scenario ownership, dispatch change/enact/repeal commands, debit authored costs, and return an immutable next snapshot.                                                                                                                                       |
-| `indexNodes`<br>`shared.ts`                                                                 | Engine-internal | 1. Iterate node definitions. <br>2. Return an ID-keyed lookup.                                                                                                                                                                                                       |
-| `clampValue`<br>`shared.ts`                                                                 | Engine-internal | 1. Return unchanged when disabled. <br>2. Otherwise bound to the node domain.                                                                                                                                                                                        |
+| Function                                                              | Visibility      | Responsibility                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `loadScenario`                                                        | Public          | Validate, normalize, clone, and freeze Scenario content.                                                                                                                                                  |
+| `initializeScenario`                                                  | Public          | Build turn-zero state, clamp initial Resources, seed Effect histories and Resource flow, and record initial node history.                                                                                 |
+| `advanceTurn`                                                         | Public          | Guard terminal/pending states, increment time, orchestrate the turn, and return the next snapshot and persistent trace.                                                                                   |
+| `evaluatePersistentState`                                             | Engine-internal | Clamp configured Resource balances; sample Effects from one snapshot; update eligible nodes, sum constraints, and Situation activation; return a trace. Newly active Situations source Effects next turn. |
+| `evaluateGameOvers`                                                   | Engine-internal | Read the post-persistent, post-decay snapshot; record terminal causes or apply nonterminal stage/recovery consequences.                                                                                   |
+| `selectEvents` / `queueDilemmas`                                      | Engine-internal | Capture eligible incidents from the same post-Game-Over snapshot; queue at most one Dilemma.                                                                                                              |
+| `resolveEvents` / `resolveDilemma`                                    | Engine-internal | Apply selected Event consequences or a Dilemma choice without rerunning persistent evaluation.                                                                                                            |
+| `resolveEnding`                                                       | Engine-internal | Check completion and record the highest-priority eligible Ending or fallback, unless terminal or awaiting a Dilemma.                                                                                      |
+| `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal` | Public          | Check Stance actions against one Scenario and runtime snapshot.                                                                                                                                           |
+| `executeCommand`                                                      | Public          | Reassess and commit an accepted Stance or Dilemma command as an immutable state update.                                                                                                                   |
+| `applyConsequences`                                                   | Engine-internal | Apply Resource, Grudge, or activation consequences for one occurrence.                                                                                                                                    |
 
 `src/simulation/index.ts` re-exports the public engine operations and domain
 contracts, including loading, Stance assessment, and Effect preview helpers.
@@ -282,6 +286,8 @@ The graph adapter maps visible simulation nodes and Effects to React Flow data:
 
 - definition data supplies labels and visibility;
 - runtime data supplies values, isActive, isForced, and current contributions;
+- Faction groups and metric labels are static Scenario metadata; Faction nodes share the normal numeric engine path and groups MAY NOT have runtime state;
+- shared UI ownership indexes project one card per group, map both Effect endpoints, and expose metrics in graph and dossier selectors;
 - layout and styling remain presentation concerns;
 - hidden nodes and edges continue participating in simulation;
 - dragging or selecting a graph element does not mutate game state unless
@@ -292,11 +298,7 @@ particular Scenario do not belong in reusable UI components.
 
 ## Scenario catalog and persistence boundary
 
-The application presents playable content through a Scenario catalog. Each
-catalog entry contains untrusted Scenario content plus a positive integer
-`contentVersion`. The loading boundary validates the content before the
-launcher displays it. The catalog version belongs to application compatibility
-and MUST NOT change Scenario mechanics or the canonical content shape.
+The application presents playable content through a Scenario catalog. Each catalog entry contains untrusted Scenario content plus a positive integer `contentVersion`. The loading boundary validates the content before the launcher displays it. The catalog version belongs to application compatibility.
 
 Browser persistence belongs behind the application/session layer and stores:
 
@@ -304,22 +306,17 @@ Browser persistence belongs behind the application/session layer and stores:
 - Scenario identity and compatible content version;
 - canonical runtime state;
 - player and denomination display identity;
-- the validated player-facing Turn report record for the saved turn, when one
-  is available;
+- the validated player-facing Turn report record for the saved turn, when one is available;
 - deterministic replay data only if replay is supported.
 
-Do not persist React state, React Flow objects, arbitrary cached projections, or
-function references. The Turn report record is an explicit player-facing save
-record, keyed by Scenario IDs and rehydrated into a UI projection after load.
+Do not persist React state, React Flow objects, arbitrary cached projections, or function references.
+The Turn report record is an explicit player-facing save record, keyed by Scenario IDs and rehydrated into a UI projection after load.
 Loading MUST validate saved data before passing runtime state to the engine.
-The MVP uses only the current save slot and rejects incompatible formats without
-migration. The engine remains independent of storage technology.
+The MVP uses only the current save slot and rejects incompatible formats without migration.
+The engine remains independent of storage technology.
 
-The current browser adapter owns one versioned local save slot. It validates
-the save format, identity limits, Scenario and catalog-version compatibility,
-and the complete canonical runtime snapshot before offering restoration.
-Validation checks structure, references, and runtime invariants; it does not
-reevaluate recorded endings or compare Chronicle prose with authored text.
+The current browser adapter owns one versioned local save slot. It validates the save format, identity limits, Scenario and catalog-version compatibility, and the complete canonical runtime snapshot histories, before offering restoration.
+Validation checks structure, references, and runtime invariants.
 Invalid or incompatible saves are never passed to the session or engine.
 
 ## Architectural invariants

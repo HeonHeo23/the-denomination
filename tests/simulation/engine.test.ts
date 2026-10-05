@@ -1,3 +1,4 @@
+import { runFactionTests } from "./factions.test";
 import { runEndingTests } from "./endings.test";
 import { ongoingCompletion } from "./fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
@@ -40,6 +41,7 @@ function closeTo(actual: number, expected: number, message: string) {
   );
 }
 
+runFactionTests();
 runEndingTests();
 runDilemmaTests();
 runEventTests();
@@ -51,7 +53,7 @@ assert(
   "Example Scenario must validate",
 );
 assert(
-  exampleScenario.nodes.length === 48,
+  exampleScenario.nodes.length === 64,
   "Expanded Scenario should contain the original and expanded ministry nodes",
 );
 assert(
@@ -315,11 +317,11 @@ const terminalScenario: ScenarioDefinition = {
     },
     {
       id: "council",
-      type: "faction",
+      type: "stance",
       name: "Council",
       description: "Governing council.",
-      valueMeaning: "support",
       domain: { min: 0, max: 1, clamp: true },
+      control: { kind: "continuous" },
       initial: { value: 0.5, isActive: true, isForced: false },
     },
   ],

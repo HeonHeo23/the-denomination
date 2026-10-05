@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpenText,
   Church,
+  CirclePlus,
   FileText,
   Menu,
   PanelLeftOpen,
@@ -52,6 +53,7 @@ interface GameHeaderProps {
   readonly resolvingTurn: boolean;
   readonly pendingDilemmaCount: number;
   readonly onAdvance: () => void;
+  readonly onAddStance: () => void;
   readonly onSave: () => void;
   readonly onLoad: () => void;
   readonly onReset: () => void;
@@ -69,6 +71,9 @@ interface GameHeaderProps {
 
 type GameHeaderActions = Pick<
   GameHeaderProps,
+  | "onAddStance"
+  | "terminal"
+  | "resolvingTurn"
   | "onSave"
   | "onLoad"
   | "onReset"
@@ -171,18 +176,24 @@ function ResourceStrip({
 function PanelActions({
   activeCrisisCount,
   urgentGameOverWarning,
+  terminal,
+  resolvingTurn,
   onOpenCrises,
   onOpenChronicle,
   onOpenDecisions,
+  onAddStance,
   turnReportAvailable,
   onOpenTurnReport,
 }: Pick<
   GameHeaderProps,
   | "activeCrisisCount"
   | "urgentGameOverWarning"
+  | "terminal"
+  | "resolvingTurn"
   | "onOpenCrises"
   | "onOpenChronicle"
   | "onOpenDecisions"
+  | "onAddStance"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >) {
@@ -236,6 +247,19 @@ function PanelActions({
       >
         <ScrollText data-icon="inline-start" />
         <span className="hidden lg:inline">Decisions</span>
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onAddStance}
+        disabled={terminal || resolvingTurn}
+        aria-label="Add a stance"
+      >
+        <CirclePlus data-icon="inline-start" />
+        <span className="hidden sm:inline">New</span>
       </Button>
       {turnReportAvailable && (
         <Button
@@ -301,6 +325,9 @@ function GameActionsMenu({
   onOpenCrises,
   onOpenChronicle,
   onOpenDecisions,
+  onAddStance,
+  terminal,
+  resolvingTurn,
   turnReportAvailable,
   onOpenTurnReport,
   onSave,
@@ -343,6 +370,12 @@ function GameActionsMenu({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenDecisions}>
                 <ScrollText /> Decisions
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={onAddStance}
+                disabled={terminal || resolvingTurn}
+              >
+                <CirclePlus /> Add stance
               </DropdownMenuItem>
               {turnReportAvailable && (
                 <DropdownMenuItem onSelect={onOpenTurnReport}>
@@ -407,6 +440,7 @@ export function GameHeader(props: GameHeaderProps) {
     canLoad,
     resolvingTurn,
     onAdvance,
+    onAddStance,
     pendingDilemmaCount,
     onSave,
     onLoad,
@@ -431,6 +465,9 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenCrises,
     onOpenChronicle,
     onOpenDecisions,
+    onAddStance,
+    terminal,
+    resolvingTurn,
     turnReportAvailable,
     onOpenTurnReport,
     onSave,
@@ -469,9 +506,12 @@ export function GameHeader(props: GameHeaderProps) {
         <PanelActions
           activeCrisisCount={activeCrisisCount}
           urgentGameOverWarning={urgentGameOverWarning}
+          terminal={terminal}
+          resolvingTurn={resolvingTurn}
           onOpenCrises={onOpenCrises}
           onOpenChronicle={onOpenChronicle}
           onOpenDecisions={onOpenDecisions}
+          onAddStance={onAddStance}
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />

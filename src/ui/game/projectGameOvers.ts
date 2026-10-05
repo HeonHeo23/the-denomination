@@ -1,5 +1,7 @@
+import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
   GameOverDefinition,
+  FactionMetric,
   GameOverStageDefinition,
   PrerequisiteGroupDefinition,
   ScenarioDefinition,
@@ -175,14 +177,20 @@ export interface Contribution {
   readonly amount: number;
   readonly sourceId?: string;
   readonly sourceTitle: string;
+  readonly sourceMetric?: FactionMetric;
+  readonly sourceMetricId?: string;
   readonly label: string;
   readonly value: string;
   readonly targetId: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly targetTitle: string;
 }
 
 export interface ContributionGroup {
   readonly targetId: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly targetTitle: string;
   readonly contributions: readonly Contribution[];
 }
@@ -192,13 +200,18 @@ export function groupContributions(
 ): readonly ContributionGroup[] {
   const groups = new Map<string, Contribution[]>();
   for (const contribution of contributions) {
-    const group = groups.get(contribution.targetId) ?? [];
+    const key = `${contribution.targetId}:${contribution.targetMetric ?? "value"}`;
+    const group = groups.get(key) ?? [];
     group.push(contribution);
-    groups.set(contribution.targetId, group);
+    groups.set(key, group);
   }
-  return [...groups].map(([targetId, entries]) => ({
-    targetId,
+  return [...groups.values()].map((entries) => ({
+    targetId: entries[0].targetId,
+    ...(entries[0].targetMetric
+      ? { targetMetric: entries[0].targetMetric }
+      : {}),
     targetTitle: entries[0].targetTitle,
+    targetMetricId: entries[0].targetMetricId,
     contributions: entries,
   }));
 }
@@ -232,18 +245,26 @@ export function projectGameOverContributions(
     const sourceTitle =
       effect.source === "_default_"
         ? "Default pressure"
-        : (scenario.nodes.find(({ id }) => id === effect.source)?.name ??
-          effect.source);
+        : getNodeDisplayInfo(scenario, effect.source).name;
     contributions.push({
       id: effect.id,
       kind: "effect",
       amount: value,
       ...(effect.source === "_default_" ? {} : { sourceId: effect.source }),
       sourceTitle,
+      sourceMetricId: getNodeDisplayInfo(scenario, effect.source).metricId,
+      sourceMetric:
+        effect.source === "_default_"
+          ? undefined
+          : getNodeDisplayInfo(scenario, effect.source).metric,
       label: effect.label ?? effect.id,
       value: formatSignedValue(value, target.domain),
       targetId: target.id,
-      targetTitle: target.name,
+      ...(getNodeDisplayInfo(scenario, effect.target).metric
+        ? { targetMetric: getNodeDisplayInfo(scenario, effect.target).metric }
+        : {}),
+      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetricId: getNodeDisplayInfo(scenario, target.id).metricId,
     });
   }
   for (const grudge of state.grudges) {
@@ -259,7 +280,11 @@ export function projectGameOverContributions(
       label: grudge.label,
       value: formatSignedValue(grudge.magnitude, target.domain),
       targetId: target.id,
-      targetTitle: target.name,
+      ...(getNodeDisplayInfo(scenario, grudge.target).metric
+        ? { targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric }
+        : {}),
+      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetricId: getNodeDisplayInfo(scenario, target.id).metricId,
     });
   }
   return contributions;

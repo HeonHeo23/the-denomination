@@ -1,5 +1,10 @@
+import {
+  createFactionGraphId,
+  getFactionGroupIndex,
+} from "../projections/projectFactionGroups";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type {
+  FactionMetric,
   NumericDomain,
   ScenarioDefinition,
   SimulationState,
@@ -10,6 +15,23 @@ import {
   type NodeReferenceMarker,
 } from "../referenceMarkers";
 
+/** Minimal disposable inputs for graph layout and causal routing. */
+type GraphScenario = Pick<ScenarioDefinition, "nodes" | "effects">;
+type GraphState = Pick<SimulationState, "nodes" | "effects">;
+
+export interface GraphEffectData extends Record<string, unknown> {
+  readonly sourceNodeId?: string;
+  readonly targetNodeId?: string;
+  readonly description?: string;
+  readonly contributionLabel: string;
+  readonly sourceName: string;
+  readonly targetName: string;
+  readonly sourceMetric?: FactionMetric;
+  readonly sourceMetricId?: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
+}
+
 export interface SimulationNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly description: string;
@@ -17,6 +39,14 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly category: string;
   readonly categoryIndex: number;
   readonly value: number;
+  readonly factionCategory?: string;
+  readonly nodeId?: string;
+  readonly metricLabel?: string;
+  readonly factionMetrics?: readonly {
+    readonly metric: string;
+    readonly value: number;
+    readonly delta?: number;
+  }[];
   readonly netFlow?: number;
   readonly referenceMarkers: readonly NodeReferenceMarker[];
   readonly domain: NumericDomain;
@@ -29,26 +59,11 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly revealIndex?: number;
 }
 
-/** Presentation shape retained for CrisisNode consumers; crises are not projected by the graph. */
-export interface CrisisGraphNodeData extends Record<string, unknown> {
-  readonly label: string;
-  readonly description: string;
-  readonly nodeType: "crisis";
-  readonly status: "warning" | "recovered" | "terminal";
-  readonly stageTitle?: string;
-  readonly consecutiveTurns: number;
-  readonly terminalAfterTurns: number;
-  readonly turnsRemaining: number;
-  readonly progressPercent: number;
-  readonly focused?: boolean;
-  readonly revealing?: boolean;
-  readonly revealIndex?: number;
-}
-
 export interface GraphTurnFeedback {
   readonly changes: readonly {
     readonly nodeId: string;
     readonly delta: number;
+    readonly metric?: string;
     readonly previousActive: boolean;
     readonly isActive: boolean;
   }[];
@@ -64,8 +79,8 @@ export interface GraphCategory {
 
 export function isNodeOnGraph(
   nodeId: string,
-  scenario: ScenarioDefinition,
-  state: SimulationState,
+  scenario: GraphScenario,
+  state: GraphState,
   turnFeedback?: GraphTurnFeedback,
   recentlyEndedNodeIds: readonly string[] = [],
 ): boolean {
@@ -92,7 +107,13 @@ const clusterGap = 48;
 const clusterMinimumHeight = 238;
 const nodeColumnGap = 244;
 const nodeRowGap = 126;
+const nodeHeight = 104;
 const factionColumnGap = clusterGap * 2;
+
+/** Rows fitting the occupied thematic height, independent of viewport and zoom. */
+export function factionRowsForHeight(height: number): number {
+  return Math.max(1, Math.floor((height - nodeHeight) / nodeRowGap) + 1);
+}
 
 const positiveEffectColor = "var(--game-increasing)";
 const negativeEffectColor = "var(--game-decreasing)";
@@ -104,9 +125,9 @@ function effectColor(contribution: number): string {
   return neutralEffectColor;
 }
 
-export function projectEffectsToReactFlow(
-  scenario: ScenarioDefinition,
-  state: SimulationState,
+function rawProjectEffectsToReactFlow(
+  scenario: GraphScenario,
+  state: GraphState,
   hoveredNodeId?: string,
   turnFeedback?: GraphTurnFeedback,
   recentlyEndedNodeIds: readonly string[] = [],
@@ -126,6 +147,9 @@ export function projectEffectsToReactFlow(
   );
 
   const changedEffects = new Set(turnFeedback?.changedEffectIds ?? []);
+  const definitionsById = new Map(
+    scenario.nodes.map((node) => [node.id, node]),
+  );
 
   return scenario.effects
     .filter(
@@ -144,10 +168,10 @@ export function projectEffectsToReactFlow(
       const baseStrokeWidth = Math.min(3, 1.2 + Math.abs(contribution) * 3);
       const contributionLabel = formatContributionPercent(contribution);
       const label = isConnected
-        ? effect.label
-          ? `${effect.label} · ${contributionLabel}`
-          : contributionLabel
+        ? [effect.label, contributionLabel].filter(Boolean).join(": ")
         : undefined;
+      const sourceName = definitionsById.get(effect.source)!.name;
+      const targetName = definitionsById.get(effect.target)!.name;
 
       return {
         id: effect.id,
@@ -155,6 +179,13 @@ export function projectEffectsToReactFlow(
         target: effect.target,
         label,
         type: "smoothstep",
+        data: {
+          description: effect.label,
+          contributionLabel,
+          sourceName,
+          targetName,
+        } satisfies GraphEffectData,
+        ariaLabel: `${sourceName} affects ${targetName}: ${contributionLabel}`,
         animated:
           (isConnected || isTurnChanged) &&
           state.nodes[effect.source].isActive &&
@@ -195,9 +226,9 @@ export function projectEffectsToReactFlow(
     });
 }
 
-export function projectGraphCategories(
-  scenario: ScenarioDefinition,
-  state: SimulationState,
+function rawProjectGraphCategories(
+  scenario: GraphScenario,
+  state: GraphState,
   turnFeedback?: GraphTurnFeedback,
   recentlyEndedNodeIds: readonly string[] = [],
 ): GraphCategory[] {
@@ -229,17 +260,69 @@ export function projectGraphCategories(
   }));
 }
 
-export function projectToReactFlow(
-  scenario: ScenarioDefinition,
-  state: SimulationState,
+/** Navigation adds a faction focus without changing thematic graph layout. */
+function rawProjectGraphNavigationCategories(
+  scenario: GraphScenario,
+  state: GraphState,
+  turnFeedback?: GraphTurnFeedback,
+  recentlyEndedNodeIds: readonly string[] = [],
+) {
+  const categories = rawProjectGraphCategories(
+    scenario,
+    state,
+    turnFeedback,
+    recentlyEndedNodeIds,
+  );
+  return navigationCategoriesFromGraphCategories(categories, scenario, state);
+}
+
+function navigationCategoriesFromGraphCategories(
+  categories: readonly GraphCategory[],
+  scenario: GraphScenario,
+  state: GraphState,
+) {
+  const visibleIds = new Set(categories.flatMap(({ nodeIds }) => nodeIds));
+  const factionIds = scenario.nodes
+    .filter(({ id, type }) => type === "faction" && visibleIds.has(id))
+    .map(({ id }) => id);
+  return [
+    ...categories.map((category) => ({
+      id: category.id,
+      label: category.label,
+      nodeIds: category.nodeIds,
+      count: category.nonFactionNodeCount,
+      includeFactions: false,
+    })),
+    ...(factionIds.length
+      ? [
+          {
+            id: "node-type:faction",
+            label: "Factions",
+            nodeIds: factionIds,
+            count: factionIds.filter((id) => state.nodes[id].isActive).length,
+            includeFactions: true,
+          },
+        ]
+      : []),
+  ];
+}
+
+function rawProjectToReactFlow(
+  scenario: GraphScenario,
+  state: GraphState,
   hoveredNodeId?: string,
   turnFeedback?: GraphTurnFeedback,
   recentlyEndedNodeIds: readonly string[] = [],
-): { nodes: Node<SimulationNodeData>[]; edges: Edge[] } {
+  factionRows?: number,
+): {
+  nodes: Node<SimulationNodeData>[];
+  edges: Edge[];
+  categories: GraphCategory[];
+} {
   const turnChanges = new Map(
     turnFeedback?.changes.map((change) => [change.nodeId, change]) ?? [],
   );
-  const categories = projectGraphCategories(
+  const categories = rawProjectGraphCategories(
     scenario,
     state,
     turnFeedback,
@@ -294,6 +377,20 @@ export function projectToReactFlow(
     [],
   );
 
+  const thematicHeight = groups.reduce((height, [, definitions], index) => {
+    const count = definitions.filter(({ type }) => type !== "faction").length;
+    if (count === 0) return height;
+    const bottom =
+      clusterRowOffsets[Math.floor(index / clusterColumns)] +
+      (Math.ceil(count / 2) - 1) * nodeRowGap +
+      nodeHeight;
+    return Math.max(height, bottom);
+  }, 0);
+  const rowsPerFactionColumn =
+    factionRows !== undefined && Number.isFinite(factionRows)
+      ? Math.max(1, Math.floor(factionRows))
+      : factionRowsForHeight(thematicHeight);
+
   const nodes = groups.flatMap(([category, definitions], clusterIndex) => {
     const clusterX =
       (clusterIndex % clusterColumns) * (clusterWidth + clusterGap);
@@ -317,6 +414,7 @@ export function projectToReactFlow(
         const runtime = state.nodes[definition.id];
         const turnChange = turnChanges.get(definition.id);
         const isFaction = definition.type === "faction";
+        const factionIndex = factionIndexById.get(definition.id) ?? 0;
         const compactIndex = isFaction
           ? 0
           : (nonFactionIndexById.get(definition.id) ?? nodeIndex);
@@ -326,11 +424,14 @@ export function projectToReactFlow(
           id: definition.id,
           type: "simulation",
           width: 220,
-          height: 104,
+          height: nodeHeight,
           position: {
-            x: isFaction ? factionColumnX : clusterX + column * nodeColumnGap,
+            x: isFaction
+              ? factionColumnX +
+                Math.floor(factionIndex / rowsPerFactionColumn) * nodeColumnGap
+              : clusterX + column * nodeColumnGap,
             y: isFaction
-              ? (factionIndexById.get(definition.id) ?? 0) * nodeRowGap
+              ? (factionIndex % rowsPerFactionColumn) * nodeRowGap
               : clusterY + row * nodeRowGap,
           },
           ariaLabel: `${definition.name}, ${definition.type}. Click for details.`,
@@ -341,15 +442,22 @@ export function projectToReactFlow(
             category,
             categoryIndex: clusterIndex,
             value: runtime.value,
+            ...(definition.type === "faction"
+              ? { factionCategory: definition.factionCategory }
+              : {}),
             ...(definition.type === "resource"
               ? { netFlow: runtime.netFlow }
               : {}),
-            referenceMarkers: projectNodeReferenceMarkers(definition),
+            referenceMarkers:
+              definition.type === "faction"
+                ? []
+                : projectNodeReferenceMarkers(definition),
             domain: definition.domain,
             active: runtime.isActive,
             forced: runtime.isForced,
             focused: definition.id === hoveredNodeId,
-            turnDelta: turnChange?.delta,
+            turnDelta:
+              definition.type === "faction" ? undefined : turnChange?.delta,
             activationTransition:
               turnChange && turnChange.previousActive !== turnChange.isActive
                 ? turnChange.isActive
@@ -366,7 +474,7 @@ export function projectToReactFlow(
     );
   });
 
-  const edges = projectEffectsToReactFlow(
+  const edges = rawProjectEffectsToReactFlow(
     scenario,
     state,
     hoveredNodeId,
@@ -374,5 +482,204 @@ export function projectToReactFlow(
     recentlyEndedNodeIds,
   );
 
-  return { nodes, edges };
+  return { nodes, edges, categories };
+}
+
+/** Grouping is a disposable presentation projection, never an engine snapshot. */
+function groupedGraphInput(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  feedback?: GraphTurnFeedback,
+  metricId = scenario.factionMetrics?.[0]?.id,
+) {
+  const index = getFactionGroupIndex(scenario);
+  const displayId = (id: string) => {
+    const context = index.byNode.get(id);
+    return context ? createFactionGraphId(context.group.id) : id;
+  };
+  const cards = [...index.byGroup.values()].map(
+    (members) =>
+      members.find((member) => member.metric.id === metricId) ?? members[0],
+  );
+  const viewScenario: GraphScenario = {
+    nodes: [
+      ...scenario.nodes.filter((node) => node.type !== "faction"),
+      ...cards.map((context) => ({
+        ...context.node,
+        id: createFactionGraphId(context.group.id),
+        name: context.group.name,
+        description: context.group.description,
+        category: index.byGroup.get(context.group.id)![0].node.category,
+      })),
+    ],
+    effects: scenario.effects.map((effect) => ({
+      ...effect,
+      source: displayId(effect.source),
+      target: displayId(effect.target),
+    })),
+  };
+  const viewState: GraphState = {
+    effects: state.effects,
+    nodes: {
+      ...state.nodes,
+      ...Object.fromEntries(
+        cards.map((context) => [
+          createFactionGraphId(context.group.id),
+          state.nodes[context.node.id],
+        ]),
+      ),
+    },
+  };
+  const viewFeedback = feedback
+    ? {
+        ...feedback,
+        changes: feedback.changes
+          .filter(
+            (change) =>
+              !index.byNode.has(change.nodeId) ||
+              index.byNode.get(change.nodeId)!.metric.id === metricId,
+          )
+          .map((change) => ({ ...change, nodeId: displayId(change.nodeId) })),
+      }
+    : undefined;
+  return { index, cards, displayId, viewScenario, viewState, viewFeedback };
+}
+function annotateEdges(
+  edges: Edge[],
+  scenario: ScenarioDefinition,
+  index: ReturnType<typeof getFactionGroupIndex>,
+): Edge[] {
+  const effects = new Map(
+    scenario.effects.map((effect) => [effect.id, effect]),
+  );
+  return edges.map((edge) => {
+    const effect = effects.get(edge.id)!;
+    const source = index.byNode.get(effect.source);
+    const target = index.byNode.get(effect.target);
+    const data = edge.data as GraphEffectData;
+    return {
+      ...edge,
+      label: edge.label
+        ? [
+            `${source ? `${source.group.name} (${source.metric.label})` : data.sourceName} → ${target ? `${target.group.name} (${target.metric.label})` : data.targetName}`,
+            edge.label,
+          ].join(" · ")
+        : undefined,
+      data: {
+        ...data,
+        sourceNodeId: effect.source,
+        targetNodeId: effect.target,
+        sourceMetric: source?.metric.label,
+        sourceMetricId: source?.metric.id,
+        targetMetric: target?.metric.label,
+        targetMetricId: target?.metric.id,
+      },
+      ariaLabel: `${data.sourceName}${source ? ` ${source.metric.label}` : ""} affects ${data.targetName}${target ? ` ${target.metric.label}` : ""}: ${data.contributionLabel}`,
+    };
+  });
+}
+export function projectGraphCategories(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  feedback?: GraphTurnFeedback,
+  ended: readonly string[] = [],
+) {
+  const view = groupedGraphInput(scenario, state, feedback);
+  return rawProjectGraphCategories(
+    view.viewScenario,
+    view.viewState,
+    view.viewFeedback,
+    ended.map(view.displayId),
+  );
+}
+export function projectGraphNavigationCategories(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  feedback?: GraphTurnFeedback,
+  ended: readonly string[] = [],
+) {
+  const view = groupedGraphInput(scenario, state, feedback);
+  return rawProjectGraphNavigationCategories(
+    view.viewScenario,
+    view.viewState,
+    view.viewFeedback,
+    ended.map(view.displayId),
+  );
+}
+export function projectEffectsToReactFlow(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  hovered?: string,
+  feedback?: GraphTurnFeedback,
+  ended: readonly string[] = [],
+) {
+  const view = groupedGraphInput(scenario, state, feedback);
+  return annotateEdges(
+    rawProjectEffectsToReactFlow(
+      view.viewScenario,
+      view.viewState,
+      hovered ? view.displayId(hovered) : undefined,
+      view.viewFeedback,
+      ended.map(view.displayId),
+    ),
+    scenario,
+    view.index,
+  );
+}
+export function projectToReactFlow(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  hovered?: string,
+  feedback?: GraphTurnFeedback,
+  ended: readonly string[] = [],
+  rows?: number,
+  metricId?: string,
+) {
+  const view = groupedGraphInput(scenario, state, feedback, metricId);
+  const graph = rawProjectToReactFlow(
+    view.viewScenario,
+    view.viewState,
+    hovered ? view.displayId(hovered) : undefined,
+    view.viewFeedback,
+    ended.map(view.displayId),
+    rows,
+  );
+  const cardsByGraphId = new Map(
+    view.cards.map((context) => [
+      createFactionGraphId(context.group.id),
+      context,
+    ]),
+  );
+  const feedbackByNodeId = new Map(
+    feedback?.changes.map((change) => [change.nodeId, change]) ?? [],
+  );
+  return {
+    nodes: graph.nodes.map((node) => {
+      const context = cardsByGraphId.get(node.id);
+      if (!context) return node;
+      const delta = feedbackByNodeId.get(context.node.id)?.delta;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          nodeId: context.node.id,
+          metricLabel: context.metric.label,
+          factionMetrics: [
+            {
+              metric: context.metric.label,
+              value: state.nodes[context.node.id].value,
+              delta,
+            },
+          ],
+          referenceMarkers: projectNodeReferenceMarkers(context.node),
+        },
+      };
+    }),
+    edges: annotateEdges(graph.edges, scenario, view.index),
+    navigationCategories: navigationCategoriesFromGraphCategories(
+      graph.categories,
+      view.viewScenario,
+      view.viewState,
+    ),
+  };
 }

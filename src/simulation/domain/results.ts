@@ -4,6 +4,7 @@ import type { SimulationState } from "./runtime";
 /** Breakdown of the terms used to calculate one persistent target. */
 export interface CalculationTrace {
   readonly targetId: string;
+  readonly constraintAdjustment?: number;
   readonly baseline?: number;
   readonly effectTotal: number;
   readonly grudgeTotal: number;

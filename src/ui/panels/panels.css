@@ -106,8 +106,8 @@
 }
 
 .effect-bar[data-label-tone="neutral"] .effect-bar__value {
-  left: 50%;
-  transform: translate(-50%, -50%);
+  left: 0.5rem;
+  transform: translateY(-50%);
 }
 
 .stance-slider [data-slot="slider-track"] {
@@ -277,6 +277,7 @@
 }
 
 .node-value-history {
+  position: relative;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   grid-template-rows: 7rem 1.1rem;
@@ -309,7 +310,6 @@
   .node-value-history {
     flex: 0 1 40%;
     grid-template-rows: 10rem 1.1rem;
-    margin-inline-end: 1rem;
   }
 }
 
@@ -334,6 +334,30 @@
   cursor: crosshair;
   outline: none;
   touch-action: pan-y;
+}
+
+.node-value-history__metric-selector {
+  z-index: 3;
+  display: flex;
+  align-self: flex-end;
+  width: fit-content;
+}
+
+.node-value-history__metric-toggle {
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.node-value-history__metric-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  padding: 0;
+}
+
+.node-value-history__metric-button svg {
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .node-value-history__canvas::before {

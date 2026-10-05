@@ -5,7 +5,7 @@ import type {
 import type { CommandResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { conditionsMet } from "./shared";
+import { conditionsMet, createNodeHistoryState } from "./shared";
 
 /** Capture every qualifying Dilemma from one shared completed-turn snapshot. */
 export function queueDilemmas(
@@ -106,17 +106,12 @@ export function resolveDilemma(
     occurrenceId,
   );
   const nodes = applied.nodes;
-  const nodeValueHistory = [...applied.nodeValueHistory];
-  const last = nodeValueHistory[nodeValueHistory.length - 1];
-  nodeValueHistory[nodeValueHistory.length - 1] = {
-    ...last,
-    values: Object.fromEntries(
+  const nodeValueHistory = {
+    ...applied.nodeValueHistory,
+    [state.turn]: Object.fromEntries(
       scenario.nodes.map((node) => [
         node.id,
-        {
-          value: nodes[node.id].value,
-          isActive: nodes[node.id].isActive,
-        },
+        createNodeHistoryState(nodes[node.id]),
       ]),
     ),
   };

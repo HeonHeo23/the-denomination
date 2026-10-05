@@ -45,8 +45,8 @@ export function runEventTests() {
     ["first", "second"],
   );
   assert.equal(
-    first.nodes.authority.value,
-    first.nodeValueHistory.at(-1)?.values.authority.value,
+    first.nodes.authority.value!,
+    first.nodeValueHistory[first.turn].authority.value,
   );
   const report = projectTurnReport(scenario, initial, first);
   assert.deepEqual(
@@ -148,7 +148,7 @@ export function runEventTests() {
     initializeScenario(snapshotScenario),
     0.2,
   ).state;
-  assert.ok(snapshotTurn.nodes.authority.value < 0);
+  assert.ok(snapshotTurn.nodes.authority.value! < 0);
   assert.equal(snapshotTurn.pendingDilemmaIds.length, 1);
 
   assert.ok(

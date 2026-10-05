@@ -37,8 +37,8 @@ export function prerequisiteMet(
     case "situation-resolved":
       return (
         state.nodes[prerequisite.nodeId]?.isActive === false &&
-        state.nodeValueHistory.some(
-          (point) => point.values[prerequisite.nodeId]?.isActive,
+        Object.values(state.nodeValueHistory).some(
+          (nodes) => nodes[prerequisite.nodeId]?.isActive,
         )
       );
   }

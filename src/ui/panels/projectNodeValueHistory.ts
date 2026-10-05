@@ -87,12 +87,14 @@ export function projectNodeValueHistory(
       guides: [],
     };
 
-  const readings = state.nodeValueHistory
+  const readings = Object.keys(state.nodeValueHistory)
+    .map(Number)
+    .sort((a, b) => a - b)
     .slice(-VALUE_HISTORY_WINDOW)
-    .map((point) => ({
-      turn: point.turn,
-      value: point.values[definition.id].value,
-      isActive: point.values[definition.id].isActive,
+    .map((turn) => ({
+      turn,
+      value: state.nodeValueHistory[turn][definition.id].value,
+      isActive: state.nodeValueHistory[turn][definition.id].isActive,
     }));
   const minimum = definition.domain.clamp
     ? definition.domain.min

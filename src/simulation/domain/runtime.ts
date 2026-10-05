@@ -3,9 +3,7 @@ import type { EffectId, NodeId } from "./definitions";
 /** Mutable-in-time values for one persistent node in a snapshot. */
 export interface NodeRuntimeState {
   readonly value: number;
-  /** Non-Resource baseline; absent for Resources. */
   readonly baseValue?: number;
-  /** Resource flow projected at turn zero or applied on the latest turn. */
   readonly netFlow?: number;
   readonly isActive: boolean;
   readonly isForced: boolean;
@@ -44,12 +42,10 @@ export interface HistoryEntry {
   readonly detail: string;
 }
 
-/** Completed-turn readings for every Scenario node, including Stances. */
-export interface NodeValueHistoryPoint {
-  readonly turn: number;
-  readonly values: Readonly<
-    Record<NodeId, { readonly value: number; readonly isActive: boolean }>
-  >;
+/** A node's recorded value and activation state at one turn. */
+export interface NodeHistoryState {
+  readonly value: number;
+  readonly isActive: boolean;
 }
 
 export interface GameOverProgressRuntimeState {
@@ -99,7 +95,10 @@ export interface SimulationState {
   readonly effects: Readonly<Record<EffectId, EffectRuntimeState>>;
   readonly grudges: readonly GrudgeRuntimeState[];
   readonly history: readonly HistoryEntry[];
-  readonly nodeValueHistory: readonly NodeValueHistoryPoint[];
+  /** Historical node states, keyed by turn and then node ID. */
+  readonly nodeValueHistory: Readonly<
+    Record<number, Readonly<Record<NodeId, NodeHistoryState>>>
+  >;
   readonly dilemmas: Readonly<Record<string, DilemmaRuntimeState>>;
   readonly events: Readonly<Record<string, EventRuntimeState>>;
   readonly pendingDilemmaIds: readonly string[];

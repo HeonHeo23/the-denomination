@@ -1,3 +1,4 @@
+import { FactionMetricName } from "@/ui/FactionMetric";
 import { useState } from "react";
 import {
   BookOpenText,
@@ -65,10 +66,21 @@ function ChangeItem({
     <DossierItemButton
       variant="muted"
       size="sm"
-      aria-label={`Open ${change.node.name} dossier`}
+      aria-label={`Open ${change.node.name}${change.metric ? ` ${change.metric}` : ""} dossier`}
       onSelect={selectNode}
-      title={change.node.name}
-      description={`${nodeTypeLabel(change.node.type)}${status ? ` · ${status}` : ""}`}
+      title={
+        <FactionMetricName
+          name={change.node.name}
+          metric={change.metric}
+          metricId={change.metricId}
+        />
+      }
+      description={
+        <span className="flex flex-wrap gap-2">
+          <span>{nodeTypeLabel(change.node.type)}</span>
+          {status && <Badge variant="outline">{status}</Badge>}
+        </span>
+      }
       data-game-change={
         change.delta > 0
           ? "increasing"
@@ -222,13 +234,22 @@ export function TurnReportDialog({
                       variant="outline"
                       size="sm"
                       key={grudge.id}
-                      aria-label={`Open ${grudge.targetName} dossier`}
+                      aria-label={`Open ${grudge.targetName}${grudge.targetMetric ? ` (${grudge.targetMetric})` : ""} dossier`}
                       onSelect={() => onNodeSelect(grudge.targetId)}
                       leading={
                         <Flame aria-hidden="true" className="size-4 shrink-0" />
                       }
                       title={grudge.label}
-                      description={`Affecting ${grudge.targetName}`}
+                      description={
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>Affecting</span>
+                          <FactionMetricName
+                            name={grudge.targetName}
+                            metric={grudge.targetMetric}
+                            metricId={grudge.targetMetricId}
+                          />
+                        </span>
+                      }
                       trailing={
                         <Badge
                           variant={
@@ -286,7 +307,7 @@ export function TurnReportDialog({
                     {visibleChanges.map((change) => (
                       <ChangeItem
                         change={change}
-                        key={change.node.id}
+                        key={`${change.node.id}:${change.metric ?? "value"}`}
                         onNodeSelect={onNodeSelect}
                       />
                     ))}
@@ -312,7 +333,7 @@ export function TurnReportDialog({
                           {report.changes.map((change) => (
                             <ChangeItem
                               change={change}
-                              key={change.node.id}
+                              key={`${change.node.id}:${change.metric ?? "value"}`}
                               onNodeSelect={onNodeSelect}
                             />
                           ))}

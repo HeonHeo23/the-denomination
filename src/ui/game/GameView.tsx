@@ -76,6 +76,9 @@ export function GameView({
   const { play } = useInterfaceSound();
   const session = useGameSession(entry.scenario, restoredState);
   const navigation = useDossierNavigation(Boolean(restoredState?.outcome));
+  const [factionMetricId, setFactionMetricId] = useState(
+    () => entry.scenario.factionMetrics?.[0]?.id ?? "",
+  );
   const openReport = navigation.openReport;
   const [sheetHoveredNodeId, setSheetHoveredNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport | undefined>(() =>
@@ -91,6 +94,8 @@ export function GameView({
   );
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
+  const [inactiveStanceSearchOpen, setInactiveStanceSearchOpen] =
+    useState(false);
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
   const previousState = useRef<SimulationState | undefined>(undefined);
@@ -293,6 +298,7 @@ export function GameView({
         pendingDilemmaCount={session.state.pendingDilemmaIds.length}
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
+        onAddStance={() => setInactiveStanceSearchOpen(true)}
         onAdvance={() => {
           if (session.state.pendingDilemmaIds.length) {
             setDilemmaOpen(true);
@@ -372,18 +378,14 @@ export function GameView({
           aria-label="Institutional causal graph"
         >
           <div className="graph-canvas relative size-full min-h-0">
-            <div className="graph-legend" aria-label="Graph legend">
-              <span>
-                <i className="effect-key effect-key--positive" /> Increasing
-              </span>
-              <span>
-                <i className="effect-key effect-key--negative" /> Decreasing
-              </span>
-            </div>
             <SimulationGraph
               scenario={scenario}
               state={session.state}
               onNodeSelect={selectNode}
+              factionMetricId={factionMetricId}
+              onFactionMetricChange={setFactionMetricId}
+              inactiveStanceSearchOpen={inactiveStanceSearchOpen}
+              onInactiveStanceSearchOpenChange={setInactiveStanceSearchOpen}
               externalHoveredNodeId={sheetHoveredNodeId}
               turnFeedback={graphTurnFeedback}
             />
@@ -529,6 +531,7 @@ export function GameView({
           onEnact={session.enactStance}
           onRepeal={session.repealStance}
           onNodeSelect={selectNode}
+          onFactionMetricChange={setFactionMetricId}
           onClose={navigation.closeNode}
         />
       )}

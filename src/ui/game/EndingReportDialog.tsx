@@ -1,3 +1,4 @@
+import { FactionMetricReadings } from "@/ui/FactionMetric";
 import { Home, Image, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -114,7 +115,15 @@ export function EndingReportDialog({
                           ? reading.definition.description
                           : "Inactive at completion"
                       }
-                      trailing={reading.value}
+                      trailing={
+                        reading.factionMetrics ? (
+                          <FactionMetricReadings
+                            readings={reading.factionMetrics}
+                          />
+                        ) : (
+                          reading.value
+                        )
+                      }
                       onSelect={() => onNodeSelect(reading.definition.id)}
                     />
                   ))}

@@ -332,7 +332,7 @@ assert.equal(
 );
 assert.equal(
   validateSavedGame(
-    { ...save, state: { ...save.state, nodeValueHistory: [] } },
+    { ...save, state: { ...save.state, nodeValueHistory: {} } },
     catalog,
   ),
   undefined,
@@ -344,17 +344,13 @@ assert.equal(
       ...save,
       state: {
         ...save.state,
-        nodeValueHistory: save.state.nodeValueHistory.map((point, index) =>
-          index === 1
-            ? {
-                ...point,
-                values: {
-                  ...point.values,
-                  money: { value: Number.NaN, isActive: true },
-                },
-              }
-            : point,
-        ),
+        nodeValueHistory: {
+          ...save.state.nodeValueHistory,
+          [save.state.turn]: {
+            ...save.state.nodeValueHistory[save.state.turn],
+            money: { value: Number.NaN, isActive: true },
+          },
+        },
       },
     },
     catalog,

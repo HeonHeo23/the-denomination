@@ -1,3 +1,5 @@
+import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import { FactionMetricName } from "@/ui/FactionMetric";
 import { useState } from "react";
 import type {
   ConsequenceDefinition,
@@ -21,14 +23,42 @@ interface DilemmaDialogProps {
 function consequenceLabel(
   consequence: ConsequenceDefinition,
   scenario: ScenarioDefinition,
-): string {
+) {
   const target = scenario.nodes.find(({ id }) => id === consequence.target);
   const name = target?.name ?? consequence.target;
   if (consequence.kind === "resource")
-    return `${name}: ${formatSignedValue(consequence.amount, target?.domain)}`;
+    return (
+      <span>
+        {name}:{" "}
+        {formatSignedValue(
+          consequence.amount,
+          target ? target.domain : undefined,
+        )}
+      </span>
+    );
   if (consequence.kind === "activation")
-    return `${name}: ${consequence.active ? "activated" : "deactivated"}`;
-  return `${name}: temporary ${formatSignedValue(consequence.magnitude, target?.domain)} pressure`;
+    return (
+      <span>
+        {name}: {consequence.active ? "activated" : "deactivated"}
+      </span>
+    );
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <FactionMetricName
+        name={getNodeDisplayInfo(scenario, consequence.target).name}
+        metric={getNodeDisplayInfo(scenario, consequence.target).metric}
+        metricId={getNodeDisplayInfo(scenario, consequence.target).metricId}
+      />
+      <span>
+        temporary{" "}
+        {formatSignedValue(
+          consequence.magnitude,
+          target ? target.domain : undefined,
+        )}{" "}
+        pressure
+      </span>
+    </span>
+  );
 }
 
 export function DilemmaDialog({
@@ -153,13 +183,13 @@ export function DilemmaDialog({
                       <span className="text-sm text-muted-foreground">
                         {option.description}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="flex flex-col gap-1 text-xs text-muted-foreground">
                         {option.consequences.length
-                          ? option.consequences
-                              .map((consequence) =>
-                                consequenceLabel(consequence, scenario),
-                              )
-                              .join(" · ")
+                          ? option.consequences.map((consequence, index) => (
+                              <span key={index}>
+                                {consequenceLabel(consequence, scenario)}
+                              </span>
+                            ))
                           : "No immediate effects"}
                       </span>
                     </span>

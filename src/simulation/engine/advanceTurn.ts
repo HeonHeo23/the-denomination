@@ -6,6 +6,7 @@ import { resolveEnding } from "./resolveEnding";
 import { evaluateGameOvers } from "./evaluateGameOvers";
 import { queueDilemmas } from "./dilemmas";
 import { resolveEvents, selectEvents } from "./events";
+import { createNodeHistoryState } from "./shared";
 
 const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 
@@ -54,21 +55,15 @@ export function advanceTurn(
   const afterEvents = resolveEvents(scenario, queued, selectedEvents);
   const completed = resolveEnding(scenario, {
     ...afterEvents,
-    nodeValueHistory: [
+    nodeValueHistory: {
       ...afterEvents.nodeValueHistory,
-      {
-        turn,
-        values: Object.fromEntries(
-          scenario.nodes.map((node) => [
-            node.id,
-            {
-              value: afterEvents.nodes[node.id].value,
-              isActive: afterEvents.nodes[node.id].isActive,
-            },
-          ]),
-        ),
-      },
-    ],
+      [turn]: Object.fromEntries(
+        scenario.nodes.map((node) => [
+          node.id,
+          createNodeHistoryState(afterEvents.nodes[node.id]),
+        ]),
+      ),
+    },
   });
   return {
     state: completed,

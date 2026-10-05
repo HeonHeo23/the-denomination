@@ -1,4 +1,9 @@
-import type { ScenarioDefinition, SimulationState } from "../../simulation";
+import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import type {
+  ScenarioDefinition,
+  SimulationState,
+  FactionMetric,
+} from "../../simulation";
 import { previewStanceEffects } from "../../simulation";
 import { formatContributionPercent, formatSignedValue } from "../formatValue";
 
@@ -10,6 +15,10 @@ export interface NodeEffectView {
   readonly relatedNodeId?: string;
   readonly relatedName: string;
   readonly label?: string;
+  readonly sourceMetric?: FactionMetric;
+  readonly sourceMetricId?: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly contribution: number;
   readonly contributionLabel: string;
   readonly contributionTone: EffectContributionTone;
@@ -41,7 +50,12 @@ export function projectNodeEffects(
   state: SimulationState,
   previewStanceValue?: number,
 ): NodeEffectsView {
-  const nodeNames = new Map(scenario.nodes.map((node) => [node.id, node.name]));
+  const nodeNames = new Map(
+    scenario.nodes.map((node) => [
+      node.id,
+      getNodeDisplayInfo(scenario, node.id).name,
+    ]),
+  );
   const previewByEffect = new Map<
     string,
     { readonly contribution: number; readonly kind: "settled" | "estimate" }
@@ -74,6 +88,13 @@ export function projectNodeEffects(
         relatedNodeId,
         relatedName,
         label: effect.label,
+        sourceMetric:
+          effect.source === "_default_"
+            ? undefined
+            : getNodeDisplayInfo(scenario, effect.source).metric,
+        targetMetric: getNodeDisplayInfo(scenario, effect.target).metric,
+        sourceMetricId: getNodeDisplayInfo(scenario, effect.source).metricId,
+        targetMetricId: getNodeDisplayInfo(scenario, effect.target).metricId,
         contribution,
         contributionLabel: formatContributionPercent(contribution),
         contributionTone: contributionTone(contribution),
@@ -136,6 +157,8 @@ export function projectNodeEffects(
         kind: "grudge",
         relatedName: "Grudge",
         label: grudge.label,
+        targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric,
+        targetMetricId: getNodeDisplayInfo(scenario, grudge.target).metricId,
         contribution: grudge.magnitude,
         contributionLabel: formatSignedValue(grudge.magnitude, target.domain),
         contributionTone: contributionTone(grudge.magnitude),

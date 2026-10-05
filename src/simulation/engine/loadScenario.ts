@@ -1,4 +1,4 @@
-import type { ScenarioDefinition } from "../domain/definitions";
+import type { NodeDefinition, ScenarioDefinition } from "../domain/definitions";
 import { validateScenario } from "./validateScenario";
 
 import type { ScenarioLoadResult } from "../domain/results";
@@ -34,10 +34,14 @@ export function loadScenario(input: unknown): ScenarioLoadResult {
           }
         : undefined,
     })),
-    nodes: content.nodes.map((node) => ({
-      ...node,
-      graphVisible: node.graphVisible ?? true,
-    })),
+    factionMetrics: content.factionMetrics ?? [],
+    factionGroups: content.factionGroups ?? [],
+    constraints: content.constraints ?? [],
+    nodes: content.nodes.map((node): NodeDefinition =>
+      node.type === "faction"
+        ? { ...node, graphVisible: true }
+        : { ...node, graphVisible: node.graphVisible ?? true },
+    ),
     effects: content.effects.map((effect) => ({
       ...effect,
       inertiaTurns: effect.inertiaTurns ?? 1,

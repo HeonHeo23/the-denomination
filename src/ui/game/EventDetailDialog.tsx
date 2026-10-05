@@ -1,3 +1,4 @@
+import { FactionMetricName } from "@/ui/FactionMetric";
 import eventPlaceholder from "@/assets/event-placeholder.svg";
 import { ArrowDownRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -103,14 +104,20 @@ export function EventDetailDialog({
                           disabled={!target}
                           onClick={() => target && onNodeSelect(target.id)}
                           aria-label={
-                            target ? `Open ${target.name} details` : undefined
+                            target
+                              ? `Open ${target.name}${consequence.targetMetric ? ` ${consequence.targetMetric}` : ""} details`
+                              : undefined
                           }
                         >
                           <ArrowDownRight aria-hidden="true" />
                           <ItemContent className="min-w-0 gap-1">
                             <div className="flex min-w-0 items-baseline justify-between gap-2">
                               <ItemTitle className="min-w-0 truncate">
-                                {target?.name ?? consequence.title}
+                                <FactionMetricName
+                                  name={target?.name ?? consequence.title}
+                                  metric={consequence.targetMetric}
+                                  metricId={consequence.targetMetricId}
+                                />
                               </ItemTitle>
                               <ItemDescription className="min-w-0 truncate text-right">
                                 {consequence.kind === "grudge"
@@ -132,7 +139,7 @@ export function EventDetailDialog({
                                       contribution: amount / range,
                                       contributionLabel: formatSignedValue(
                                         amount,
-                                        target?.domain,
+                                        target ? target.domain : undefined,
                                       ),
                                       contributionTone:
                                         amount > 0
@@ -149,8 +156,11 @@ export function EventDetailDialog({
                             </ItemDescription>
                             {target && value !== undefined && (
                               <ItemDescription className="line-clamp-none">
-                                End-of-turn {target.name} reading:{" "}
-                                {formatValue(value, target.domain)}
+                                End-of-turn {target.name}
+                                {consequence.targetMetric
+                                  ? ` ${consequence.targetMetric}`
+                                  : ""}{" "}
+                                reading: {formatValue(value, target.domain)}
                               </ItemDescription>
                             )}
                           </ItemContent>

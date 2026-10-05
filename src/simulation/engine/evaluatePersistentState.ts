@@ -73,6 +73,8 @@ export function evaluatePersistentState(
   for (const definition of scenario.nodes) {
     if (definition.type !== "resource" || !definition.domain.clamp) continue;
     const runtime = nodes[definition.id];
+    if (runtime.value === undefined)
+      throw new Error("Resource requires node runtime state.");
     nodes[definition.id] = {
       ...runtime,
       value: clampValue(runtime.value, definition),
@@ -88,8 +90,9 @@ export function evaluatePersistentState(
     const effectResult = evaluateEffect(effect, evaluationState);
     effects[effect.id] = effectResult.runtime;
 
-    effectTotalByTarget[effect.target] =
-      (effectTotalByTarget[effect.target] ?? 0) +
+    const targetKey = effect.target;
+    effectTotalByTarget[targetKey] =
+      (effectTotalByTarget[targetKey] ?? 0) +
       effectResult.runtime.lastContribution;
   }
 
@@ -112,6 +115,9 @@ export function evaluatePersistentState(
       (!runtime.isActive && definition.type !== "situation")
     )
       continue;
+
+    if (runtime.value === undefined)
+      throw new Error("Expected node runtime state.");
 
     // Sum persistent modifiers.
     const effectTotal = effectTotalByTarget[definition.id] ?? 0;
@@ -183,6 +189,29 @@ export function evaluatePersistentState(
     });
   }
 
+  // Apply shared numeric constraints after all values have been sampled and resolved.
+  for (const constraint of scenario.constraints ?? []) {
+    const members = scenario.nodes.filter(
+      (node) => "constraintId" in node && node.constraintId === constraint.id,
+    );
+    const total = members.reduce((sum, node) => sum + nodes[node.id].value, 0);
+    if (total <= constraint.maxTotal) continue;
+    const scale = constraint.maxTotal / total;
+    for (const member of members) {
+      const previous = nodes[member.id].value;
+      const value = previous * scale;
+      nodes[member.id] = { ...nodes[member.id], value };
+      const calculation = trace.find((entry) => entry.targetId === member.id);
+      if (calculation) {
+        const index = trace.indexOf(calculation);
+        trace[index] = {
+          ...calculation,
+          constraintAdjustment: value - previous,
+          result: value,
+        };
+      }
+    }
+  }
   return { state: { ...evaluationState, nodes, effects, history }, trace };
 }
 
@@ -275,14 +304,19 @@ function hypotheticalStanceCandidate(
 
   if (resource?.type === "resource" && cost !== 0) {
     const runtime = nodes[resource.id];
+    if (runtime.value === undefined)
+      throw new Error("Resource requires node runtime state.");
     nodes[resource.id] = {
       ...runtime,
       value: runtime.value - cost,
     };
   }
 
+  const stanceRuntime = nodes[stance.id];
+  if (stanceRuntime.value === undefined)
+    throw new Error("Stance requires node runtime state.");
   nodes[stance.id] = {
-    ...nodes[stance.id],
+    ...stanceRuntime,
     value,
     baseValue: value,
     isActive: true,

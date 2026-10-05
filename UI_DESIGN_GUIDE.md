@@ -39,6 +39,10 @@ The primary flow is:
   inactive and graph-hidden nodes, with dossiers as the shared detail surface.
 - Provide a separate inactive-Stance index for reviewing potential enactments.
 - Use dossiers for analysis and Stance editing.
+- Present one always-visible card per Faction group.
+- A global graph selector switches the displayed metric and dossiers select metrics independently.
+- Use Scenario metric order and labels.
+- Use compact separate rows for Dilemma consequences.
 - Use Sheets for overview, Crises, and Chronicle review, and more. Situations
   remain available as canonical graph nodes and dossiers.
 - Keep a report, Sheet, or detail dialog open beneath a linked detail dialog so closing the linked detail returns the player to the same context.

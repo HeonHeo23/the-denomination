@@ -1,3 +1,4 @@
+import { FactionMetricName } from "@/ui/FactionMetric";
 import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -84,13 +85,26 @@ export function CrisisSummaryCard(props: CrisisSummaryCardProps) {
                   "Activated prerequisite trajectory"
                 }
               >
-                {props.cause.biggestContribution?.sourceTitle ??
-                  "Activated prerequisites"}
+                <FactionMetricName
+                  name={
+                    props.cause.biggestContribution?.sourceTitle ??
+                    "Activated prerequisites"
+                  }
+                  metric={props.cause.biggestContribution?.sourceMetric}
+                  metricId={props.cause.biggestContribution?.sourceMetricId}
+                />
               </strong>
               <small className="mt-1 block truncate text-muted-foreground">
-                {props.cause.biggestContribution
-                  ? `${props.cause.biggestContribution.value} · ${props.cause.biggestContribution.label}`
-                  : `${props.cause.matchedGroups.length} activated group${props.cause.matchedGroups.length === 1 ? "" : "s"}`}
+                {props.cause.biggestContribution ? (
+                  <span className="flex flex-wrap gap-2">
+                    <span className="font-mono">
+                      {props.cause.biggestContribution.value}
+                    </span>
+                    <span>{props.cause.biggestContribution.label}</span>
+                  </span>
+                ) : (
+                  `${props.cause.matchedGroups.length} activated group${props.cause.matchedGroups.length === 1 ? "" : "s"}`
+                )}
               </small>
             </div>
           </div>

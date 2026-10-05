@@ -9,7 +9,7 @@ import type {
   StanceTransitionAssessment,
 } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
-import { conditionsMet, indexNodes } from "./shared";
+import { conditionsMet, createNodeHistoryState, indexNodes } from "./shared";
 import { resolveDilemma } from "./dilemmas";
 
 type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
@@ -198,6 +198,8 @@ function debitCost(
 ) {
   if (!resourceId || cost === 0) return;
   const resource = nodes[resourceId];
+  if (resource.value === undefined)
+    throw new Error("Resource requires node runtime state.");
   nodes[resourceId] = {
     ...resource,
     value: resource.value - cost,
@@ -241,8 +243,11 @@ export function executeCommand(
   if (command.type === "repeal-stance") {
     nodes[stance.id] = { ...nodes[stance.id], isActive: false };
   } else {
+    const runtime = nodes[stance.id];
+    if (runtime.value === undefined)
+      throw new Error("Stance requires node runtime state.");
     nodes[stance.id] = {
-      ...nodes[stance.id],
+      ...runtime,
       value: command.value,
       baseValue: command.value,
       isActive: true,
@@ -260,22 +265,15 @@ export function executeCommand(
     state: {
       ...state,
       nodes,
-      nodeValueHistory: state.nodeValueHistory.map((point, index) =>
-        index === state.nodeValueHistory.length - 1
-          ? {
-              ...point,
-              values: Object.fromEntries(
-                scenario.nodes.map((node) => [
-                  node.id,
-                  {
-                    value: nodes[node.id].value,
-                    isActive: nodes[node.id].isActive,
-                  },
-                ]),
-              ),
-            }
-          : point,
-      ),
+      nodeValueHistory: {
+        ...state.nodeValueHistory,
+        [state.turn]: Object.fromEntries(
+          scenario.nodes.map((node) => [
+            node.id,
+            createNodeHistoryState(nodes[node.id]),
+          ]),
+        ),
+      },
       history: [
         ...state.history,
         {

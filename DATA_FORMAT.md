@@ -36,6 +36,9 @@ interface ScenarioDefinition {
     year?: number;
   };
   conditions?: string[];
+  factionMetrics?: FactionMetricDefinition[];
+  factionGroups?: FactionGroupDefinition[];
+  constraints?: SumConstraintDefinition[];
   nodes: NodeDefinition[];
   effects: EffectDefinition[];
   events?: EventDefinition[];
@@ -57,13 +60,24 @@ ambiguous use of `prerequisites` for both provided and required tags.
 runtime state.
 
 ```ts
-type HistoricalActorDefinition = { id: string; name: string; role: string; description: string };
+type HistoricalActorDefinition = {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+};
 type EndingNarrative = { id: string; title: string; narrative: string };
-type EndingDefinition = EndingNarrative & { priority: number; prerequisiteGroups: PrerequisiteGroupDefinition[] };
+type EndingDefinition = EndingNarrative & {
+  priority: number;
+  prerequisiteGroups: PrerequisiteGroupDefinition[];
+};
 interface CompletionDefinition {
-  prerequisiteGroups: Array<PrerequisiteGroupDefinition & { description: string }>;
+  prerequisiteGroups: Array<
+    PrerequisiteGroupDefinition & { description: string }
+  >;
   endings: EndingDefinition[];
-  fallbackEnding: EndingNarrative; reportNodeIds: string[];
+  fallbackEnding: EndingNarrative;
+  reportNodeIds: string[];
 }
 ```
 
@@ -79,7 +93,7 @@ unchanged; old content and saves missing required fields fail validation.
 
 ## Nodes
 
-All node definitions share:
+All nodes, including individual Faction metrics, share numeric fields:
 
 ```ts
 interface NumericDomain {
@@ -184,13 +198,31 @@ interface IndicatorDefinition extends BaseNodeDefinition {
 ### Faction
 
 ```ts
+type FactionCategory =
+  "theological" | "demographic" | "geographic" | "institutional";
 interface FactionDefinition extends BaseNodeDefinition {
   type: "faction";
-  valueMeaning: string;
+  factionCategory: FactionCategory;
+  constraintId?: string;
+  graphVisible?: true;
+  initial: InitialNodeState & { isActive: true; isForced: true };
 }
+type FactionMetricDefinition = { id: string; label: string };
+type FactionGroupDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  metrics: Record<string, string>;
+};
+type SumConstraintDefinition = {
+  id: string;
+  kind: "sum-limit";
+  maxTotal: number;
+  name?: string;
+};
 ```
 
-`valueMeaning` defines the content-specific interpretation of the scalar.
+Scenarios define an ordered catalog of Faction metrics and named groups. Each group maps every metric to its own node, so the simulation stores ordinary numeric values while the UI presents related metrics together. Optional sum-limit constraints cap the combined values of selected metrics.
 
 ### Resource
 
@@ -202,14 +234,10 @@ interface ResourceDefinition extends BaseNodeDefinition {
 }
 ```
 
-Resources use the same domain, visibility, and Effect references as other nodes.
-Incoming Effects and active Grudges are per-turn flows. Runtime state stores
-one balance (`value`) and signed `netFlow`. When `domain.clamp` is true, the
-balance clamps once at the start of each turn, before Effect sampling; excess
-and deficit are discarded then. Flows and transactions can move the balance
-outside the domain during the turn. An unclamped Resource has no effective
-minimum or maximum; its domain bounds remain available to presentation and
-content validation. Resource domains may include a negative minimum to show debt.
+Resources share the common domain and Effect references and have no baseline.
+Runtime state stores the balance in `value` and per-turn Effect and Grudge flow
+in `netFlow`. Optional domain clamping occurs before Effect sampling; domains
+may allow debt or disable clamping.
 
 ### Situation
 
@@ -268,6 +296,9 @@ evaluation semantics, especially constant responses attached to node sources
 and contextual-factor activation, remain a game-design TBD. Do not add an
 arbitrary expression language or executable callbacks until those semantics
 are settled. Every `product.factors` entry must reference a node.
+
+All numeric references, including Faction metrics, use node IDs directly.
+Legacy metric selectors and nested Faction values are rejected.
 
 ## Runtime prerequisites
 
@@ -437,15 +468,16 @@ occurrences, Dilemma choices, and Events execute them.
 Static definition data describes what may happen and the authoritative starting
 conditions. Runtime state records what has happened:
 
-| Static content                                  | Runtime state                                                 |
-| ----------------------------------------------- | ------------------------------------------------------------- |
-| Node domain, metadata, non-Resource baseline, initial state | Current value and activation; Resource balance and net flow                                |
-| Effect source, target, response, Inertia window | Source-value history and last contribution                    |
-| Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
-| Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
-| Dilemma choices                                 | Pending Dilemma IDs                                           |
-| Game Over definitions and warning stages        | Episode progress, matched groups, and terminal outcome        |
-| Scenario start                                  | Current turn and year                                         |
+| Static content              | Runtime state                                                         |
+| --------------------------- | --------------------------------------------------------------------- |
+| Scenario identity and start | `scenarioId`, `turn`, optional `year`                                 |
+| Nodes                       | `nodes`: activation and numeric values; Resource balance and flow      |
+| Effects                     | `effects`: source history and last contribution                       |
+| Grudge templates            | `grudges`: IDs, targets/metrics, magnitude, decay, creation turn      |
+| Events                      | `events`: last trigger turn and count                                 |
+| Dilemmas and choices        | `dilemmas`: trigger/resolution state; `pendingDilemmaIds`: queued IDs |
+| Game Overs and Endings      | `gameOverProgress`: episode/matched groups; `outcome`: result or null |
+| Histories                   | `history`: occurrences; `nodeValueHistory`: turn-keyed node readings  |
 
 A runtime snapshot is not Scenario content and must not be merged back into its
 definition. A save format may reuse runtime structures but requires its own

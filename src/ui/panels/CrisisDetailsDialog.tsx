@@ -1,3 +1,4 @@
+import { FactionMetricName } from "@/ui/FactionMetric";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -56,6 +57,8 @@ function effectBarView(contribution: Contribution) {
     kind: "effect",
     relatedNodeId: contribution.sourceId,
     relatedName: contribution.sourceTitle,
+    sourceMetric: contribution.sourceMetric,
+    targetMetric: contribution.targetMetric,
     label: contribution.label,
     contribution: contribution.amount,
     contributionLabel: formatContributionPercent(contribution.amount),
@@ -206,18 +209,26 @@ export function CrisisDetailsDialog({
                   ({
                     targetId,
                     targetTitle,
+                    targetMetric,
+                    targetMetricId,
                     contributions: targetContributions,
                   }) => (
                     <EffectTableCard
-                      key={targetId}
-                      title={targetTitle}
+                      key={`${targetId}:${targetMetric ?? "value"}`}
+                      title={
+                        <FactionMetricName
+                          name={targetTitle}
+                          metric={targetMetric}
+                          metricId={targetMetricId}
+                        />
+                      }
                       legend={
                         <>
                           {targetContributions.length} factor
                           {targetContributions.length === 1 ? "" : "s"}
                         </>
                       }
-                      ariaLabel={`Open ${targetTitle} node dossier`}
+                      ariaLabel={`Open ${targetTitle}${targetMetric ? ` ${targetMetric}` : ""} node dossier`}
                       onOpen={() => onNodeSelect(targetId)}
                       headerClassName="border-b border-border/60"
                     >

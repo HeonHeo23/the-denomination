@@ -101,3 +101,9 @@ If implementation requires a genuinely unspecified game-design decision:
 3. report the ambiguity clearly.
 
 If an out-of-scope conflict with the documentation is discovered, report it instead of silently fixing unrelated code.
+
+## Documentation Style
+
+Keep authored and updated documentation concise. State each rule once, use short
+examples, and omit repeated explanations or implementation detail that belongs
+in code or a more authoritative document.

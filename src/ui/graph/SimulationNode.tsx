@@ -16,6 +16,8 @@ import "../reference-markers.css";
 export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
   const percent = meterPercent(data.value, data.domain);
   const label = formatValue(data.value, data.domain);
+  const factionMetric = data.factionMetrics?.[0];
+  const turnDelta = factionMetric?.delta ?? data.turnDelta;
   const referenceDescription = data.referenceMarkers
     .map(
       ({ label: markerLabel, value }) =>
@@ -50,7 +52,12 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
     >
       <Handle type="target" position={Position.Left} />
       <div className="simulation-node__meta">
-        <span className="simulation-node__type">
+        <span
+          className="simulation-node__type"
+          title={
+            data.factionCategory ? `${data.factionCategory} faction` : undefined
+          }
+        >
           <NodeIcon aria-hidden="true" />
           {data.nodeType}
         </span>
@@ -58,12 +65,12 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
       </div>
       <div className="simulation-node__heading">
         <strong className="simulation-node__title">{data.label}</strong>
-        {data.turnDelta !== undefined && Math.abs(data.turnDelta) > 1e-9 && (
+        {turnDelta !== undefined && Math.abs(turnDelta) > 1e-9 && (
           <span
             className="simulation-node__delta"
-            data-direction={data.turnDelta > 0 ? "increasing" : "decreasing"}
+            data-direction={turnDelta > 0 ? "increasing" : "decreasing"}
           >
-            {formatSignedValue(data.turnDelta, data.domain)}
+            {formatSignedValue(turnDelta, data.domain)}
           </span>
         )}
         {data.activationTransition && (
@@ -76,7 +83,7 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
         <div className="simulation-node__meter">
           <Progress
             value={Math.min(100, Math.max(0, percent))}
-            aria-label={`Current ${label}${referenceAriaDescription}`}
+            aria-label={`Current ${data.nodeType === "faction" ? `${data.metricLabel ?? ""} ` : ""}${label}${referenceAriaDescription}`}
           />
           {data.referenceMarkers.map((marker) => (
             <span
@@ -104,7 +111,11 @@ export function SimulationNode({ data }: NodeProps<Node<SimulationNodeData>>) {
             </span>
           ))}
         </div>
-        <output>
+        <output
+          aria-label={
+            data.nodeType === "faction" ? `Satisfaction: ${label}` : undefined
+          }
+        >
           {label}
           {data.nodeType === "resource" &&
             ` (${formatSignedValue(data.netFlow ?? 0, data.domain)}/turn)`}

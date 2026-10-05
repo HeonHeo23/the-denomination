@@ -121,6 +121,7 @@ export function validateScenario(input: unknown): readonly string[] {
     path: string;
     resource?: boolean;
     deactivate?: boolean;
+    numeric?: boolean;
   }[] = [];
   if (
     !object(input, "$", [
@@ -137,6 +138,9 @@ export function validateScenario(input: unknown): readonly string[] {
       "gameOvers",
       "completion",
       "historicalActors",
+      "factionMetrics",
+      "factionGroups",
+      "constraints",
     ])
   )
     return errors;
@@ -171,7 +175,7 @@ export function validateScenario(input: unknown): readonly string[] {
     stance: ["control", "cost", "enactmentCost", "repealCost"],
     indicator: [],
     resource: [],
-    faction: ["valueMeaning"],
+    faction: ["factionCategory", "constraintId"],
     situation: ["startThreshold", "stopThreshold"],
   };
   array(input.nodes, "$.nodes").forEach((value, i) => {
@@ -184,7 +188,8 @@ export function validateScenario(input: unknown): readonly string[] {
         "cost",
         "enactmentCost",
         "repealCost",
-        "valueMeaning",
+        "factionCategory",
+        "constraintId",
         "startThreshold",
         "stopThreshold",
       ])
@@ -248,6 +253,18 @@ export function validateScenario(input: unknown): readonly string[] {
       : {};
     if (type === "resource") number(initial.value, `${path}.initial.value`);
     else bounded(initial.value, `${path}.initial.value`, domain);
+    if (type === "faction") {
+      if (
+        !["theological", "demographic", "geographic", "institutional"].includes(
+          String(value.factionCategory),
+        )
+      )
+        error(`${path}.factionCategory`, "unknown faction category");
+      if (value.constraintId !== undefined)
+        id(value.constraintId, `${path}.constraintId`);
+      if (value.graphVisible === false)
+        error(`${path}.graphVisible`, "Factions are always graph-visible");
+    }
     if (typeof initial.isActive !== "boolean")
       error(`${path}.initial.isActive`, "expected a boolean");
     if (typeof initial.isForced !== "boolean")
@@ -258,18 +275,17 @@ export function validateScenario(input: unknown): readonly string[] {
         "must be true when initial.isForced is true",
       );
     if (
-      ["indicator", "resource"].includes(type) &&
+      ["indicator", "resource", "faction"].includes(type) &&
       (initial.isActive !== true || initial.isForced !== true)
     )
       error(
         `${path}.initial`,
-        "Indicators and Resources must start active and forced",
+        "Indicators, Resources and Factions must start active and forced",
       );
     if (type === "resource" && value.baseline !== undefined)
       error(`${path}.baseline`, "Resources do not use a baseline");
     else if (value.baseline !== undefined)
       bounded(value.baseline, `${path}.baseline`, domain);
-    if (type === "faction") string(value.valueMeaning, `${path}.valueMeaning`);
     if (type === "situation") {
       bounded(value.startThreshold, `${path}.startThreshold`, domain);
       bounded(value.stopThreshold, `${path}.stopThreshold`, domain);
@@ -358,6 +374,126 @@ export function validateScenario(input: unknown): readonly string[] {
       }
     }
   });
+  // Validate the metric catalog and keep IDs available for group checks.
+  const metrics = new Set<string>();
+  array(
+    input.factionMetrics === undefined ? [] : input.factionMetrics,
+    "$.factionMetrics",
+  ).forEach((metric, i) => {
+    const path = `$.factionMetrics[${i}]`;
+    if (!object(metric, path, ["id", "label"])) return;
+    id(metric.id, `${path}.id`);
+    string(metric.label, `${path}.label`);
+    if (typeof metric.label === "string" && !metric.label.trim())
+      error(`${path}.label`, "expected a nonempty label");
+    if (typeof metric.id === "string") {
+      if (metrics.has(metric.id))
+        error(`${path}.id`, "duplicate metric identifier");
+      metrics.add(metric.id);
+    }
+  });
+  // Check group mappings, node ownership, and category consistency.
+  const owners = new Set<string>();
+  const groups = new Set<string>();
+  array(
+    input.factionGroups === undefined ? [] : input.factionGroups,
+    "$.factionGroups",
+  ).forEach((group, i) => {
+    const path = `$.factionGroups[${i}]`;
+    if (!object(group, path, ["id", "name", "description", "metrics"])) return;
+    id(group.id, `${path}.id`);
+    string(group.name, `${path}.name`);
+    string(group.description, `${path}.description`);
+    if (typeof group.id === "string") {
+      if (groups.has(group.id))
+        error(`${path}.id`, "duplicate group identifier");
+      groups.add(group.id);
+    }
+    if (!metrics.size)
+      error(`${path}.metrics`, "groups require a nonempty metric catalog");
+    if (!object(group.metrics, `${path}.metrics`, [...metrics])) return;
+    let category: unknown;
+    for (const metric of metrics) {
+      const ref = group.metrics[metric];
+      id(ref, `${path}.metrics.${metric}`);
+      const node = typeof ref === "string" ? nodes.get(ref) : undefined;
+      if (node?.type !== "faction")
+        error(
+          `${path}.metrics.${metric}`,
+          "expected a node for a Faction metric",
+        );
+      if (typeof ref === "string") {
+        if (owners.has(ref))
+          error(
+            `${path}.metrics.${metric}`,
+            "node belongs to more than one group/metric",
+          );
+        owners.add(ref);
+      }
+      if (node) {
+        if (category !== undefined && node.factionCategory !== category)
+          error(
+            `${path}.metrics.${metric}`,
+            "group faction categories must agree",
+          );
+        category = node.factionCategory;
+      }
+    }
+  });
+  // Validate each sum constraint against its derived node participants.
+  const constraints = new Set<string>();
+  array(
+    input.constraints === undefined ? [] : input.constraints,
+    "$.constraints",
+  ).forEach((constraint, i) => {
+    const path = `$.constraints[${i}]`;
+    if (!object(constraint, path, ["id", "kind", "maxTotal", "name"])) return;
+    id(constraint.id, `${path}.id`);
+    if (constraint.kind !== "sum-limit")
+      error(`${path}.kind`, "unknown constraint kind");
+    if (constraint.name !== undefined) string(constraint.name, `${path}.name`);
+    if (
+      number(constraint.maxTotal, `${path}.maxTotal`) &&
+      constraint.maxTotal <= 0
+    )
+      error(`${path}.maxTotal`, "expected a positive cap");
+    if (typeof constraint.id !== "string") return;
+    if (constraints.has(constraint.id))
+      error(`${path}.id`, "duplicate constraint identifier");
+    constraints.add(constraint.id);
+    const participants = [...nodes.values()].filter(
+      (node) => node.type === "faction" && node.constraintId === constraint.id,
+    );
+    if (participants.length < 2)
+      error(path, "constraint requires at least two participants");
+    let total = 0;
+    for (const node of participants) {
+      const domain = node.domain as ObjectValue | undefined;
+      if (domain?.min !== 0 || domain.clamp !== true)
+        error(path, "participants require zero-minimum clamped domains");
+      const initial = node.initial as ObjectValue | undefined;
+      if (typeof initial?.value === "number") total += initial.value;
+    }
+    if (typeof constraint.maxTotal === "number" && total > constraint.maxTotal)
+      error(path, "initial total exceeds constraint cap");
+  });
+  // Ensure every Faction node is owned and its optional constraint resolves.
+  for (const [nodeId, node] of nodes) {
+    if (node.type !== "faction") continue;
+    if (!owners.has(nodeId))
+      error(
+        "$.factionGroups",
+        `Faction node ${nodeId} requires exactly one owner`,
+      );
+    if (
+      node.constraintId !== undefined &&
+      !constraints.has(String(node.constraintId))
+    )
+      error("$.constraints", `constraint for ${nodeId} does not resolve`);
+  }
+  function numericReference(value: unknown, path: string) {
+    refs.push({ value, path, numeric: true });
+  }
   const effects = new Set<unknown>();
   array(input.effects, "$.effects").forEach((effect, i) => {
     const path = `$.effects[${i}]`;
@@ -377,8 +513,8 @@ export function validateScenario(input: unknown): readonly string[] {
       error(`${path}.id`, "duplicate Effect identifier");
     effects.add(effect.id);
     if (effect.source !== "_default_")
-      refs.push({ value: effect.source, path: `${path}.source` });
-    refs.push({ value: effect.target, path: `${path}.target` });
+      numericReference(effect.source, `${path}.source`);
+    numericReference(effect.target, `${path}.target`);
     if (effect.label !== undefined) string(effect.label, `${path}.label`);
     if (
       effect.inertiaTurns !== undefined &&
@@ -413,11 +549,10 @@ export function validateScenario(input: unknown): readonly string[] {
     for (const field of shapes[kind]) {
       if (field === "factors")
         array(response.factors, `${path}.response.factors`).forEach(
-          (factor, j) =>
-            refs.push({
-              value: factor,
-              path: `${path}.response.factors[${j}]`,
-            }),
+          (factor, j) => {
+            const p = `${path}.response.factors[${j}]`;
+            numericReference(factor, p);
+          },
         );
       else if (field !== "intercept" || response[field] !== undefined)
         number(response[field], `${path}.response.${field}`);
@@ -450,7 +585,7 @@ export function validateScenario(input: unknown): readonly string[] {
         number(consequence.amount, `${p}.amount`);
       } else if (consequence.kind === "grudge") {
         only(consequence, p, ["kind", "target", "magnitude", "decay", "label"]);
-        refs.push({ value: consequence.target, path: `${p}.target` });
+        numericReference(consequence.target, `${p}.target`);
         number(consequence.magnitude, `${p}.magnitude`);
         if (
           number(consequence.decay, `${p}.decay`) &&
@@ -476,7 +611,7 @@ export function validateScenario(input: unknown): readonly string[] {
       const p = `${path}[${index}]`;
       if (!object(influence, p, ["source", "coefficient", "intercept"])) return;
       if (influence.source !== "_random_")
-        refs.push({ value: influence.source, path: `${p}.source` });
+        numericReference(influence.source, `${p}.source`);
       number(influence.coefficient, `${p}.coefficient`);
       if (influence.intercept !== undefined)
         number(influence.intercept, `${p}.intercept`);
@@ -601,7 +736,7 @@ export function validateScenario(input: unknown): readonly string[] {
         switch (prerequisite.kind) {
           case "node-value": {
             only(prerequisite, p, ["kind", "nodeId", "comparison", "value"]);
-            refs.push({ value: prerequisite.nodeId, path: `${p}.nodeId` });
+            numericReference(prerequisite.nodeId, `${p}.nodeId`);
             if (
               !["at-most", "at-least"].includes(String(prerequisite.comparison))
             )

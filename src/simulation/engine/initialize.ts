@@ -1,8 +1,12 @@
 import type { ScenarioDefinition } from "../domain/definitions";
-import type { EffectRuntimeState, SimulationState } from "../domain/runtime";
+import type {
+  EffectRuntimeState,
+  SimulationState,
+  NodeRuntimeState,
+} from "../domain/runtime";
 import { loadScenario } from "./loadScenario";
 import { responseValue } from "./responseValue";
-import { clampValue } from "./shared";
+import { clampValue, createNodeHistoryState } from "./shared";
 
 /**
  * Validates a Scenario and creates its authoritative turn-zero snapshot.
@@ -19,7 +23,7 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     throw new Error(`Invalid scenario:\n${loaded.diagnostics.join("\n")}`);
   const scenario = loaded.scenario;
 
-  const nodes = Object.fromEntries(
+  const nodes: Record<string, NodeRuntimeState> = Object.fromEntries(
     scenario.nodes.map((node) => [
       node.id,
       {
@@ -62,20 +66,14 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
     effects,
     grudges: [],
     history: [],
-    nodeValueHistory: [
-      {
-        turn: scenario.start.turn,
-        values: Object.fromEntries(
-          scenario.nodes.map((node) => [
-            node.id,
-            {
-              value: nodes[node.id].value,
-              isActive: nodes[node.id].isActive,
-            },
-          ]),
-        ),
-      },
-    ],
+    nodeValueHistory: {
+      [scenario.start.turn]: Object.fromEntries(
+        scenario.nodes.map((node) => [
+          node.id,
+          createNodeHistoryState(nodes[node.id]),
+        ]),
+      ),
+    },
     dilemmas: Object.fromEntries(
       (scenario.dilemmas ?? []).map(({ id }) => [
         id,
@@ -122,8 +120,11 @@ export function initializeScenario(input: ScenarioDefinition): SimulationState {
   }
   for (const node of scenario.nodes) {
     if (node.type !== "resource") continue;
+    const runtime = nodes[node.id];
+    if (runtime.value === undefined)
+      throw new Error("Resource requires node runtime state.");
     nodes[node.id] = {
-      ...nodes[node.id],
+      ...runtime,
       netFlow: scenario.effects
         .filter((effect) => effect.target === node.id)
         .reduce((sum, effect) => sum + effects[effect.id].lastContribution, 0),

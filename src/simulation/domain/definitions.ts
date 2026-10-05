@@ -91,12 +91,38 @@ export interface IndicatorDefinition extends BaseNodeDefinition {
   };
 }
 
-/** A constituency or tendency represented by one scenario-defined scalar. */
+export type FactionCategory =
+  "theological" | "demographic" | "geographic" | "institutional";
+/** Scenario-defined metric identifier; numeric references use node IDs. */
+export type FactionMetric = string;
+export interface FactionMetricDefinition {
+  readonly id: FactionMetric;
+  readonly label: string;
+}
+export interface FactionGroupDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly metrics: Readonly<Record<FactionMetric, NodeId>>;
+}
+/** An ordinary calculated metric owned by a static Faction group. */
 export interface FactionDefinition extends BaseNodeDefinition {
   readonly type: "faction";
-  readonly valueMeaning: string;
+  readonly factionCategory: FactionCategory;
+  readonly constraintId?: string;
+  readonly graphVisible?: true;
+  readonly initial: InitialNodeState & {
+    readonly isActive: true;
+    readonly isForced: true;
+  };
 }
-
+// This may be extended to other types of constraint as well.
+export interface SumConstraintDefinition {
+  readonly id: string;
+  readonly kind: "sum-limit";
+  readonly maxTotal: number;
+  readonly name?: string;
+}
 /** A spendable or accumulable capacity represented as a node. */
 export interface ResourceDefinition extends BaseNodeDefinition {
   readonly type: "resource";
@@ -310,6 +336,9 @@ export interface ScenarioDefinition {
   readonly events?: readonly EventDefinition[];
   readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];
+  readonly factionMetrics?: readonly FactionMetricDefinition[];
+  readonly factionGroups?: readonly FactionGroupDefinition[];
+  readonly constraints?: readonly SumConstraintDefinition[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];
 }

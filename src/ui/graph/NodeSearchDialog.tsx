@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { FactionMetricIcon } from "@/ui/FactionMetric";
 import { Badge } from "@/components/ui/badge";
 import {
   Command,
@@ -24,16 +25,27 @@ interface NodeSearchDialogProps {
   readonly placeholder?: string;
   readonly emptyMessage?: string;
   readonly offBoardHeading?: string;
+  readonly shortcut?: string;
 }
 
 function SearchResult({ entry }: { readonly entry: NodeSearchEntry }) {
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <strong className="truncate font-medium">{entry.name}</strong>
-        <span className="truncate text-xs text-muted-foreground">
-          <span className="capitalize">{entry.nodeType}</span> ·{" "}
-          {entry.category}
+        <strong className="flex min-w-0 items-center gap-1.5 font-medium">
+          {entry.factionMetric && (
+            <FactionMetricIcon
+              metric={entry.factionMetric.label}
+              metricId={entry.factionMetric.id}
+            />
+          )}
+          <span className="truncate">{entry.name}</span>
+        </strong>
+        <span className="flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <span className="capitalize">
+            {entry.factionCategory ?? entry.nodeType}
+          </span>
+          <span className="truncate">{entry.category}</span>
         </span>
       </span>
       <span className="flex shrink-0 flex-wrap justify-end gap-1">
@@ -60,6 +72,7 @@ export function NodeSearchDialog({
   placeholder = "Search nodes by name, category, type, or status…",
   emptyMessage = "No institutional nodes found.",
   offBoardHeading = "Institutional index",
+  shortcut,
 }: NodeSearchDialogProps) {
   const [query, setQuery] = useState("");
   const results = useMemo(
@@ -94,6 +107,7 @@ export function NodeSearchDialog({
           onValueChange={setQuery}
           placeholder={placeholder}
           aria-label={title}
+          shortcut={shortcut}
         />
         <CommandList className="max-h-96">
           {results.length === 0 && <CommandEmpty>{emptyMessage}</CommandEmpty>}

@@ -1,3 +1,4 @@
+import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
   PrerequisiteDefinition,
   ScenarioDefinition,
@@ -58,25 +59,27 @@ export function projectPrerequisite(
     ({ id }) => id === prerequisite.nodeId,
   )!;
   const runtime = state.nodes[prerequisite.nodeId];
+  const nodedisplayinfo = getNodeDisplayInfo(scenario, definition.id);
+  const title = `${nodedisplayinfo.name}${nodedisplayinfo.metric ? ` — ${nodedisplayinfo.metric}` : ""}`;
   const base = {
     met,
     nodeId: definition.id,
-    title: definition.name,
+    title,
   };
   if (prerequisite.kind === "node-activation") {
     return {
       ...base,
-      description: `${definition.name} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
+      description: `${title} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
     };
   }
   if (prerequisite.kind === "situation-resolved") {
     return {
       ...base,
-      description: `${definition.name} ${met ? "was active and is now resolved" : "has not resolved after being active"}.`,
+      description: `${title} ${met ? "was active and is now resolved" : "has not resolved after being active"}.`,
     };
   }
   return {
     ...base,
-    description: `${definition.name} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
+    description: `${title} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
   };
 }

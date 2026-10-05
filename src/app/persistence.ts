@@ -32,7 +32,6 @@ export interface SavedTurnReport {
     readonly id: string;
     readonly label: string;
     readonly targetId: string;
-    readonly targetName: string;
     readonly magnitude: number;
   }[];
   readonly crisisTransitions: readonly {
@@ -101,6 +100,25 @@ function uniqueReferences(
   );
 }
 
+/** Constraints have no runtime state; validate their derived numeric totals. */
+function constraintTotalsValid(
+  nodes: ObjectValue,
+  scenario: ScenarioDefinition,
+): boolean {
+  return (scenario.constraints ?? []).every((constraint) => {
+    const total = scenario.nodes
+      .filter(
+        (node) =>
+          node.type === "faction" && node.constraintId === constraint.id,
+      )
+      .reduce(
+        (sum, node) => sum + ((nodes[node.id] as ObjectValue).value as number),
+        0,
+      );
+    return Number.isFinite(total) && total <= constraint.maxTotal + 1e-12;
+  });
+}
+
 function validNodeState(
   value: unknown,
   definition: ScenarioDefinition["nodes"][number],
@@ -121,6 +139,11 @@ function validNodeState(
   )
     return false;
   if (definition.type === "resource" && !finite(value.netFlow)) return false;
+  if (
+    definition.type === "faction" &&
+    (value.isActive !== true || value.isForced !== true)
+  )
+    return false;
   if (definition.type === "resource" || !definition.domain.clamp) return true;
   return [value.value, value.baseValue].every(
     (number) =>
@@ -178,7 +201,7 @@ function validRuntimeState(
     ) ||
     !Array.isArray(value.grudges) ||
     !Array.isArray(value.history) ||
-    !Array.isArray(value.nodeValueHistory) ||
+    !value.nodeValueHistory ||
     !exactObject(
       value.dilemmas,
       (scenario.dilemmas ?? []).map(({ id }) => id),
@@ -280,25 +303,35 @@ function validRuntimeState(
   )
     return false;
 
+  if (!constraintTotalsValid(nodes, scenario)) return false;
   const trackedNodes = scenario.nodes;
   const historyLength = value.turn - scenario.start.turn + 1;
-  if (value.nodeValueHistory.length !== historyLength) return false;
+  const nodeValueHistory = value.nodeValueHistory;
+  if (
+    !nodeValueHistory ||
+    typeof nodeValueHistory !== "object" ||
+    Array.isArray(nodeValueHistory) ||
+    Object.keys(nodeValueHistory).length !== historyLength
+  )
+    return false;
+  const historyByTurn = nodeValueHistory as ObjectValue;
   for (let index = 0; index < historyLength; index += 1) {
-    const point = value.nodeValueHistory[index];
+    const turnKey = String(scenario.start.turn + index);
+    if (!Object.hasOwn(historyByTurn, turnKey)) return false;
+    const readings = historyByTurn[turnKey];
     if (
-      !exactObject(point, ["turn", "values"]) ||
-      point.turn !== scenario.start.turn + index ||
       !exactObject(
-        point.values,
+        readings,
         trackedNodes.map((node) => node.id),
       )
     )
       return false;
     for (const node of trackedNodes) {
-      const reading = point.values[node.id];
+      const reading = readings[node.id];
       if (
         !exactObject(reading, ["value", "isActive"]) ||
         !finite(reading.value) ||
+        (node.type === "faction" && reading.isActive !== true) ||
         typeof reading.isActive !== "boolean" ||
         (node.type !== "resource" &&
           node.domain.clamp &&
@@ -319,6 +352,7 @@ function validRuntimeState(
       )
         return false;
     }
+    if (!constraintTotalsValid(readings, scenario)) return false;
   }
 
   const gameOvers = new Map(
@@ -579,6 +613,20 @@ function validSavedTurnReport(
       typeof change.isActive !== "boolean"
     )
       return false;
+    const domain = nodes.get(change.nodeId)!.domain;
+    if (
+      domain.clamp &&
+      nodes.get(change.nodeId)!.type === "faction" &&
+      [change.previousValue, change.value].some(
+        (v) => v < domain.min || v > domain.max,
+      )
+    )
+      return false;
+    if (
+      nodes.get(change.nodeId)!.type === "faction" &&
+      (!change.previousActive || !change.isActive)
+    )
+      return false;
     changeIds.add(change.nodeId);
   }
 
@@ -600,19 +648,12 @@ function validSavedTurnReport(
   const grudgeIds = new Set<string>();
   for (const grudge of value.grudges) {
     if (
-      !exactObject(grudge, [
-        "id",
-        "label",
-        "targetId",
-        "targetName",
-        "magnitude",
-      ]) ||
+      !exactObject(grudge, ["id", "label", "targetId", "magnitude"]) ||
       !nonempty(grudge.id) ||
       grudgeIds.has(grudge.id) ||
       !nonempty(grudge.label) ||
       typeof grudge.targetId !== "string" ||
       !nodes.has(grudge.targetId) ||
-      grudge.targetName !== nodes.get(grudge.targetId)?.name ||
       !finite(grudge.magnitude)
     )
       return false;

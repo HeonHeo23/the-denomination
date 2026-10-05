@@ -17,7 +17,9 @@ const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
 const exampleScenario = {
   ...bundledScenario,
   completion: ongoingCompletion,
-  dilemmas: [bundledScenario.dilemmas[0]],
+  dilemmas: [],
+  events: [],
+  gameOvers: [],
 };
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -25,7 +27,15 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 export function runNodeEffectProjectionTests() {
-  const initial = initializeScenario(exampleScenario);
+  // Explicitly activate the campaign to exercise participating relationships.
+  const initial = initializeScenario({
+    ...exampleScenario,
+    nodes: exampleScenario.nodes.map((node) =>
+      node.id === "localist-movement"
+        ? { ...node, initial: { ...node.initial, isActive: true } }
+        : node,
+    ),
+  });
   const tensionEffects = projectNodeEffects(
     "governance-tension",
     exampleScenario,
