@@ -2,24 +2,35 @@ import type { ScenarioDefinition } from "../domain/definitions";
 import type { TurnResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { evaluatePersistentState } from "./evaluatePersistentState";
+import { resolveEnding } from "./resolveEnding";
 import { evaluateGameOvers } from "./evaluateGameOvers";
+import { queueDilemmas } from "./dilemmas";
+import { resolveEvents, selectEvents } from "./events";
+import { createNodeHistoryState } from "./shared";
 
 const GRUDGE_CLEANUP_THRESHOLD = 0.001;
 
 /**
  * Advances a runtime snapshot by one turn.
  *
- * Persistent values are evaluated before Grudges decay, so each Grudge
- * contributes its current magnitude for the turn.
+ * Persistent evaluation applies the turn-start Resource clamp before Effects
+ * sample sources. Grudges contribute at current magnitude before decaying.
  */
 export function advanceTurn(
   scenario: ScenarioDefinition,
   state: SimulationState,
+  randomValue?: number,
 ): TurnResult {
   if (state.outcome)
     return {
       state,
       message: "The game is over. No further turns can be advanced.",
+      trace: [],
+    };
+  if (state.pendingDilemmaIds.length)
+    return {
+      state,
+      message: "Resolve pending Dilemmas before advancing.",
       trace: [],
     };
   const turn = state.turn + 1;
@@ -39,29 +50,28 @@ export function advanceTurn(
       ),
   };
   const resolved = evaluateGameOvers(scenario, decayed);
-  const completed = {
-    ...resolved,
-    nodeValueHistory: [
-      ...resolved.nodeValueHistory,
-      {
-        turn,
-        values: Object.fromEntries(
-          scenario.nodes.map((node) => [
-            node.id,
-            {
-              value: resolved.nodes[node.id].value,
-              isActive: resolved.nodes[node.id].isActive,
-            },
-          ]),
-        ),
-      },
-    ],
-  };
+  const selectedEvents = selectEvents(scenario, resolved, randomValue);
+  const queued = queueDilemmas(scenario, resolved, randomValue);
+  const afterEvents = resolveEvents(scenario, queued, selectedEvents);
+  const completed = resolveEnding(scenario, {
+    ...afterEvents,
+    nodeValueHistory: {
+      ...afterEvents.nodeValueHistory,
+      [turn]: Object.fromEntries(
+        scenario.nodes.map((node) => [
+          node.id,
+          createNodeHistoryState(afterEvents.nodes[node.id]),
+        ]),
+      ),
+    },
+  });
   return {
     state: completed,
     message: resolved.outcome
       ? "Game over. The institution can no longer continue under your leadership."
-      : `Advanced to turn ${turn}.`,
+      : completed.outcome?.kind === "ending"
+        ? "Scenario complete. Review the institution’s final report."
+        : `Advanced to turn ${turn}.`,
     trace: evaluated.trace,
   };
 }

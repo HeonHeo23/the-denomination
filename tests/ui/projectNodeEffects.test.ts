@@ -1,6 +1,7 @@
-import { exampleScenario } from "../../src/scenarios/example/index";
+import { ongoingCompletion } from "../simulation/fixtures";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   executeCommand,
   initializeScenario,
   previewStanceEffects,
@@ -11,12 +12,30 @@ import type {
 } from "../../src/simulation/index";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
 
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
+const exampleScenario = {
+  ...bundledScenario,
+  completion: ongoingCompletion,
+  dilemmas: [],
+  events: [],
+  gameOvers: [],
+};
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
 export function runNodeEffectProjectionTests() {
-  const initial = initializeScenario(exampleScenario);
+  // Explicitly activate the campaign to exercise participating relationships.
+  const initial = initializeScenario({
+    ...exampleScenario,
+    nodes: exampleScenario.nodes.map((node) =>
+      node.id === "localist-movement"
+        ? { ...node, initial: { ...node.initial, isActive: true } }
+        : node,
+    ),
+  });
   const tensionEffects = projectNodeEffects(
     "governance-tension",
     exampleScenario,
@@ -272,7 +291,6 @@ export function runNodeEffectProjectionTests() {
       authority: {
         ...initial.nodes.authority,
         value: 3,
-        baseValue: 3,
       },
     },
   };
@@ -315,8 +333,8 @@ export function runNodeEffectProjectionTests() {
     "A blocked proposal should provide a clearly marked estimate",
   );
   assert(
-    blockedPreview?.contribution === 0,
-    "A blocked estimate should use the post-cost Resource value after clamping",
+    blockedPreview?.contribution === -1.5,
+    "A blocked estimate should use the Resource value after the projected cost",
   );
   assert(
     blockedEnactmentState.nodes.authority.value === 3,
@@ -346,7 +364,7 @@ export function runNodeEffectProjectionTests() {
     0.4,
   ).find((effect) => effect.effectId === "formation-to-quality");
   assert(
-    Math.abs((productPreview?.contribution ?? 0) - 0.147) < 0.000001,
+    Math.abs((productPreview?.contribution ?? 0) - 0.15) < 0.000001,
     "Product previews should use contextual values from the cost-adjusted candidate state",
   );
 

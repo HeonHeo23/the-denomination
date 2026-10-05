@@ -2,14 +2,693 @@ import type { ScenarioDefinition } from "../../simulation";
 
 const percentDomain = { min: 0, max: 1, clamp: true } as const;
 
+const expansionGroups = [
+  {
+    id: "stable-expansion",
+    title: "Sustainable mission and institutional stability",
+    allOf: [
+      {
+        kind: "node-value",
+        nodeId: "mission-reach",
+        comparison: "at-least",
+        value: 0.7,
+      },
+      {
+        kind: "node-value",
+        nodeId: "financial-stability",
+        comparison: "at-least",
+        value: 0.6,
+      },
+      {
+        kind: "node-value",
+        nodeId: "congregational-cohesion",
+        comparison: "at-least",
+        value: 0.65,
+      },
+    ],
+  },
+] as const;
+
 export const exampleScenario = {
   id: "connectional-fellowship-1980",
   title: "The Connectional Fellowship",
   description:
     "Guide a growing fellowship through competing demands for institutional strength, local trust, ministry investment, and sustainable mission.",
   schemaVersion: 3,
+  historicalActors: [
+    {
+      id: "central-office",
+      name: "Central church office",
+      role: "Institutional coordination",
+      description:
+        "Leaders coordinating the fellowship’s common ministries and commitments.",
+    },
+    {
+      id: "regional-delegates",
+      name: "Regional delegates",
+      role: "Local representation",
+      description:
+        "Delegates bringing congregational concerns to the General Assembly.",
+    },
+    {
+      id: "seminary-faculty",
+      name: "Seminary faculty",
+      role: "Clergy formation",
+      description:
+        "Teachers preparing clergy and debating the fellowship’s teaching traditions.",
+    },
+  ],
+  completion: {
+    prerequisiteGroups: [
+      {
+        id: "millennium-review",
+        allOf: [{ kind: "turn", atTurn: 20 }],
+        title: "The 2000 institutional review",
+        description:
+          "The fellowship reviews two decades of institutional leadership.",
+      },
+      {
+        id: "sustainable-expansion",
+        title: "Sustainable expansion achieved",
+        description:
+          "Mission reach, financial stability, and congregational cohesion support a durable expansion.",
+        allOf: expansionGroups[0].allOf,
+      },
+    ],
+    endings: [
+      {
+        id: "expansion",
+        title: "Expansion",
+        priority: 30,
+        prerequisiteGroups: expansionGroups,
+        narrative:
+          "The fellowship extends its mission while preserving the finances and connections that sustain it. New communities join an institution capable of supporting their shared work.",
+      },
+      {
+        id: "revival",
+        title: "Revival",
+        priority: 20,
+        prerequisiteGroups: [
+          {
+            id: "renewed-participation",
+            title: "Renewed worship and membership",
+            allOf: [
+              {
+                kind: "node-value",
+                nodeId: "worship-participation",
+                comparison: "at-least",
+                value: 0.65,
+              },
+              {
+                kind: "node-value",
+                nodeId: "member-retention",
+                comparison: "at-least",
+                value: 0.65,
+              },
+            ],
+          },
+        ],
+        narrative:
+          "Renewed worship and lasting congregational connections give the fellowship fresh vitality. Its institutional legacy lives in communities that continue to gather and serve.",
+      },
+      {
+        id: "preservation",
+        title: "Preservation",
+        priority: 10,
+        prerequisiteGroups: [
+          {
+            id: "institution-preserved",
+            title: "A connected and viable institution",
+            allOf: [
+              {
+                kind: "node-value",
+                nodeId: "congregational-cohesion",
+                comparison: "at-least",
+                value: 0.55,
+              },
+              {
+                kind: "node-value",
+                nodeId: "financial-stability",
+                comparison: "at-least",
+                value: 0.5,
+              },
+            ],
+          },
+        ],
+        narrative:
+          "The fellowship remains connected and financially viable. Its ministries continue, carrying inherited commitments into a new period of leadership.",
+      },
+    ],
+    fallbackEnding: {
+      id: "unresolved-crisis",
+      title: "Unresolved Crisis",
+      narrative:
+        "The review closes with the fellowship still standing, but without a settled institutional direction. Its unresolved tensions and commitments pass to those who follow.",
+    },
+    reportNodeIds: [
+      "mission-reach",
+      "financial-stability",
+      "congregational-cohesion",
+      "worship-participation",
+      "member-retention",
+      "money",
+      "authority",
+    ],
+  },
   start: { turn: 0, year: 1980 },
   conditions: ["has-seminary", "has-general-assembly"],
+  events: [
+    {
+      kind: "event",
+      id: "regional-petition",
+      title: "Regional delegates submit a petition",
+      description:
+        "Delegates ask the central office to hear local concerns before setting another common course.",
+      influences: [{ source: "centralization", coefficient: 1 }],
+      threshold: 0.5,
+      cooldownTurns: 3,
+      requires: ["has-general-assembly"],
+      consequences: [
+        { kind: "resource", target: "authority", amount: -2 },
+        {
+          kind: "grudge",
+          target: "leadership-trust",
+          magnitude: -0.02,
+          decay: 0.75,
+          label: "Unanswered regional petition",
+        },
+      ],
+    },
+    {
+      kind: "event",
+      id: "unexpected-bequest",
+      title: "An unexpected bequest arrives",
+      description:
+        "A longtime supporter leaves an unrestricted gift to sustain shared ministries.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.6,
+      cooldownTurns: 4,
+      consequences: [{ kind: "resource", target: "money", amount: 4 }],
+    },
+  ],
+  dilemmas: [
+    {
+      kind: "dilemma",
+      id: "assembly-governance-dispute",
+      title: "An Assembly dispute over local authority",
+      description:
+        "District delegates demand a response to mounting tension over central direction.",
+      influences: [{ source: "governance-tension", coefficient: 1 }],
+      threshold: 0.58,
+      cooldownTurns: 3,
+      requires: ["has-general-assembly"],
+      choices: [
+        {
+          id: "convene-mediation",
+          label: "Convene regional mediation",
+          description:
+            "Spend institutional authority to bring district leaders into a shared process.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -4 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Regional mediation",
+            },
+          ],
+        },
+        {
+          id: "reassert-direction",
+          label: "Reassert central direction",
+          description:
+            "Defend the office's mandate while risking deeper division.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: 3 },
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: -0.05,
+              decay: 0.75,
+              label: "Disputed central direction",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "christological-teaching-request",
+      title: "A request for teaching on the nature of Christ",
+      description:
+        "Pastors ask for guidance after their congregations hear conflicting accounts of Christ's divinity and humanity.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.72,
+      cooldownTurns: 8,
+      choices: [
+        {
+          id: "publish-confession",
+          label: "Publish a common confession",
+          description:
+            "State the fellowship's teaching on Christ's full divinity and full humanity.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.035,
+              decay: 0.75,
+              label: "Shared Christological teaching",
+            },
+          ],
+        },
+        {
+          id: "host-study",
+          label: "Host a theological study",
+          description:
+            "Invite clergy and congregations into a guided study before issuing guidance.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "Open theological study",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "seminary-christology-curriculum",
+      title: "Seminary faculty debate the Christology curriculum",
+      description:
+        "Faculty disagree over how much time to give historical creeds and contemporary interpretation.",
+      influences: [{ source: "clergy-formation", coefficient: 1 }],
+      threshold: 0.35,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "expand-creedal-study",
+          label: "Expand study of the creeds",
+          description:
+            "Fund additional teaching on the early councils and their language about Christ.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Expanded creedal study",
+            },
+          ],
+        },
+        {
+          id: "support-local-dialogue",
+          label: "Support local theological dialogue",
+          description:
+            "Give faculty room to develop material for questions arising in congregations.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "renewal-network-satisfaction",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Theological dialogue",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "pastoral-appointment-policy",
+      title: "Districts seek a new appointment policy",
+      description:
+        "Rural congregations want longer pastoral appointments while the central office needs flexibility.",
+      influences: [
+        {
+          source: "rural-congregations-satisfaction",
+          coefficient: 1,
+        },
+      ],
+      threshold: 0.35,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "lengthen-appointments",
+          label: "Lengthen appointments",
+          description:
+            "Give rural pastors more time to build local relationships.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "rural-congregations-satisfaction",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Stable rural appointments",
+            },
+          ],
+        },
+        {
+          id: "keep-flexibility",
+          label: "Keep flexible assignments",
+          description:
+            "Preserve the ability to send clergy where need is most urgent.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: 2 },
+            {
+              kind: "grudge",
+              target: "rural-congregations-satisfaction",
+              magnitude: -0.035,
+              decay: 0.75,
+              label: "Unsettled appointment concerns",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "shared-worship-guidance",
+      title: "Congregations request worship guidance",
+      description:
+        "Different local practices prompt a request for a common worship guide.",
+      influences: [{ source: "worship-practice", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "publish-guide",
+          label: "Publish a common guide",
+          description:
+            "Prepare shared resources while leaving room for local adaptation.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "worship-participation",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Common worship resources",
+            },
+          ],
+        },
+        {
+          id: "leave-local",
+          label: "Leave practice to congregations",
+          description:
+            "Let each congregation discern its own forms of worship.",
+          consequences: [
+            {
+              kind: "grudge",
+              target: "lay-leadership-satisfaction",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local worship discretion",
+            },
+            {
+              kind: "grudge",
+              target: "traditionalist-coalition-satisfaction",
+              magnitude: -0.02,
+              decay: 0.75,
+              label: "Unsettled worship guidance",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "relief-fund-policy",
+      title: "A proposal for a shared relief fund",
+      description:
+        "Congregations ask for a common fund to meet sudden local hardship.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.78,
+      cooldownTurns: 8,
+      choices: [
+        {
+          id: "create-fund",
+          label: "Create the fund",
+          description:
+            "Set aside money for local relief and invite congregations to participate.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -4 },
+            {
+              kind: "grudge",
+              target: "charitable-impact",
+              magnitude: 0.045,
+              decay: 0.75,
+              label: "Shared relief fund",
+            },
+          ],
+        },
+        {
+          id: "coordinate-existing",
+          label: "Coordinate existing ministries",
+          description:
+            "Ask districts to connect families with the help already available.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "lay-leadership-satisfaction",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Coordinated local relief",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "financial-reporting-policy",
+      title: "Delegates call for clearer financial reports",
+      description:
+        "Local treasurers want to understand how shared contributions are spent.",
+      influences: [{ source: "giving-strength", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "publish-accounts",
+          label: "Publish detailed accounts",
+          description:
+            "Prepare a regular report that congregations can inspect.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "leadership-trust",
+              magnitude: 0.035,
+              decay: 0.8,
+              label: "Open financial reporting",
+            },
+          ],
+        },
+        {
+          id: "district-briefings",
+          label: "Brief district leaders",
+          description:
+            "Explain spending in smaller meetings with local delegates.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "congregational-cohesion",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "District financial briefings",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "youth-leadership-voice",
+      title: "Young leaders ask for a voice",
+      description:
+        "Emerging leaders request a formal place in district planning.",
+      influences: [{ source: "youth-engagement", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "seat-delegates",
+          label: "Seat youth delegates",
+          description:
+            "Give young leaders voting representation in district councils.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "emerging-leaders-satisfaction",
+              magnitude: 0.05,
+              decay: 0.75,
+              label: "Youth delegates seated",
+            },
+          ],
+        },
+        {
+          id: "fund-mentoring",
+          label: "Fund mentoring instead",
+          description:
+            "Build a training path before changing council membership.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.025,
+              decay: 0.75,
+              label: "Youth mentoring",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "ecumenical-christology-forum",
+      title: "An invitation to discuss Christ across traditions",
+      description:
+        "Nearby churches invite the fellowship to a public forum on their shared and differing claims about Christ.",
+      influences: [{ source: "_random_", coefficient: 1 }],
+      threshold: 0.82,
+      cooldownTurns: 9,
+      choices: [
+        {
+          id: "join-forum",
+          label: "Join the forum",
+          description:
+            "Send theologians to explain the fellowship's convictions and hear its neighbors.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -2 },
+            {
+              kind: "grudge",
+              target: "newcomer-welcome",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Christology forum",
+            },
+          ],
+        },
+        {
+          id: "hold-local-classes",
+          label: "Hold local classes",
+          description:
+            "Focus on teaching the fellowship's own congregations first.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -1 },
+            {
+              kind: "grudge",
+              target: "traditionalist-coalition-satisfaction",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local doctrinal classes",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "volunteer-sabbath-policy",
+      title: "Volunteers ask for a rest policy",
+      description:
+        "Ministry teams report that recurring duties leave little time for rest.",
+      influences: [{ source: "volunteer-fatigue", coefficient: 1 }],
+      threshold: 0.25,
+      cooldownTurns: 6,
+      choices: [
+        {
+          id: "rotate-duties",
+          label: "Rotate duties",
+          description:
+            "Ask ministries to schedule rest and share responsibilities more widely.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "volunteer-health",
+              magnitude: 0.04,
+              decay: 0.75,
+              label: "Volunteer rest rotation",
+            },
+          ],
+        },
+        {
+          id: "fund-support",
+          label: "Fund practical support",
+          description:
+            "Pay for temporary help so current volunteers can step back.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -4 },
+            {
+              kind: "grudge",
+              target: "ministry-capacity",
+              magnitude: 0.035,
+              decay: 0.75,
+              label: "Volunteer support",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      kind: "dilemma",
+      id: "digital-pastoral-care-policy",
+      title: "A policy for online pastoral care",
+      description:
+        "Ministers seek guidance on confidential conversations conducted online.",
+      influences: [{ source: "digital-ministry", coefficient: 1 }],
+      threshold: 0.3,
+      cooldownTurns: 7,
+      choices: [
+        {
+          id: "train-pastors",
+          label: "Train pastors",
+          description:
+            "Develop guidance and training for privacy and follow-up.",
+          consequences: [
+            { kind: "resource", target: "money", amount: -3 },
+            {
+              kind: "grudge",
+              target: "clergy-quality",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Online care training",
+            },
+          ],
+        },
+        {
+          id: "local-protocols",
+          label: "Let districts set protocols",
+          description:
+            "Ask district leaders to set safeguards suited to local practice.",
+          consequences: [
+            { kind: "resource", target: "authority", amount: -2 },
+            {
+              kind: "grudge",
+              target: "lay-leadership-satisfaction",
+              magnitude: 0.03,
+              decay: 0.75,
+              label: "Local online care protocols",
+            },
+          ],
+        },
+      ],
+    },
+  ],
   gameOvers: [
     {
       id: "loss-of-connectional-mandate",
@@ -214,6 +893,18 @@ export const exampleScenario = {
             },
           ],
         },
+        {
+          id: "severe-debt",
+          title: "Severe institutional debt",
+          allOf: [
+            {
+              kind: "node-value",
+              nodeId: "money",
+              comparison: "at-most",
+              value: -30,
+            },
+          ],
+        },
       ],
       terminalAfterTurns: 3,
       stages: [
@@ -263,6 +954,125 @@ export const exampleScenario = {
         narrative:
           "With obligations unmet and reserves exhausted, trustees surrender control to an external administrator. Your leadership can no longer direct the fellowship's work.",
       },
+    },
+  ],
+  factionMetrics: [
+    { id: "satisfaction", label: "Satisfaction" },
+    { id: "membership", label: "Membership" },
+  ],
+  factionGroups: [
+    {
+      id: "traditionalist-coalition",
+      name: "Traditionalist Members",
+      description: "Members who favor inherited doctrine and worship.",
+      metrics: {
+        satisfaction: "traditionalist-coalition-satisfaction",
+        membership: "traditionalist-coalition-membership",
+      },
+    },
+    {
+      id: "renewal-network",
+      name: "Renewal Members",
+      description: "Members who favor experimentation and outreach.",
+      metrics: {
+        satisfaction: "renewal-network-satisfaction",
+        membership: "renewal-network-membership",
+      },
+    },
+    {
+      id: "lay-leadership",
+      name: "Lay Leadership",
+      description: "Non-clergy members who lead local ministry.",
+      metrics: {
+        satisfaction: "lay-leadership-satisfaction",
+        membership: "lay-leadership-membership",
+      },
+    },
+    {
+      id: "emerging-leaders",
+      name: "Emerging Leaders",
+      description: "Young clergy and lay leaders preparing for ministry.",
+      metrics: {
+        satisfaction: "emerging-leaders-satisfaction",
+        membership: "emerging-leaders-membership",
+      },
+    },
+    {
+      id: "rural-congregations",
+      name: "Rural Congregations",
+      description: "Members of rural congregations.",
+      metrics: {
+        satisfaction: "rural-congregations-satisfaction",
+        membership: "rural-congregations-membership",
+      },
+    },
+    {
+      id: "urban-missionaries",
+      name: "Urban Missionaries",
+      description: "Ministers and members serving urban communities.",
+      metrics: {
+        satisfaction: "urban-missionaries-satisfaction",
+        membership: "urban-missionaries-membership",
+      },
+    },
+    {
+      id: "confessional-members",
+      name: "Confessional Members",
+      description: "Members with confessional convictions.",
+      metrics: {
+        satisfaction: "confessional-members-satisfaction",
+        membership: "confessional-members-membership",
+      },
+    },
+    {
+      id: "ecumenical-members",
+      name: "Ecumenical Members",
+      description: "Members who support ecumenical ties.",
+      metrics: {
+        satisfaction: "ecumenical-members-satisfaction",
+        membership: "ecumenical-members-membership",
+      },
+    },
+    {
+      id: "youth-members",
+      name: "Youth Members",
+      description: "Younger members.",
+      metrics: {
+        satisfaction: "youth-members-satisfaction",
+        membership: "youth-members-membership",
+      },
+    },
+    {
+      id: "student-members",
+      name: "Student Members",
+      description: "Members in education.",
+      metrics: {
+        satisfaction: "student-members-satisfaction",
+        membership: "student-members-membership",
+      },
+    },
+    {
+      id: "clergy-members",
+      name: "Clergy",
+      description: "Ordained clergy.",
+      metrics: {
+        satisfaction: "clergy-members-satisfaction",
+        membership: "clergy-members-membership",
+      },
+    },
+  ],
+  constraints: [
+    {
+      id: "worship-continuity",
+      name: "Worship continuity and renewal",
+      kind: "sum-limit",
+      maxTotal: 1,
+    },
+    {
+      id: "confessional-boundaries",
+      name: "Confessional boundaries and ecumenism",
+      kind: "sum-limit",
+      maxTotal: 1,
     },
   ],
   nodes: [
@@ -343,14 +1153,16 @@ export const exampleScenario = {
     },
     {
       id: "localist-movement",
-      type: "faction",
-      name: "Localist Movement",
-      description: "Congregations committed to meaningful local autonomy.",
+      type: "situation",
+      name: "Local Autonomy Campaign",
+      description:
+        "An organized campaign for local autonomy grows from dissatisfied congregations and governance pressure.",
       category: "Governance",
       domain: percentDomain,
-      initial: { value: 0.4775, isActive: true, isForced: false },
-      baseline: 0.78,
-      valueMeaning: "approval",
+      initial: { value: 0.3, isActive: false, isForced: false },
+      baseline: 0.15,
+      startThreshold: 0.65,
+      stopThreshold: 0.35,
     },
     {
       id: "institutional-authority",
@@ -372,7 +1184,6 @@ export const exampleScenario = {
       category: "Governance",
       domain: { min: 0, max: 100, clamp: true },
       initial: { value: 40, isActive: true, isForced: true },
-      baseline: 25,
       graphVisible: false,
     },
     {
@@ -380,11 +1191,10 @@ export const exampleScenario = {
       type: "resource",
       name: "Money",
       description:
-        "The calculated budget remaining after recurring revenue and expenditure are accounted for.",
+        "The accumulated treasury balance for shared ministry; negative values are debt.",
       category: "Finance and Assets",
-      domain: { min: 0, max: 100, clamp: true },
-      initial: { value: 56, isActive: true, isForced: true },
-      baseline: 40,
+      domain: { min: -100, max: 100, clamp: false },
+      initial: { value: 40, isActive: true, isForced: true },
       graphVisible: false,
     },
     {
@@ -517,40 +1327,117 @@ export const exampleScenario = {
       baseline: 0.18,
     },
     {
-      id: "traditionalist-coalition",
+      id: "traditionalist-coalition-satisfaction",
       type: "faction",
-      name: "Traditionalist Coalition",
-      description:
-        "Members who value continuity, inherited worship, and familiar denominational forms.",
+      name: "Traditionalist Members — Satisfaction",
+      description: "Members who favor inherited doctrine and worship.",
       category: "Worship and Practice",
-      domain: percentDomain,
-      initial: { value: 0.53, isActive: true, isForced: false },
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.53,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.6,
-      valueMeaning: "approval",
     },
     {
-      id: "renewal-network",
+      id: "traditionalist-coalition-membership",
       type: "faction",
-      name: "Renewal Network",
-      description:
-        "Members and ministers who favor experimentation, mission, and new forms of service.",
+      name: "Traditionalist Members — Membership",
+      description: "Members who favor inherited doctrine and worship.",
+      category: "Worship and Practice",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.4,
+        isActive: true,
+        isForced: true,
+      },
+      constraintId: "worship-continuity",
+    },
+    {
+      id: "renewal-network-satisfaction",
+      type: "faction",
+      name: "Renewal Members — Satisfaction",
+      description: "Members who favor experimentation and outreach.",
       category: "Mission and Expansion",
-      domain: percentDomain,
-      initial: { value: 0.47, isActive: true, isForced: false },
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.47,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.32,
-      valueMeaning: "approval",
     },
     {
-      id: "lay-leadership",
+      id: "renewal-network-membership",
       type: "faction",
-      name: "Lay Leadership",
-      description:
-        "The confidence and capacity of non-clergy members to carry local ministry.",
+      name: "Renewal Members — Membership",
+      description: "Members who favor experimentation and outreach.",
+      category: "Mission and Expansion",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.35,
+        isActive: true,
+        isForced: true,
+      },
+      constraintId: "worship-continuity",
+    },
+    {
+      id: "lay-leadership-satisfaction",
+      type: "faction",
+      name: "Lay Leadership — Satisfaction",
+      description: "Non-clergy members who lead local ministry.",
       category: "Governance",
-      domain: percentDomain,
-      initial: { value: 0.5, isActive: true, isForced: false },
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.5,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.4,
-      valueMeaning: "confidence",
+    },
+    {
+      id: "lay-leadership-membership",
+      type: "faction",
+      name: "Lay Leadership — Membership",
+      description: "Non-clergy members who lead local ministry.",
+      category: "Governance",
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.2,
+        isActive: true,
+        isForced: true,
+      },
     },
     {
       id: "membership-decline",
@@ -629,16 +1516,41 @@ export const exampleScenario = {
       baseline: 0.1,
     },
     {
-      id: "emerging-leaders",
+      id: "emerging-leaders-satisfaction",
       type: "faction",
-      name: "Emerging Leaders",
-      description:
-        "Younger clergy and lay members developing the confidence to lead local ministry.",
+      name: "Emerging Leaders — Satisfaction",
+      description: "Young clergy and lay leaders preparing for ministry.",
       category: "Mission and Expansion",
-      domain: percentDomain,
-      initial: { value: 0.38, isActive: true, isForced: false },
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.38,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.12,
-      valueMeaning: "confidence",
+    },
+    {
+      id: "emerging-leaders-membership",
+      type: "faction",
+      name: "Emerging Leaders — Membership",
+      description: "Young clergy and lay leaders preparing for ministry.",
+      category: "Mission and Expansion",
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.1,
+        isActive: true,
+        isForced: true,
+      },
     },
     {
       id: "ministry-capacity",
@@ -783,28 +1695,78 @@ export const exampleScenario = {
       baseline: 0.2,
     },
     {
-      id: "rural-congregations",
+      id: "rural-congregations-satisfaction",
       type: "faction",
-      name: "Rural Congregations",
-      description:
-        "The approval and resilience of congregations serving dispersed or rural communities.",
+      name: "Rural Congregations — Satisfaction",
+      description: "Members of rural congregations.",
       category: "Governance",
-      domain: percentDomain,
-      initial: { value: 0.46, isActive: true, isForced: false },
+      factionCategory: "geographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.46,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.32,
-      valueMeaning: "approval",
     },
     {
-      id: "urban-missionaries",
+      id: "rural-congregations-membership",
       type: "faction",
-      name: "Urban Missionaries",
-      description:
-        "The confidence of ministers and members serving dense, diverse, and rapidly changing communities.",
+      name: "Rural Congregations — Membership",
+      description: "Members of rural congregations.",
+      category: "Governance",
+      factionCategory: "geographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.4,
+        isActive: true,
+        isForced: true,
+      },
+    },
+    {
+      id: "urban-missionaries-satisfaction",
+      type: "faction",
+      name: "Urban Missionaries — Satisfaction",
+      description: "Ministers and members serving urban communities.",
       category: "Mission and Expansion",
-      domain: percentDomain,
-      initial: { value: 0.42, isActive: true, isForced: false },
+      factionCategory: "geographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.42,
+        isActive: true,
+        isForced: true,
+      },
       baseline: 0.24,
-      valueMeaning: "confidence",
+    },
+    {
+      id: "urban-missionaries-membership",
+      type: "faction",
+      name: "Urban Missionaries — Membership",
+      description: "Ministers and members serving urban communities.",
+      category: "Mission and Expansion",
+      factionCategory: "geographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.3,
+        isActive: true,
+        isForced: true,
+      },
     },
     {
       id: "volunteer-fatigue",
@@ -854,6 +1816,193 @@ export const exampleScenario = {
       initial: { value: 0.5, isActive: true, isForced: true },
       baseline: 0.18,
     },
+    {
+      id: "confessional-members-satisfaction",
+      type: "faction",
+      name: "Confessional Members — Satisfaction",
+      description: "Members with confessional convictions.",
+      category: "Belief and Teaching",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.55,
+        isActive: true,
+        isForced: true,
+      },
+      baseline: 0.25,
+    },
+    {
+      id: "confessional-members-membership",
+      type: "faction",
+      name: "Confessional Members — Membership",
+      description: "Members with confessional convictions.",
+      category: "Belief and Teaching",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.35,
+        isActive: true,
+        isForced: true,
+      },
+      constraintId: "confessional-boundaries",
+    },
+    {
+      id: "ecumenical-members-satisfaction",
+      type: "faction",
+      name: "Ecumenical Members — Satisfaction",
+      description: "Members who support ecumenical ties.",
+      category: "Belief and Teaching",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.5,
+        isActive: true,
+        isForced: true,
+      },
+      baseline: 0.25,
+    },
+    {
+      id: "ecumenical-members-membership",
+      type: "faction",
+      name: "Ecumenical Members — Membership",
+      description: "Members who support ecumenical ties.",
+      category: "Belief and Teaching",
+      factionCategory: "theological",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.3,
+        isActive: true,
+        isForced: true,
+      },
+      constraintId: "confessional-boundaries",
+    },
+    {
+      id: "youth-members-satisfaction",
+      type: "faction",
+      name: "Youth Members — Satisfaction",
+      description: "Younger members.",
+      category: "Worship and Practice",
+      factionCategory: "demographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.45,
+        isActive: true,
+        isForced: true,
+      },
+      baseline: 0.25,
+    },
+    {
+      id: "youth-members-membership",
+      type: "faction",
+      name: "Youth Members — Membership",
+      description: "Younger members.",
+      category: "Worship and Practice",
+      factionCategory: "demographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.2,
+        isActive: true,
+        isForced: true,
+      },
+    },
+    {
+      id: "student-members-satisfaction",
+      type: "faction",
+      name: "Student Members — Satisfaction",
+      description: "Members in education.",
+      category: "Belief and Teaching",
+      factionCategory: "demographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.5,
+        isActive: true,
+        isForced: true,
+      },
+      baseline: 0.25,
+    },
+    {
+      id: "student-members-membership",
+      type: "faction",
+      name: "Student Members — Membership",
+      description: "Members in education.",
+      category: "Belief and Teaching",
+      factionCategory: "demographic",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.15,
+        isActive: true,
+        isForced: true,
+      },
+    },
+    {
+      id: "clergy-members-satisfaction",
+      type: "faction",
+      name: "Clergy — Satisfaction",
+      description: "Ordained clergy.",
+      category: "Governance",
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.55,
+        isActive: true,
+        isForced: true,
+      },
+      baseline: 0.25,
+    },
+    {
+      id: "clergy-members-membership",
+      type: "faction",
+      name: "Clergy — Membership",
+      description: "Ordained clergy.",
+      category: "Governance",
+      factionCategory: "institutional",
+      domain: {
+        min: 0,
+        max: 1,
+        clamp: true,
+      },
+      initial: {
+        value: 0.08,
+        isActive: true,
+        isForced: true,
+      },
+    },
   ],
   effects: [
     {
@@ -867,7 +2016,7 @@ export const exampleScenario = {
       id: "centralization-to-localists",
       source: "centralization",
       target: "localist-movement",
-      response: { kind: "linear", coefficient: -0.55 },
+      response: { kind: "linear", coefficient: 0.35 },
       inertiaTurns: 2,
       label: "resistance",
     },
@@ -898,21 +2047,21 @@ export const exampleScenario = {
       id: "localists-to-cohesion",
       source: "localist-movement",
       target: "congregational-cohesion",
-      response: { kind: "linear", coefficient: 0.3 },
-      label: "local participation",
+      response: { kind: "linear", coefficient: -0.2 },
+      label: "organized governance conflict",
     },
     {
       id: "governance-tension-baseline",
       source: "_default_",
       target: "governance-tension",
-      response: { kind: "constant", value: 0.75 },
+      response: { kind: "constant", value: 0.41575 },
     },
     {
       id: "localists-to-tension",
       source: "localist-movement",
       target: "governance-tension",
-      response: { kind: "linear", coefficient: -0.7 },
-      label: "represented concerns",
+      response: { kind: "linear", coefficient: 0.3 },
+      label: "autonomy demands",
     },
     {
       id: "shortage-baseline",
@@ -960,13 +2109,13 @@ export const exampleScenario = {
       source: "localist-movement",
       target: "institutional-authority",
       response: { kind: "linear", coefficient: -0.12 },
-      label: "distributed authority",
+      label: "contested authority",
     },
     {
       id: "institutional-authority-to-authority-resource",
       source: "institutional-authority",
       target: "authority",
-      response: { kind: "linear", coefficient: 50 },
+      response: { kind: "linear", coefficient: 10 },
       label: "usable institutional latitude",
     },
     {
@@ -980,7 +2129,7 @@ export const exampleScenario = {
     {
       id: "worship-to-traditionalists",
       source: "worship-practice",
-      target: "traditionalist-coalition",
+      target: "traditionalist-coalition-satisfaction",
       response: { kind: "linear", coefficient: 0.24 },
       inertiaTurns: 2,
       label: "traditional observance",
@@ -1003,7 +2152,7 @@ export const exampleScenario = {
     {
       id: "worship-to-renewal",
       source: "worship-practice",
-      target: "renewal-network",
+      target: "renewal-network-satisfaction",
       response: { kind: "linear", coefficient: -0.16 },
       inertiaTurns: 2,
       label: "traditionalist concern",
@@ -1026,7 +2175,7 @@ export const exampleScenario = {
     {
       id: "impact-to-lay-leadership",
       source: "charitable-impact",
-      target: "lay-leadership",
+      target: "lay-leadership-satisfaction",
       response: { kind: "linear", coefficient: 0.22 },
       label: "shared service",
     },
@@ -1048,7 +2197,7 @@ export const exampleScenario = {
     {
       id: "reach-to-renewal",
       source: "mission-reach",
-      target: "renewal-network",
+      target: "renewal-network-satisfaction",
       response: { kind: "linear", coefficient: 0.3 },
       inertiaTurns: 2,
       label: "renewal energy",
@@ -1078,35 +2227,35 @@ export const exampleScenario = {
     },
     {
       id: "traditionalists-to-worship",
-      source: "traditionalist-coalition",
+      source: "traditionalist-coalition-satisfaction",
       target: "worship-participation",
       response: { kind: "linear", coefficient: 0.2 },
       label: "traditional confidence",
     },
     {
       id: "traditionalists-to-cohesion",
-      source: "traditionalist-coalition",
+      source: "traditionalist-coalition-satisfaction",
       target: "congregational-cohesion",
       response: { kind: "linear", coefficient: 0.1 },
       label: "continuity",
     },
     {
       id: "renewal-to-mission",
-      source: "renewal-network",
+      source: "renewal-network-satisfaction",
       target: "mission-reach",
       response: { kind: "linear", coefficient: 0.2 },
       label: "renewal initiatives",
     },
     {
       id: "renewal-to-charity",
-      source: "renewal-network",
+      source: "renewal-network-satisfaction",
       target: "charitable-impact",
       response: { kind: "linear", coefficient: 0.16 },
       label: "renewal service",
     },
     {
       id: "lay-to-retention",
-      source: "lay-leadership",
+      source: "lay-leadership-satisfaction",
       target: "member-retention",
       response: { kind: "linear", coefficient: 0.18 },
       inertiaTurns: 2,
@@ -1114,7 +2263,7 @@ export const exampleScenario = {
     },
     {
       id: "lay-to-charity",
-      source: "lay-leadership",
+      source: "lay-leadership-satisfaction",
       target: "charitable-impact",
       response: { kind: "linear", coefficient: 0.2 },
       inertiaTurns: 2,
@@ -1122,7 +2271,7 @@ export const exampleScenario = {
     },
     {
       id: "lay-to-cohesion",
-      source: "lay-leadership",
+      source: "lay-leadership-satisfaction",
       target: "congregational-cohesion",
       response: { kind: "linear", coefficient: 0.2 },
       label: "congregational ownership",
@@ -1176,14 +2325,14 @@ export const exampleScenario = {
     {
       id: "reach-of-governance-to-lay",
       source: "governance-reach",
-      target: "lay-leadership",
+      target: "lay-leadership-satisfaction",
       response: { kind: "linear", coefficient: 0.18 },
       label: "coordinated service",
     },
     {
       id: "centralization-to-lay",
       source: "centralization",
-      target: "lay-leadership",
+      target: "lay-leadership-satisfaction",
       response: { kind: "linear", coefficient: -0.2 },
       inertiaTurns: 2,
       label: "local autonomy",
@@ -1239,15 +2388,15 @@ export const exampleScenario = {
     {
       id: "youth-engagement-to-leaders",
       source: "youth-engagement",
-      target: "emerging-leaders",
+      target: "emerging-leaders-satisfaction",
       response: { kind: "linear", coefficient: 0.32 },
       inertiaTurns: 3,
       label: "leadership pipeline",
     },
     {
       id: "leaders-to-lay-leadership",
-      source: "emerging-leaders",
-      target: "lay-leadership",
+      source: "emerging-leaders-satisfaction",
+      target: "lay-leadership-satisfaction",
       response: { kind: "linear", coefficient: 0.2 },
       inertiaTurns: 2,
       label: "new local leaders",
@@ -1311,7 +2460,7 @@ export const exampleScenario = {
       id: "revenue-to-money",
       source: "revenue",
       target: "money",
-      response: { kind: "linear", coefficient: 44 },
+      response: { kind: "linear", coefficient: 20 },
       inertiaTurns: 2,
       label: "income available",
     },
@@ -1319,7 +2468,7 @@ export const exampleScenario = {
       id: "expenditure-to-money",
       source: "expenditure",
       target: "money",
-      response: { kind: "linear", coefficient: -42 },
+      response: { kind: "linear", coefficient: -20 },
       inertiaTurns: 2,
       label: "committed spending",
     },
@@ -1398,7 +2547,7 @@ export const exampleScenario = {
     {
       id: "coordination-to-rural",
       source: "regional-coordination",
-      target: "rural-congregations",
+      target: "rural-congregations-satisfaction",
       response: { kind: "linear", coefficient: 0.18 },
       inertiaTurns: 2,
       label: "rural support",
@@ -1422,7 +2571,7 @@ export const exampleScenario = {
     {
       id: "digital-to-urban",
       source: "digital-ministry",
-      target: "urban-missionaries",
+      target: "urban-missionaries-satisfaction",
       response: { kind: "linear", coefficient: 0.22 },
       inertiaTurns: 2,
       label: "urban experimentation",
@@ -1515,7 +2664,7 @@ export const exampleScenario = {
     {
       id: "vitality-to-rural",
       source: "regional-vitality",
-      target: "rural-congregations",
+      target: "rural-congregations-satisfaction",
       response: { kind: "linear", coefficient: 0.22 },
       inertiaTurns: 2,
       label: "regional resilience",
@@ -1523,21 +2672,21 @@ export const exampleScenario = {
     {
       id: "vitality-to-urban",
       source: "regional-vitality",
-      target: "urban-missionaries",
+      target: "urban-missionaries-satisfaction",
       response: { kind: "linear", coefficient: 0.16 },
       inertiaTurns: 2,
       label: "shared momentum",
     },
     {
       id: "rural-to-participation",
-      source: "rural-congregations",
+      source: "rural-congregations-satisfaction",
       target: "worship-participation",
       response: { kind: "linear", coefficient: 0.14 },
       label: "local continuity",
     },
     {
       id: "urban-to-mission",
-      source: "urban-missionaries",
+      source: "urban-missionaries-satisfaction",
       target: "mission-reach",
       response: { kind: "linear", coefficient: 0.2 },
       label: "contextual mission",
@@ -1569,7 +2718,7 @@ export const exampleScenario = {
     {
       id: "liturgical-formation-to-traditionalists",
       source: "liturgical-formation",
-      target: "traditionalist-coalition",
+      target: "traditionalist-coalition-satisfaction",
       response: { kind: "linear", coefficient: 0.16 },
       inertiaTurns: 2,
       label: "liturgical continuity",
@@ -1593,7 +2742,7 @@ export const exampleScenario = {
     {
       id: "ecumenical-dialogue-to-renewal",
       source: "ecumenical-dialogue",
-      target: "renewal-network",
+      target: "renewal-network-satisfaction",
       response: { kind: "linear", coefficient: 0.15 },
       inertiaTurns: 2,
       label: "wider fellowship",
@@ -1601,7 +2750,7 @@ export const exampleScenario = {
     {
       id: "ecumenical-dialogue-to-traditionalists",
       source: "ecumenical-dialogue",
-      target: "traditionalist-coalition",
+      target: "traditionalist-coalition-satisfaction",
       response: { kind: "linear", coefficient: -0.1 },
       inertiaTurns: 2,
       label: "ecumenical concern",
@@ -1617,7 +2766,7 @@ export const exampleScenario = {
     {
       id: "social-teaching-to-lay-leadership",
       source: "social-teaching-initiative",
-      target: "lay-leadership",
+      target: "lay-leadership-satisfaction",
       response: { kind: "linear", coefficient: 0.16 },
       inertiaTurns: 2,
       label: "shared witness",
@@ -1625,7 +2774,7 @@ export const exampleScenario = {
     {
       id: "social-teaching-to-traditionalists",
       source: "social-teaching-initiative",
-      target: "traditionalist-coalition",
+      target: "traditionalist-coalition-satisfaction",
       response: { kind: "linear", coefficient: -0.08 },
       inertiaTurns: 2,
       label: "social concern",
@@ -1637,6 +2786,57 @@ export const exampleScenario = {
       response: { kind: "linear", coefficient: 0.08 },
       inertiaTurns: 2,
       label: "public commitments",
+    },
+    {
+      id: "clergy-formation-to-confessional-members",
+      source: "clergy-formation",
+      target: "confessional-members-satisfaction",
+      response: { kind: "linear", coefficient: 0.3 },
+    },
+    {
+      id: "ecumenical-dialogue-to-ecumenical-members",
+      source: "ecumenical-dialogue",
+      target: "ecumenical-members-satisfaction",
+      response: { kind: "linear", coefficient: 0.3 },
+    },
+    {
+      id: "youth-engagement-to-youth-members",
+      source: "youth-engagement",
+      target: "youth-members-satisfaction",
+      response: { kind: "linear", coefficient: 0.4 },
+    },
+    {
+      id: "clergy-quality-to-student-members",
+      source: "clergy-quality",
+      target: "student-members-satisfaction",
+      response: { kind: "linear", coefficient: 0.3 },
+    },
+    {
+      id: "leadership-trust-to-clergy-members",
+      source: "leadership-trust",
+      target: "clergy-members-satisfaction",
+      response: { kind: "linear", coefficient: 0.35 },
+    },
+    {
+      id: "rural-congregations-to-autonomy-campaign",
+      source: "rural-congregations-satisfaction",
+      target: "localist-movement",
+      response: { kind: "linear", intercept: 0.25, coefficient: -0.25 },
+      label: "constituency dissatisfaction",
+    },
+    {
+      id: "urban-missionaries-to-autonomy-campaign",
+      source: "urban-missionaries-satisfaction",
+      target: "localist-movement",
+      response: { kind: "linear", intercept: 0.25, coefficient: -0.25 },
+      label: "constituency dissatisfaction",
+    },
+    {
+      id: "youth-engagement-to-youth-membership",
+      source: "youth-engagement",
+      target: "youth-members-membership",
+      response: { kind: "linear", coefficient: 0.05 },
+      inertiaTurns: 2,
     },
   ],
 } as const satisfies ScenarioDefinition;

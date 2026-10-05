@@ -20,8 +20,20 @@ import {
 } from "@/ui/panels/projectTurnReport";
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
+import { DilemmaDialog } from "./DilemmaDialog";
+import { EventDetailDialog } from "./EventDetailDialog";
+import {
+  eventOccurrenceIdsForTurn,
+  projectEventOccurrence,
+} from "./projectEventOccurrence";
+import {
+  beginAutomaticEvents,
+  closeEventPresentation,
+  type EventPresentation,
+} from "./eventDialogFlow";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
+import { EndingReportDialog } from "./EndingReportDialog";
 import { GameOverReportDialog } from "./GameOverReportDialog";
 import { projectCrises, projectGameOverWarnings } from "./projectGameOvers";
 import { useDossierNavigation } from "./useDossierNavigation";
@@ -64,6 +76,9 @@ export function GameView({
   const { play } = useInterfaceSound();
   const session = useGameSession(entry.scenario, restoredState);
   const navigation = useDossierNavigation(Boolean(restoredState?.outcome));
+  const [factionMetricId, setFactionMetricId] = useState(
+    () => entry.scenario.factionMetrics?.[0]?.id ?? "",
+  );
   const openReport = navigation.openReport;
   const [sheetHoveredNodeId, setSheetHoveredNodeId] = useState<string>();
   const [turnReport, setTurnReport] = useState<TurnReport | undefined>(() =>
@@ -72,8 +87,15 @@ export function GameView({
       : undefined,
   );
   const [turnReportOpen, setTurnReportOpen] = useState(false);
+  const [eventPresentation, setEventPresentation] =
+    useState<EventPresentation>();
+  const [dilemmaOpen, setDilemmaOpen] = useState(
+    Boolean(restoredState?.pendingDilemmaIds.length),
+  );
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
+  const [inactiveStanceSearchOpen, setInactiveStanceSearchOpen] =
+    useState(false);
   const [toastMessage, setToastMessage] = useState<string>();
   const [dismissedNotice, setDismissedNotice] = useState<string>();
   const previousState = useRef<SimulationState | undefined>(undefined);
@@ -129,15 +151,31 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setEventPresentation(undefined);
+      setDilemmaOpen(false);
       setToastMessage(undefined);
-      if (reducedMotion) {
-        if (session.state.outcome) {
-          // oxlint-disable-next-line react/set-state-in-effect -- the terminal overlay follows the completed engine transition.
+      const presentCompletedTurn = () => {
+        if (session.state.outcome?.kind === "game-over") {
           openReport();
-        } else {
-          setTurnReport(report);
-          setTurnReportOpen(true);
+          return;
         }
+        setTurnReport(report);
+        const ids = eventOccurrenceIdsForTurn(
+          session.scenario,
+          session.state,
+          report.turn,
+        );
+        const presentation = beginAutomaticEvents(
+          ids,
+          session.state.outcome?.kind === "ending" ? "ending" : undefined,
+        );
+        if (presentation) setEventPresentation(presentation);
+        else if (session.state.outcome?.kind === "ending") openReport();
+        else setTurnReportOpen(true);
+      };
+      if (reducedMotion) {
+        // oxlint-disable-next-line react/set-state-in-effect -- the presentation follows the completed engine transition.
+        presentCompletedTurn();
         if (
           report.situationTransitions.some(({ kind }) => kind === "began") ||
           report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -148,12 +186,7 @@ export function GameView({
         setRevealingTurn(report);
         revealTimer.current = setTimeout(() => {
           setRevealingTurn(undefined);
-          if (session.state.outcome) {
-            openReport();
-          } else {
-            setTurnReport(report);
-            setTurnReportOpen(true);
-          }
+          presentCompletedTurn();
           if (
             report.situationTransitions.some(({ kind }) => kind === "began") ||
             report.crisisTransitions.some(({ kind }) => kind === "stage")
@@ -171,6 +204,8 @@ export function GameView({
       setRevealingTurn(undefined);
       setTurnReport(undefined);
       setTurnReportOpen(false);
+      setEventPresentation(undefined);
+      setDilemmaOpen(false);
     } else if (before && messageChanged) {
       setToastMessage(session.message);
     }
@@ -197,6 +232,13 @@ export function GameView({
   }
 
   const scenario = session.scenario;
+  const activeEventId =
+    eventPresentation?.mode === "automatic"
+      ? eventPresentation.ids[eventPresentation.index]
+      : eventPresentation?.id;
+  const activeEvent = activeEventId
+    ? projectEventOccurrence(scenario, session.state, activeEventId)
+    : undefined;
   const resources = scenario.nodes.filter((node) => node.type === "resource");
   const selectedDefinition = scenario.nodes.find(
     ({ id }) => id === navigation.selectedNodeId,
@@ -240,6 +282,8 @@ export function GameView({
         playerName={playerName}
         state={session.state}
         resources={resources}
+        onResourceHover={setSheetHoveredNodeId}
+        onResourceSelect={selectNode}
         activeCrisisCount={gameOverWarnings.length}
         urgentGameOverWarning={
           urgentGameOverWarning
@@ -249,18 +293,27 @@ export function GameView({
               }
             : undefined
         }
-        gameOver={Boolean(session.state.outcome)}
+        terminal={Boolean(session.state.outcome)}
+        normalEnding={session.state.outcome?.kind === "ending"}
+        pendingDilemmaCount={session.state.pendingDilemmaIds.length}
         canLoad={Boolean(savedGame)}
         resolvingTurn={revealingTurn !== undefined}
+        onAddStance={() => setInactiveStanceSearchOpen(true)}
         onAdvance={() => {
-          if (!revealingTurn) {
+          if (session.state.pendingDilemmaIds.length) {
+            setDilemmaOpen(true);
+          } else if (!revealingTurn) {
             play("advance");
             session.nextTurn();
           }
         }}
         onSave={() => onSave(session.state, savedTurnReport)}
         onLoad={onLoad}
-        onReset={session.reset}
+        onReset={() => {
+          setDilemmaOpen(false);
+          setEventPresentation(undefined);
+          session.reset();
+        }}
         onMainMenu={() => onMainMenu(session.state, savedTurnReport)}
         onOpenOverview={() => {
           play("paper");
@@ -274,6 +327,10 @@ export function GameView({
           play("paper");
           setActivePanel("chronicle");
         }}
+        onOpenDecisions={() => {
+          play("paper");
+          setActivePanel("decisions");
+        }}
         turnReportAvailable={turnReport !== undefined}
         onOpenTurnReport={() => {
           if (turnReport) {
@@ -281,7 +338,7 @@ export function GameView({
             setTurnReportOpen(true);
           }
         }}
-        onOpenGameOver={navigation.openReport}
+        onOpenFinalReport={navigation.openReport}
         musicMuted={musicMuted}
         onToggleMusic={onToggleMusic}
       />
@@ -321,18 +378,14 @@ export function GameView({
           aria-label="Institutional causal graph"
         >
           <div className="graph-canvas relative size-full min-h-0">
-            <div className="graph-legend" aria-label="Graph legend">
-              <span>
-                <i className="effect-key effect-key--positive" /> Increasing
-              </span>
-              <span>
-                <i className="effect-key effect-key--negative" /> Decreasing
-              </span>
-            </div>
             <SimulationGraph
               scenario={scenario}
               state={session.state}
               onNodeSelect={selectNode}
+              factionMetricId={factionMetricId}
+              onFactionMetricChange={setFactionMetricId}
+              inactiveStanceSearchOpen={inactiveStanceSearchOpen}
+              onInactiveStanceSearchOpenChange={setInactiveStanceSearchOpen}
               externalHoveredNodeId={sheetHoveredNodeId}
               turnFeedback={graphTurnFeedback}
             />
@@ -347,6 +400,14 @@ export function GameView({
         resources={resources}
         onClose={() => setActivePanel(undefined)}
         onCrisisSelect={selectCrisis}
+        onEventSelect={(occurrenceId) => {
+          setDilemmaOpen(false);
+          setEventPresentation({
+            mode: "manual",
+            id: occurrenceId,
+            returnTo: "chronicle",
+          });
+        }}
         onResourceHover={setSheetHoveredNodeId}
         onResourceSelect={selectNode}
       />
@@ -358,15 +419,86 @@ export function GameView({
           open={turnReportOpen}
           onNodeSelect={selectNode}
           onCrisisSelect={selectCrisis}
-          onOpenChange={setTurnReportOpen}
+          onEventSelect={(eventId) => {
+            const occurrenceId = eventOccurrenceIdsForTurn(
+              scenario,
+              session.state,
+              turnReport.turn,
+            ).find((id) => id.startsWith(`${eventId}:event:`));
+            if (!occurrenceId) return;
+            setDilemmaOpen(false);
+            setEventPresentation({
+              mode: "manual",
+              id: occurrenceId,
+              returnTo: "report",
+            });
+          }}
+          onOpenChange={(open) => {
+            setTurnReportOpen(open);
+            if (
+              !open &&
+              !eventPresentation &&
+              session.state.pendingDilemmaIds.length
+            )
+              setDilemmaOpen(true);
+          }}
         />
       )}
 
-      {navigation.reportOpen && session.state.outcome && (
+      {activeEvent && (
+        <EventDetailDialog
+          key={activeEvent.id}
+          occurrence={activeEvent}
+          onNodeSelect={selectNode}
+          onOpenChange={(open) => {
+            if (open || !eventPresentation) return;
+            const next = closeEventPresentation(eventPresentation);
+            setEventPresentation(next.next);
+            if (next.returnTo === "ending") openReport();
+            if (next.returnTo === "report") setTurnReportOpen(true);
+            if (next.returnTo === "chronicle") setActivePanel("chronicle");
+          }}
+        />
+      )}
+
+      {session.state.pendingDilemmaIds.length > 0 && (
+        <DilemmaDialog
+          scenario={scenario}
+          state={session.state}
+          open={
+            dilemmaOpen &&
+            !turnReportOpen &&
+            !revealingTurn &&
+            !eventPresentation
+          }
+          onOpenChange={setDilemmaOpen}
+          onResolve={session.resolveDilemma}
+        />
+      )}
+
+      {navigation.reportOpen && session.state.outcome?.kind === "game-over" && (
         <GameOverReportDialog
           scenario={scenario}
           state={session.state}
           onCrisisSelect={selectCrisis}
+          onReview={navigation.reviewFinalState}
+          onRestart={() => {
+            navigation.reset();
+            session.reset();
+          }}
+          onMainMenu={() => {
+            navigation.reset();
+            onMainMenu(session.state, savedTurnReport);
+          }}
+        />
+      )}
+
+      {navigation.reportOpen && session.state.outcome?.kind === "ending" && (
+        <EndingReportDialog
+          scenario={scenario}
+          state={session.state}
+          denominationName={denominationName}
+          onNodeSelect={selectNode}
           onReview={navigation.reviewFinalState}
           onRestart={() => {
             navigation.reset();
@@ -399,6 +531,7 @@ export function GameView({
           onEnact={session.enactStance}
           onRepeal={session.repealStance}
           onNodeSelect={selectNode}
+          onFactionMetricChange={setFactionMetricId}
           onClose={navigation.closeNode}
         />
       )}

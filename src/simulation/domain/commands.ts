@@ -18,6 +18,15 @@ export interface RepealStanceCommand {
   readonly stanceId: NodeId;
 }
 
+export interface ResolveDilemmaCommand {
+  readonly type: "resolve-dilemma";
+  readonly dilemmaId: string;
+  readonly choiceId: string;
+}
+
 /** A player intent accepted by the simulation command boundary. */
 export type SimulationCommand =
-  SetStanceCommand | EnactStanceCommand | RepealStanceCommand;
+  | SetStanceCommand
+  | EnactStanceCommand
+  | RepealStanceCommand
+  | ResolveDilemmaCommand;

@@ -1,3 +1,4 @@
+import { FactionMetricName } from "@/ui/FactionMetric";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -56,6 +57,8 @@ function effectBarView(contribution: Contribution) {
     kind: "effect",
     relatedNodeId: contribution.sourceId,
     relatedName: contribution.sourceTitle,
+    sourceMetric: contribution.sourceMetric,
+    targetMetric: contribution.targetMetric,
     label: contribution.label,
     contribution: contribution.amount,
     contributionLabel: formatContributionPercent(contribution.amount),
@@ -154,34 +157,35 @@ export function CrisisDetailsDialog({
                   </CardHeader>
                   <CardContent>
                     <ItemGroup className="gap-1 md:grid md:grid-cols-2">
-                      {prerequisites.map((prerequisite) => (
-                        <DossierItemButton
-                          key={`${group.id}:${prerequisite.prerequisite.nodeId}`}
-                          className="gap-2 py-1.5"
-                          aria-label={`Open ${prerequisite.nodeName} node dossier`}
-                          onSelect={() =>
-                            onNodeSelect(prerequisite.prerequisite.nodeId)
-                          }
-                          leading={
-                            prerequisite.met ? (
-                              <CircleAlert aria-hidden="true" />
-                            ) : (
-                              <CircleDashed aria-hidden="true" />
-                            )
-                          }
-                          title={prerequisite.nodeName}
-                          description={prerequisite.description}
-                          trailing={
-                            <Badge
-                              variant={
-                                prerequisite.met ? "destructive" : "outline"
-                              }
-                            >
-                              {prerequisite.met ? "Breached" : "Clear"}
-                            </Badge>
-                          }
-                        />
-                      ))}
+                      {prerequisites.map(
+                        ({ nodeId, title, description, met }, index) => (
+                          <DossierItemButton
+                            key={`${group.id}:${index}`}
+                            className="gap-2 py-1.5"
+                            aria-label={
+                              nodeId ? `Open ${title} node dossier` : undefined
+                            }
+                            onSelect={
+                              nodeId ? () => onNodeSelect(nodeId) : undefined
+                            }
+                            leading={
+                              nodeId &&
+                              (met ? (
+                                <CircleAlert aria-hidden="true" />
+                              ) : (
+                                <CircleDashed aria-hidden="true" />
+                              ))
+                            }
+                            title={title}
+                            description={description}
+                            trailing={
+                              <Badge variant={met ? "destructive" : "outline"}>
+                                {met ? "Breached" : "Clear"}
+                              </Badge>
+                            }
+                          />
+                        ),
+                      )}
                     </ItemGroup>
                   </CardContent>
                 </Card>
@@ -205,18 +209,26 @@ export function CrisisDetailsDialog({
                   ({
                     targetId,
                     targetTitle,
+                    targetMetric,
+                    targetMetricId,
                     contributions: targetContributions,
                   }) => (
                     <EffectTableCard
-                      key={targetId}
-                      title={targetTitle}
+                      key={`${targetId}:${targetMetric ?? "value"}`}
+                      title={
+                        <FactionMetricName
+                          name={targetTitle}
+                          metric={targetMetric}
+                          metricId={targetMetricId}
+                        />
+                      }
                       legend={
                         <>
                           {targetContributions.length} factor
                           {targetContributions.length === 1 ? "" : "s"}
                         </>
                       }
-                      ariaLabel={`Open ${targetTitle} node dossier`}
+                      ariaLabel={`Open ${targetTitle}${targetMetric ? ` ${targetMetric}` : ""} node dossier`}
                       onOpen={() => onNodeSelect(targetId)}
                       headerClassName="border-b border-border/60"
                     >

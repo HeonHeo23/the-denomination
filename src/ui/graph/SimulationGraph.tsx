@@ -1,20 +1,23 @@
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { FactionMetricIcon } from "@/ui/FactionMetric";
+import {
+  findFactionContext,
+  createFactionGraphId,
+} from "../projections/projectFactionGroups";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Controls,
   getNodesBounds,
   MiniMap,
   ReactFlow,
+  type Edge,
   type Node,
   type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react";
-import { CirclePlus, LayoutDashboard, Search } from "lucide-react";
 import "@xyflow/react/dist/style.css";
-import { Button } from "@/components/ui/button";
 import type { ScenarioDefinition, SimulationState } from "../../simulation";
 import {
-  projectEffectsToReactFlow,
-  projectGraphCategories,
   projectToReactFlow,
   type GraphTurnFeedback,
   type SimulationNodeData,
@@ -24,6 +27,7 @@ import {
   projectNodeSearchEntries,
 } from "./projectNodeSearch";
 import { NodeSearchDialog } from "./NodeSearchDialog";
+import { GraphCategoryRail } from "./GraphCategoryRail";
 import { SimulationNode } from "./SimulationNode";
 import { useInterfaceSound } from "../sound/interfaceSoundContext";
 import "./simulation-graph.css";
@@ -34,6 +38,10 @@ interface SimulationGraphProps {
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
   readonly onNodeSelect: (nodeId: string) => void;
+  readonly factionMetricId: string;
+  readonly onFactionMetricChange: (metricId: string) => void;
+  readonly inactiveStanceSearchOpen: boolean;
+  readonly onInactiveStanceSearchOpenChange: (open: boolean) => void;
   readonly onViewContextChange?: (label: string) => void;
   readonly externalHoveredNodeId?: string;
   readonly turnFeedback?: GraphTurnFeedback;
@@ -41,10 +49,54 @@ interface SimulationGraphProps {
 
 type GraphInstance = ReactFlowInstance<Node<SimulationNodeData>>;
 
+interface FactionMetricToggleProps {
+  readonly scenario: ScenarioDefinition;
+  readonly metricId: string;
+  readonly onChange: (metricId: string) => void;
+}
+
+function FactionMetricToggle({
+  scenario,
+  metricId,
+  onChange,
+}: FactionMetricToggleProps) {
+  const metrics = scenario.factionMetrics ?? [];
+  if (!scenario.factionGroups?.length || metrics.length <= 1) return null;
+
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      className="pointer-events-auto flex max-w-full flex-wrap justify-end gap-1 rounded-sm border border-border/70 bg-background/90 p-1 shadow-sm backdrop-blur-sm"
+      value={metricId}
+      aria-label="Faction metric"
+      onValueChange={(value) => {
+        if (value) onChange(value);
+      }}
+    >
+      {metrics.map((metric) => (
+        <ToggleGroupItem
+          key={metric.id}
+          value={metric.id}
+          aria-label={metric.label}
+          title={metric.label}
+        >
+          <FactionMetricIcon metric={metric.label} metricId={metric.id} />
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
 export function SimulationGraph({
   scenario,
   state,
   onNodeSelect,
+  factionMetricId,
+  onFactionMetricChange,
+  inactiveStanceSearchOpen,
+  onInactiveStanceSearchOpenChange,
   onViewContextChange,
   externalHoveredNodeId,
   turnFeedback,
@@ -52,8 +104,6 @@ export function SimulationGraph({
   const { play } = useInterfaceSound();
   const [hoveredNodeId, setHoveredNodeId] = useState<string>();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [inactiveStanceSearchOpen, setInactiveStanceSearchOpen] =
-    useState(false);
   const [carriedEndedNodeIds, setCarriedEndedNodeIds] = useState<
     readonly string[]
   >([]);
@@ -71,16 +121,27 @@ export function SimulationGraph({
   }, [endedNodeIdsThisTurn, turnFeedback]);
   const recentlyEndedNodeIds = endedNodeIdsThisTurn ?? carriedEndedNodeIds;
   const highlightedNodeId = externalHoveredNodeId ?? hoveredNodeId;
-  const categories = useMemo(
+  const graph = useMemo(
     () =>
-      projectGraphCategories(
+      projectToReactFlow(
         scenario,
         state,
+        highlightedNodeId,
         turnFeedback,
         recentlyEndedNodeIds,
+        undefined,
+        factionMetricId,
       ),
-    [recentlyEndedNodeIds, scenario, state, turnFeedback],
+    [
+      highlightedNodeId,
+      recentlyEndedNodeIds,
+      scenario,
+      state,
+      turnFeedback,
+      factionMetricId,
+    ],
   );
+  const categories = graph.navigationCategories;
   const [activeCategoryId, setActiveCategoryId] = useState(
     () => categories[0]?.id,
   );
@@ -90,17 +151,6 @@ export function SimulationGraph({
     : (categories.find(({ id }) => id === activeCategoryId) ?? categories[0]);
   const showingOverview = overview || activeCategory === undefined;
   const instanceRef = useRef<GraphInstance | undefined>(undefined);
-  const graph = useMemo(
-    () =>
-      projectToReactFlow(
-        scenario,
-        state,
-        highlightedNodeId,
-        turnFeedback,
-        recentlyEndedNodeIds,
-      ),
-    [highlightedNodeId, recentlyEndedNodeIds, scenario, state, turnFeedback],
-  );
   const searchEntries = useMemo(
     () => projectNodeSearchEntries(scenario, state),
     [scenario, state],
@@ -110,30 +160,30 @@ export function SimulationGraph({
     [searchEntries],
   );
   const nodes = graph.nodes;
-  const edges = useMemo(
-    () =>
-      highlightedNodeId === undefined
-        ? graph.edges
-        : projectEffectsToReactFlow(
-            scenario,
-            state,
-            highlightedNodeId,
-            turnFeedback,
-            recentlyEndedNodeIds,
-          ),
-    [
-      graph.edges,
-      highlightedNodeId,
-      recentlyEndedNodeIds,
-      scenario,
-      state,
-      turnFeedback,
-    ],
-  );
+  const edges = useMemo<Edge[]>(() => {
+    return graph.edges.map((edge) => ({
+      ...edge,
+      data: {
+        ...edge.data,
+        onNodeSelect: turnFeedback ? undefined : onNodeSelect,
+      },
+    }));
+  }, [graph.edges, turnFeedback, onNodeSelect]);
+
+  // Frame the matching graph nodes in the viewport, including faction groups.
   const fitNodes = useCallback(
     (nodeIds: readonly string[], duration = 480, includeFactions = true) => {
       const instance = instanceRef.current;
-      const matchingNodes = nodes.filter((node) => nodeIds.includes(node.id));
+      const matchingNodes = nodes.filter((node) =>
+        nodeIds.some(
+          (id) =>
+            node.id === id ||
+            node.id ===
+              createFactionGraphId(
+                findFactionContext(scenario, id)?.group.id ?? "",
+              ),
+        ),
+      );
       const categoryNodes = includeFactions
         ? matchingNodes
         : matchingNodes.filter((node) => node.data.nodeType !== "faction");
@@ -145,7 +195,7 @@ export function SimulationGraph({
         duration,
       });
     },
-    [nodes],
+    [nodes, scenario],
   );
 
   const showCategory = useCallback(
@@ -155,7 +205,7 @@ export function SimulationGraph({
       setActiveCategoryId(category.id);
       setOverview(false);
       onViewContextChange?.(category.label);
-      fitNodes(category.nodeIds, duration, false);
+      fitNodes(category.nodeIds, duration, category.includeFactions);
     },
     [categories, fitNodes, onViewContextChange],
   );
@@ -206,20 +256,41 @@ export function SimulationGraph({
   const selectSearchEntry = useCallback(
     (entry: (typeof searchEntries)[number]) => {
       if (entry.isOnBoard) {
-        const category = categories.find(({ nodeIds }) =>
-          nodeIds.includes(entry.id),
-        );
+        // Match faction metrics through their shared group node on the graph.
+        const category =
+          categories.find(
+            ({ nodeIds, includeFactions }) =>
+              includeFactions &&
+              nodeIds.includes(
+                findFactionContext(scenario, entry.id)
+                  ? createFactionGraphId(
+                      findFactionContext(scenario, entry.id)!.group.id,
+                    )
+                  : entry.id,
+              ),
+          ) ??
+          categories.find(({ nodeIds }) =>
+            nodeIds.includes(
+              findFactionContext(scenario, entry.id)
+                ? createFactionGraphId(
+                    findFactionContext(scenario, entry.id)!.group.id,
+                  )
+                : entry.id,
+            ),
+          );
         if (category) {
+          // Switch to the matching category and frame the selected entry.
           setActiveCategoryId(category.id);
           setOverview(false);
           onViewContextChange?.(category.label);
           fitNodes([entry.id]);
         }
       }
+      // Open the dossier for the selected scalar node, even when it is off-board.
       play("paper");
       onNodeSelect(entry.id);
     },
-    [categories, fitNodes, onNodeSelect, onViewContextChange, play],
+    [categories, fitNodes, onNodeSelect, onViewContextChange, play, scenario],
   );
 
   useEffect(() => {
@@ -237,7 +308,7 @@ export function SimulationGraph({
       });
     } else if (activeCategory) {
       onViewContextChange?.(activeCategory.label);
-      fitNodes(activeCategory.nodeIds, 360, false);
+      fitNodes(activeCategory.nodeIds, 360, activeCategory.includeFactions);
     }
   }, [
     activeCategory,
@@ -265,67 +336,34 @@ export function SimulationGraph({
 
   return (
     <div className="graph-workspace">
-      <nav className="graph-category-rail" aria-label="Graph categories">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          data-game-node-search-trigger
-          aria-label="Search nodes"
-          aria-keyshortcuts="Control+K Meta+K"
-          disabled={Boolean(turnFeedback)}
-          onClick={() => setSearchOpen(true)}
-        >
-          <Search data-icon="inline-start" />
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          data-game-inactive-stance-search-trigger
-          aria-label="Find a stance to enact"
-          disabled={Boolean(turnFeedback)}
-          onClick={() => setInactiveStanceSearchOpen(true)}
-        >
-          <CirclePlus data-icon="inline-start" />
-        </Button>
-        <div className="graph-category-rail__scroll" role="tablist">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              type="button"
-              size="sm"
-              variant="ghost"
-              role="tab"
-              aria-selected={
-                !showingOverview && activeCategory?.id === category.id
-              }
-              data-active={
-                !showingOverview && activeCategory?.id === category.id
-              }
-              onClick={() => showCategory(category.id)}
-            >
-              {category.label}
-              <span aria-hidden="true">{category.nonFactionNodeCount}</span>
-            </Button>
-          ))}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            role="tab"
-            aria-selected={showingOverview}
-            data-active={showingOverview}
-            onClick={() => showOverview()}
-          >
-            <LayoutDashboard data-icon="inline-start" /> Overview
-          </Button>
-        </div>
-      </nav>
+      <GraphCategoryRail
+        categories={categories}
+        activeCategoryId={activeCategory?.id}
+        showingOverview={showingOverview}
+        disabled={Boolean(turnFeedback)}
+        onSearchOpen={() => setSearchOpen(true)}
+        onCategorySelect={showCategory}
+        onOverviewSelect={showOverview}
+      />
       <div
         className="simulation-board"
         data-game-graph-state={turnFeedback ? "resolving" : "ready"}
       >
+        <div className="simulation-board__overlay-row">
+          <div className="graph-legend" aria-label="Graph legend">
+            <span>
+              <i className="effect-key effect-key--positive" /> Increasing
+            </span>
+            <span>
+              <i className="effect-key effect-key--negative" /> Decreasing
+            </span>
+          </div>
+          <FactionMetricToggle
+            scenario={scenario}
+            metricId={factionMetricId}
+            onChange={onFactionMetricChange}
+          />
+        </div>
         {turnFeedback && (
           <div className="turn-reveal-banner" role="status" aria-live="polite">
             <span>Year resolved</span>
@@ -353,7 +391,14 @@ export function SimulationGraph({
           onNodeClick={(_event, node) => {
             if (!turnFeedback) {
               play("paper");
-              onNodeSelect(node.id);
+              onNodeSelect(node.data.nodeId ?? node.id);
+            }
+          }}
+          onEdgeClick={(_event, edge) => {
+            const targetNodeId = edge.data?.targetNodeId;
+            if (!turnFeedback && typeof targetNodeId === "string") {
+              play("paper");
+              onNodeSelect(targetNodeId);
             }
           }}
           onNodeMouseEnter={(_event, node) => setHoveredNodeId(node.id)}
@@ -382,11 +427,12 @@ export function SimulationGraph({
         entries={searchEntries}
         onOpenChange={setSearchOpen}
         onSelect={selectSearchEntry}
+        shortcut="Ctrl K"
       />
       <NodeSearchDialog
         open={inactiveStanceSearchOpen}
         entries={inactiveStanceEntries}
-        onOpenChange={setInactiveStanceSearchOpen}
+        onOpenChange={onInactiveStanceSearchOpenChange}
         onSelect={selectSearchEntry}
         title="Enact a stance"
         description="Find inactive Stances to review and enact."

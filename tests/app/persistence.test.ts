@@ -1,7 +1,8 @@
+import { ongoingCompletion } from "../simulation/fixtures";
+import { runEndingPersistenceTests } from "./endings.test";
 import assert from "node:assert/strict";
 import {
   clearSavedGame,
-  LEGACY_SAVE_STORAGE_KEY,
   loadSavedGame,
   SAVE_STORAGE_KEY,
   storeSavedGame,
@@ -14,13 +15,19 @@ import {
   reduceGameSession,
 } from "../../src/app/gameSession";
 import { loadScenarioCatalog } from "../../src/app/scenarioCatalog";
-import { exampleScenario } from "../../src/scenarios/example";
-import { advanceTurn, initializeScenario } from "../../src/simulation";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
+import {
+  advanceTurn,
+  executeCommand,
+  initializeScenario,
+} from "../../src/simulation";
 import {
   projectTurnReport,
   restoreTurnReport,
   serializeTurnReport,
 } from "../../src/ui/panels/projectTurnReport";
+
+const exampleScenario = { ...bundledScenario, completion: ongoingCompletion };
 
 class MemoryStorage implements SaveStorage {
   readonly values = new Map<string, string>();
@@ -39,7 +46,7 @@ class MemoryStorage implements SaveStorage {
 }
 
 const catalogResult = loadScenarioCatalog([
-  { contentVersion: 3, content: exampleScenario },
+  { contentVersion: 4, content: exampleScenario },
 ]);
 assert.deepEqual(catalogResult.diagnostics, []);
 const catalog = catalogResult.entries;
@@ -51,28 +58,175 @@ assert.match(
 assert.match(
   loadScenarioCatalog([
     { contentVersion: 1, content: exampleScenario },
-    { contentVersion: 3, content: exampleScenario },
+    { contentVersion: 4, content: exampleScenario },
   ]).diagnostics[0],
   /duplicate Scenario id/,
 );
 const initialState = initializeScenario(catalog[0].scenario);
-const state = advanceTurn(catalog[0].scenario, initialState).state;
+const firstTurn = advanceTurn(catalog[0].scenario, initialState, 0).state;
+const state = firstTurn.pendingDilemmaIds.length
+  ? executeCommand(catalog[0].scenario, firstTurn, {
+      type: "resolve-dilemma",
+      dilemmaId: firstTurn.pendingDilemmaIds[0],
+      choiceId: catalog[0].scenario.dilemmas!.find(
+        ({ id }) => id === firstTurn.pendingDilemmaIds[0],
+      )!.choices[0].id,
+    }).state
+  : firstTurn;
 const turnReport = projectTurnReport(catalog[0].scenario, initialState, state);
 const savedTurnReport = serializeTurnReport(turnReport);
 const save: SavedGame = {
-  version: 2,
+  version: 4,
   scenarioId: exampleScenario.id,
-  scenarioContentVersion: 3,
+  scenarioContentVersion: 4,
   playerName: "Avery Morgan",
   denominationName: "The Common Fellowship",
   state,
 };
 
 assert.ok(validateSavedGame(save, catalog), "A valid save should be accepted");
+const exampleDilemma = exampleScenario.dilemmas[0];
+const queuedContent = {
+  ...exampleScenario,
+  gameOvers: [],
+  dilemmas: [
+    { ...exampleDilemma, threshold: -1 },
+    { ...exampleDilemma, id: "second-assembly-dispute", threshold: -1 },
+  ],
+};
+const queuedCatalog = loadScenarioCatalog([
+  { contentVersion: 6, content: queuedContent },
+]).entries;
+assert.equal(queuedCatalog.length, 1);
+const queuedScenario = queuedCatalog[0].scenario;
+const queued = advanceTurn(
+  queuedScenario,
+  initializeScenario(queuedScenario),
+  0,
+).state;
+assert.equal(queued.pendingDilemmaIds.length, 1);
+const partiallyResolved = queued;
+const pendingSave: SavedGame = {
+  ...save,
+  scenarioContentVersion: 6,
+  state: partiallyResolved,
+};
+assert.ok(
+  validateSavedGame(pendingSave, queuedCatalog),
+  "A pending Dilemma can be saved",
+);
+const adjustedWhilePending = executeCommand(queuedScenario, partiallyResolved, {
+  type: "set-stance",
+  stanceId: "centralization",
+  value: 0.6,
+});
+assert.equal(adjustedWhilePending.accepted, true);
+assert.ok(
+  validateSavedGame(
+    { ...pendingSave, state: adjustedWhilePending.state },
+    queuedCatalog,
+  ),
+  "A Stance adjustment during a pending Dilemma can be saved",
+);
+const pendingStorage = new MemoryStorage();
+assert.equal(storeSavedGame(pendingStorage, pendingSave), undefined);
+const pendingLoaded = loadSavedGame(pendingStorage, queuedCatalog);
+assert.equal(pendingLoaded.status, "ready");
+if (pendingLoaded.status === "ready")
+  assert.deepEqual(
+    pendingLoaded.save.state.pendingDilemmaIds,
+    queued.pendingDilemmaIds,
+  );
+assert.equal(
+  validateSavedGame(
+    {
+      ...pendingSave,
+      state: {
+        ...partiallyResolved,
+        pendingDilemmaIds: [exampleDilemma.id, exampleDilemma.id],
+      },
+    },
+    queuedCatalog,
+  ),
+  undefined,
+);
+assert.equal(
+  validateSavedGame(
+    { ...pendingSave, state: { ...partiallyResolved, dilemmas: {} } },
+    queuedCatalog,
+  ),
+  undefined,
+);
+assert.equal(
+  validateSavedGame(
+    {
+      ...pendingSave,
+      state: {
+        ...partiallyResolved,
+        dilemmas: {
+          ...partiallyResolved.dilemmas,
+          [exampleDilemma.id]: { lastTriggerTurn: null, triggerCount: 1 },
+        },
+      },
+    },
+    queuedCatalog,
+  ),
+  undefined,
+);
 const reportSave: SavedGame = { ...save, turnReport: savedTurnReport };
+const previousContentState = {
+  ...initialState,
+  dilemmas: { [exampleDilemma.id]: initialState.dilemmas[exampleDilemma.id] },
+};
+const previousContentStorage = new MemoryStorage();
+previousContentStorage.setItem(
+  SAVE_STORAGE_KEY,
+  JSON.stringify({
+    ...save,
+    scenarioContentVersion: 4,
+    state: previousContentState,
+  }),
+);
+const oldContentSave = loadSavedGame(previousContentStorage, catalog);
+assert.equal(oldContentSave.status, "unavailable");
+const oldPendingScenario = {
+  ...exampleScenario,
+  dilemmas: [{ ...exampleDilemma, threshold: -1 }],
+};
+const oldPending = advanceTurn(
+  oldPendingScenario,
+  initializeScenario(oldPendingScenario),
+  0,
+).state;
+const oldPendingStorage = new MemoryStorage();
+oldPendingStorage.setItem(
+  SAVE_STORAGE_KEY,
+  JSON.stringify({
+    ...save,
+    scenarioContentVersion: 4,
+    state: oldPending,
+  }),
+);
+const oldPendingSave = loadSavedGame(oldPendingStorage, catalog);
+assert.equal(oldPendingSave.status, "unavailable");
 assert.ok(
   validateSavedGame(reportSave, catalog),
   "A save with a turn report should be accepted",
+);
+const effectId = exampleScenario.effects[0].id;
+assert.equal(
+  validateSavedGame(
+    {
+      ...reportSave,
+      turnReport: {
+        ...savedTurnReport,
+        changedEffectIds: [effectId, effectId],
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "Duplicate Effect references in turn reports must be rejected",
 );
 assert.deepEqual(
   restoreTurnReport(catalog[0].scenario, savedTurnReport),
@@ -123,7 +277,10 @@ if (loaded.status === "ready") {
   assert.ok(session.ok);
   assert.equal(session.state.turn, state.turn);
   assert.match(session.message, /restored/);
-  const advancedSession = reduceGameSession(session, { type: "advance" });
+  const advancedSession = reduceGameSession(session, {
+    type: "advance",
+    randomValue: 0,
+  });
   assert.ok(advancedSession.ok);
   const report = projectTurnReport(
     advancedSession.scenario,
@@ -158,7 +315,24 @@ assert.equal(
 );
 assert.equal(
   validateSavedGame(
-    { ...save, state: { ...save.state, nodeValueHistory: [] } },
+    {
+      ...save,
+      state: {
+        ...save.state,
+        nodes: {
+          ...save.state.nodes,
+          money: { ...save.state.nodes.money, stockValue: 999 },
+        },
+      },
+    },
+    catalog,
+  ),
+  undefined,
+  "A saved Resource must not contain the removed stock field",
+);
+assert.equal(
+  validateSavedGame(
+    { ...save, state: { ...save.state, nodeValueHistory: {} } },
     catalog,
   ),
   undefined,
@@ -170,17 +344,13 @@ assert.equal(
       ...save,
       state: {
         ...save.state,
-        nodeValueHistory: save.state.nodeValueHistory.map((point, index) =>
-          index === 1
-            ? {
-                ...point,
-                values: {
-                  ...point.values,
-                  money: { value: Number.NaN, isActive: true },
-                },
-              }
-            : point,
-        ),
+        nodeValueHistory: {
+          ...save.state.nodeValueHistory,
+          [save.state.turn]: {
+            ...save.state.nodeValueHistory[save.state.turn],
+            money: { value: Number.NaN, isActive: true },
+          },
+        },
       },
     },
     catalog,
@@ -194,7 +364,7 @@ assert.equal(
   "Scenario mismatches must be rejected",
 );
 assert.equal(
-  validateSavedGame({ ...save, scenarioContentVersion: 4 }, catalog),
+  validateSavedGame({ ...save, scenarioContentVersion: 6 }, catalog),
   undefined,
   "Content-version mismatches must be rejected",
 );
@@ -316,14 +486,34 @@ assert.match(clearSavedGame(failingStorage) ?? "", /could not be removed/);
 assert.equal(clearSavedGame(storage), undefined);
 assert.equal(storage.getItem(SAVE_STORAGE_KEY), null);
 
-storage.setItem(LEGACY_SAVE_STORAGE_KEY, JSON.stringify({ version: 1 }));
-const legacy = loadSavedGame(storage, catalog);
-assert.equal(legacy.status, "unavailable");
-if (legacy.status === "unavailable") {
-  assert.equal(legacy.discardInvalid, true);
-  assert.match(legacy.message, /older format/);
-}
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(storage.getItem(LEGACY_SAVE_STORAGE_KEY), null);
+const touchedKeys: string[] = [];
+const currentSlotStorage: SaveStorage = {
+  getItem(key) {
+    touchedKeys.push(key);
+    return storage.getItem(key);
+  },
+  setItem(key, value) {
+    touchedKeys.push(key);
+    storage.setItem(key, value);
+  },
+  removeItem(key) {
+    touchedKeys.push(key);
+    storage.removeItem(key);
+  },
+};
+storage.setItem("unrelated-setting", "preserved");
+assert.deepEqual(loadSavedGame(currentSlotStorage, catalog), {
+  status: "empty",
+});
+assert.equal(storeSavedGame(currentSlotStorage, save), undefined);
+assert.equal(clearSavedGame(currentSlotStorage), undefined);
+assert.deepEqual(
+  touchedKeys,
+  [SAVE_STORAGE_KEY, SAVE_STORAGE_KEY, SAVE_STORAGE_KEY],
+  "Persistence touches only its current save slot",
+);
+assert.equal(storage.getItem("unrelated-setting"), "preserved");
 
 console.log("Application persistence checks passed.");
+
+runEndingPersistenceTests();

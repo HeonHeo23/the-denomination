@@ -36,11 +36,16 @@ interface ScenarioDefinition {
     year?: number;
   };
   conditions?: string[];
+  factionMetrics?: FactionMetricDefinition[];
+  factionGroups?: FactionGroupDefinition[];
+  constraints?: SumConstraintDefinition[];
   nodes: NodeDefinition[];
   effects: EffectDefinition[];
   events?: EventDefinition[];
   dilemmas?: DilemmaDefinition[];
   gameOvers?: GameOverDefinition[];
+  historicalActors: HistoricalActorDefinition[];
+  completion: CompletionDefinition;
 }
 ```
 
@@ -54,9 +59,41 @@ ambiguous use of `prerequisites` for both provided and required tags.
 `schemaVersion` versions the representation, not game balance or saved
 runtime state.
 
+```ts
+type HistoricalActorDefinition = {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+};
+type EndingNarrative = { id: string; title: string; narrative: string };
+type EndingDefinition = EndingNarrative & {
+  priority: number;
+  prerequisiteGroups: PrerequisiteGroupDefinition[];
+};
+interface CompletionDefinition {
+  prerequisiteGroups: Array<
+    PrerequisiteGroupDefinition & { description: string }
+  >;
+  endings: EndingDefinition[];
+  fallbackEnding: EndingNarrative;
+  reportNodeIds: string[];
+}
+```
+
+Actors require all four fields. Completion groups are non-empty and require
+descriptions; endings, actors, and report nodes may be empty. IDs are unique;
+the fallback shares the ending namespace. Priorities are integers (higher wins;
+ID breaks ties). Prerequisites use the shared validation rules.
+
+Runtime Dilemmas store the latest resolved turn and choice; ending outcomes store
+the ending, turn, matched trigger/group IDs, and fallback flag. An ending turn
+must follow any recorded Dilemma resolution turn. Versions remain
+unchanged; old content and saves missing required fields fail validation.
+
 ## Nodes
 
-All node definitions share:
+All nodes, including individual Faction metrics, share numeric fields:
 
 ```ts
 interface NumericDomain {
@@ -85,11 +122,10 @@ interface BaseNodeDefinition {
 }
 ```
 
-`initial.value` is authoritative at turn zero. `baseline`, where present, is
-the underlying term used by persistent-state calculation after initialization;
-it is not an alternate initial value. If omitted, it defaults to
-`initial.value`. Resource baseline behavior beyond the current MVP is still a
-design TBD.
+`initial.value` sets the turn-zero value. For non-Resources, `baseline`,
+where present, is the underlying term used by persistent-state calculation;
+if omitted, it defaults to `initial.value`. Resources do not permit `baseline`:
+their `initial.value` is the starting balance, clamped when the domain enables it.
 
 `isActive` controls participation; `isForced` prevents normal deactivation.
 
@@ -162,25 +198,46 @@ interface IndicatorDefinition extends BaseNodeDefinition {
 ### Faction
 
 ```ts
+type FactionCategory =
+  "theological" | "demographic" | "geographic" | "institutional";
 interface FactionDefinition extends BaseNodeDefinition {
   type: "faction";
-  valueMeaning: string;
+  factionCategory: FactionCategory;
+  constraintId?: string;
+  graphVisible?: true;
+  initial: InitialNodeState & { isActive: true; isForced: true };
 }
+type FactionMetricDefinition = { id: string; label: string };
+type FactionGroupDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  metrics: Record<string, string>;
+};
+type SumConstraintDefinition = {
+  id: string;
+  kind: "sum-limit";
+  maxTotal: number;
+  name?: string;
+};
 ```
 
-`valueMeaning` defines the content-specific interpretation of the scalar.
+Scenarios define an ordered catalog of Faction metrics and named groups. Each group maps every metric to its own node, so the simulation stores ordinary numeric values while the UI presents related metrics together. Optional sum-limit constraints cap the combined values of selected metrics.
 
 ### Resource
 
 ```ts
 interface ResourceDefinition extends BaseNodeDefinition {
   type: "resource";
+  baseline?: never;
   initial: InitialNodeState & { isActive: true; isForced: true };
 }
 ```
 
-Resources use the same domain, initial state, baseline, visibility, and Effect
-references as other nodes.
+Resources share the common domain and Effect references and have no baseline.
+Runtime state stores the balance in `value` and per-turn Effect and Grudge flow
+in `netFlow`. Optional domain clamping occurs before Effect sampling; domains
+may allow debt or disable clamping.
 
 ### Situation
 
@@ -240,9 +297,12 @@ and contextual-factor activation, remain a game-design TBD. Do not add an
 arbitrary expression language or executable callbacks until those semantics
 are settled. Every `product.factors` entry must reference a node.
 
+All numeric references, including Faction metrics, use node IDs directly.
+Legacy metric selectors and nested Faction values are rejected.
+
 ## Runtime prerequisites
 
-Runtime prerequisites are reusable predicates over canonical node state. They
+Runtime prerequisites are reusable predicates over canonical runtime state. They
 are distinct from static `requires` tags.
 
 ```ts
@@ -253,18 +313,27 @@ type PrerequisiteDefinition =
       comparison: "at-most" | "at-least";
       value: number;
     }
-  | { kind: "node-activation"; nodeId: string; active: boolean };
+  | { kind: "node-activation"; nodeId: string; active: boolean }
+  | { kind: "turn"; atTurn: number }
+  | { kind: "event"; eventId: string }
+  | { kind: "dilemma-choice"; dilemmaId: string; choiceId?: string }
+  | { kind: "situation-resolved"; nodeId: string };
 
 interface PrerequisiteGroupDefinition {
   id: string;
   title: string;
+  description?: string;
   allOf: PrerequisiteDefinition[];
 }
 ```
 
 Every `nodeId` must resolve. A node-value threshold must lie within its node's
 domain. A group contains at least one prerequisite. IDs are unique within the
-consumer that owns the groups.
+consumer that owns the groups. Turn thresholds are integers after `start.turn`.
+Event and Dilemma references (including optional choices) must resolve;
+`situation-resolved` must reference a Situation active in retained history but
+inactive now. Groups are alternatives; their predicates are conjunctive.
+Completion group IDs remain `matchedTriggerIds` in ending outcomes.
 
 ## Game Overs
 
@@ -325,8 +394,11 @@ interface BaseIncidentDefinition {
 positive integer. Influence sources other than `_random_` must reference
 nodes.
 
-The format declares candidates and their thresholds. It does not encode the
-still-TBD policy for selecting one incident when multiple candidates qualify.
+The format declares candidates and their thresholds. One qualifying Dilemma
+is selected randomly from the shared snapshot using the same random value as
+incident influences; all qualifying Events resolve from that snapshot in Event
+ID order.
+Dilemma declaration order has no selection meaning.
 
 ### Event
 
@@ -389,23 +461,23 @@ No generic permanent node-value consequence is defined. Adding one would
 require game-design approval.
 
 These definitions are shared content contracts. Game Over stages and recovery
-occurrences currently execute them; Events and Dilemmas retain the same shapes
-for their future engine implementation.
+occurrences, Dilemma choices, and Events execute them.
 
 ## Static definition versus runtime state
 
 Static definition data describes what may happen and the authoritative starting
 conditions. Runtime state records what has happened:
 
-| Static content                                  | Runtime state                                                 |
-| ----------------------------------------------- | ------------------------------------------------------------- |
-| Node domain, metadata, baseline, initial state  | Current value and activation                                  |
-| Effect source, target, response, Inertia window | Source-value history and last contribution                    |
-| Grudge consequence template                     | Created Grudge identity, current magnitude, creation metadata |
-| Incident influences, threshold, cooldown        | Last trigger turn and trigger count                           |
-| Dilemma choices                                 | Pending Dilemma                                               |
-| Game Over definitions and warning stages        | Episode progress, matched groups, and terminal outcome        |
-| Scenario start                                  | Current turn and year                                         |
+| Static content              | Runtime state                                                         |
+| --------------------------- | --------------------------------------------------------------------- |
+| Scenario identity and start | `scenarioId`, `turn`, optional `year`                                 |
+| Nodes                       | `nodes`: activation and numeric values; Resource balance and flow      |
+| Effects                     | `effects`: source history and last contribution                       |
+| Grudge templates            | `grudges`: IDs, targets/metrics, magnitude, decay, creation turn      |
+| Events                      | `events`: last trigger turn and count                                 |
+| Dilemmas and choices        | `dilemmas`: trigger/resolution state; `pendingDilemmaIds`: queued IDs |
+| Game Overs and Endings      | `gameOverProgress`: episode/matched groups; `outcome`: result or null |
+| Histories                   | `history`: occurrences; `nodeValueHistory`: turn-keyed node readings  |
 
 A runtime snapshot is not Scenario content and must not be merged back into its
 definition. A save format may reuse runtime structures but requires its own
@@ -426,7 +498,8 @@ A Scenario is accepted only if:
 - all required fields are present and finite numeric fields are valid;
 - IDs are unique in their applicable namespaces;
 - all references resolve to compatible definitions;
-- initial values and baselines lie within their domains;
+- non-Resource initial values and baselines lie within their domains;
+- Resource initial values are finite and are clamped when their domain enables it;
 - separate activation and forced-state requirements are respected;
 - Situation thresholds and discrete Stance states are valid;
 - Inertia and cooldown values are positive integers;
@@ -446,6 +519,13 @@ does not replace runtime validation for parsed content.
   title: 'The Connectional Fellowship',
   description: 'A growing fellowship under institutional strain.',
   start: { turn: 0, year: 1980 },
+  historicalActors: [],
+  completion: { prerequisiteGroups: [{ id: 'review',
+    title: 'Institutional review', description: 'Review two decades of ministry.',
+    allOf: [{ kind: 'turn', atTurn: 20 }] }],
+    endings: [], fallbackEnding: { id: 'preservation', title: 'Preservation',
+      narrative: 'The fellowship passes its commitments to a new period of leadership.' },
+    reportNodeIds: ['clergy-quality'] },
   conditions: ['has-seminary'],
   nodes: [
     {

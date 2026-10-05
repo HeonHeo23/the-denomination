@@ -3,7 +3,8 @@ import type { EffectId, NodeId } from "./definitions";
 /** Mutable-in-time values for one persistent node in a snapshot. */
 export interface NodeRuntimeState {
   readonly value: number;
-  readonly baseValue: number;
+  readonly baseValue?: number;
+  readonly netFlow?: number;
   readonly isActive: boolean;
   readonly isForced: boolean;
 }
@@ -29,17 +30,22 @@ export interface HistoryEntry {
   readonly id: string;
   readonly turn: number;
   readonly kind:
-    "stance" | "situation" | "crisis" | "consequence" | "game-over";
+    | "stance"
+    | "situation"
+    | "crisis"
+    | "consequence"
+    | "game-over"
+    | "ending"
+    | "dilemma"
+    | "event";
   readonly title: string;
   readonly detail: string;
 }
 
-/** Completed-turn readings for every Scenario node, including Stances. */
-export interface NodeValueHistoryPoint {
-  readonly turn: number;
-  readonly values: Readonly<
-    Record<NodeId, { readonly value: number; readonly isActive: boolean }>
-  >;
+/** A node's recorded value and activation state at one turn. */
+export interface NodeHistoryState {
+  readonly value: number;
+  readonly isActive: boolean;
 }
 
 export interface GameOverProgressRuntimeState {
@@ -59,6 +65,27 @@ export interface GameOverOutcome {
   readonly causes: readonly GameOverOutcomeCause[];
 }
 
+export interface EndingOutcome {
+  readonly kind: "ending";
+  readonly turn: number;
+  readonly endingId: string;
+  readonly matchedTriggerIds: readonly string[];
+  readonly matchedPrerequisiteGroupIds: readonly string[];
+  readonly usedFallback: boolean;
+}
+
+export interface DilemmaRuntimeState {
+  readonly lastResolvedTurn: number | null;
+  readonly lastResolvedChoiceId: string | null;
+  readonly lastTriggerTurn: number | null;
+  readonly triggerCount: number;
+}
+
+export interface EventRuntimeState {
+  readonly lastTriggerTurn: number | null;
+  readonly triggerCount: number;
+}
+
 /** Immutable canonical runtime snapshot for one Scenario session. */
 export interface SimulationState {
   readonly scenarioId: string;
@@ -68,9 +95,15 @@ export interface SimulationState {
   readonly effects: Readonly<Record<EffectId, EffectRuntimeState>>;
   readonly grudges: readonly GrudgeRuntimeState[];
   readonly history: readonly HistoryEntry[];
-  readonly nodeValueHistory: readonly NodeValueHistoryPoint[];
+  /** Historical node states, keyed by turn and then node ID. */
+  readonly nodeValueHistory: Readonly<
+    Record<number, Readonly<Record<NodeId, NodeHistoryState>>>
+  >;
+  readonly dilemmas: Readonly<Record<string, DilemmaRuntimeState>>;
+  readonly events: Readonly<Record<string, EventRuntimeState>>;
+  readonly pendingDilemmaIds: readonly string[];
   readonly gameOverProgress: Readonly<
     Record<string, GameOverProgressRuntimeState>
   >;
-  readonly outcome: GameOverOutcome | null;
+  readonly outcome: GameOverOutcome | EndingOutcome | null;
 }

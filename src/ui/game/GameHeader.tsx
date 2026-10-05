@@ -3,10 +3,12 @@ import {
   ArrowRight,
   BookOpenText,
   Church,
+  CirclePlus,
   FileText,
   Menu,
   PanelLeftOpen,
   RotateCcw,
+  ScrollText,
   Save,
   ShieldAlert,
   Settings2,
@@ -28,7 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatValue } from "@/ui/formatValue";
+import { formatSignedValue, formatValue } from "@/ui/formatValue";
+import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { crisisTurnsLabel } from "./crisisPresentation";
 
@@ -37,15 +40,20 @@ interface GameHeaderProps {
   readonly playerName: string;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
+  readonly onResourceHover: (nodeId?: string) => void;
+  readonly onResourceSelect: (nodeId: string) => void;
   readonly activeCrisisCount: number;
   readonly urgentGameOverWarning?: {
     readonly title: string;
     readonly turnsRemaining: number;
   };
-  readonly gameOver: boolean;
+  readonly terminal: boolean;
+  readonly normalEnding: boolean;
   readonly canLoad: boolean;
   readonly resolvingTurn: boolean;
+  readonly pendingDilemmaCount: number;
   readonly onAdvance: () => void;
+  readonly onAddStance: () => void;
   readonly onSave: () => void;
   readonly onLoad: () => void;
   readonly onReset: () => void;
@@ -53,21 +61,26 @@ interface GameHeaderProps {
   readonly onOpenOverview: () => void;
   readonly onOpenCrises: () => void;
   readonly onOpenChronicle: () => void;
+  readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
   readonly onOpenTurnReport: () => void;
-  readonly onOpenGameOver: () => void;
+  readonly onOpenFinalReport: () => void;
   readonly musicMuted: boolean;
   readonly onToggleMusic: () => void;
 }
 
 type GameHeaderActions = Pick<
   GameHeaderProps,
+  | "onAddStance"
+  | "terminal"
+  | "resolvingTurn"
   | "onSave"
   | "onLoad"
   | "onReset"
   | "onMainMenu"
   | "onOpenCrises"
   | "onOpenChronicle"
+  | "onOpenDecisions"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >;
@@ -119,20 +132,40 @@ function TurnDisplay({ state }: Pick<GameHeaderProps, "state">) {
 function ResourceStrip({
   resources,
   state,
-}: Pick<GameHeaderProps, "resources" | "state">) {
+  onResourceHover,
+  onResourceSelect,
+}: Pick<
+  GameHeaderProps,
+  "resources" | "state" | "onResourceHover" | "onResourceSelect"
+>) {
   return (
     <dl className="hidden h-full items-stretch xl:flex" data-game-resources>
       {resources.map((resource) => (
         <div
-          className="flex min-w-24 flex-col justify-center px-3"
+          className="flex min-w-24 cursor-pointer flex-col justify-center px-3 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
           data-game-resource
           key={resource.id}
+          onMouseEnter={() => onResourceHover(resource.id)}
+          onMouseLeave={() => onResourceHover(undefined)}
+          {...getDossierTriggerProps(`Open ${resource.name} node dossier`, () =>
+            onResourceSelect(resource.id),
+          )}
         >
           <dt className="truncate font-mono text-[0.52rem] tracking-[0.12em] uppercase">
             {resource.name}
           </dt>
           <dd className="font-heading text-lg leading-none font-semibold">
             {formatValue(state.nodes[resource.id].value, resource.domain)}
+          </dd>
+          <dd
+            className="font-heading text-xs font-semibold"
+            aria-label={`${resource.name} flow per turn`}
+          >
+            {formatSignedValue(
+              state.nodes[resource.id].netFlow ?? 0,
+              resource.domain,
+            )}
+            /turn
           </dd>
         </div>
       ))}
@@ -143,16 +176,24 @@ function ResourceStrip({
 function PanelActions({
   activeCrisisCount,
   urgentGameOverWarning,
+  terminal,
+  resolvingTurn,
   onOpenCrises,
   onOpenChronicle,
+  onOpenDecisions,
+  onAddStance,
   turnReportAvailable,
   onOpenTurnReport,
 }: Pick<
   GameHeaderProps,
   | "activeCrisisCount"
   | "urgentGameOverWarning"
+  | "terminal"
+  | "resolvingTurn"
   | "onOpenCrises"
   | "onOpenChronicle"
+  | "onOpenDecisions"
+  | "onAddStance"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >) {
@@ -194,6 +235,31 @@ function PanelActions({
       >
         <BookOpenText data-icon="inline-start" />
         <span className="hidden lg:inline">Chronicle</span>
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onOpenDecisions}
+        aria-label="Open decisions history"
+      >
+        <ScrollText data-icon="inline-start" />
+        <span className="hidden lg:inline">Decisions</span>
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="h-full rounded-none"
+        data-game-header-button
+        onClick={onAddStance}
+        disabled={terminal || resolvingTurn}
+        aria-label="Add a stance"
+      >
+        <CirclePlus data-icon="inline-start" />
+        <span className="hidden sm:inline">New</span>
       </Button>
       {turnReportAvailable && (
         <Button
@@ -258,6 +324,10 @@ function GameActionsMenu({
   onMainMenu,
   onOpenCrises,
   onOpenChronicle,
+  onOpenDecisions,
+  onAddStance,
+  terminal,
+  resolvingTurn,
   turnReportAvailable,
   onOpenTurnReport,
   onSave,
@@ -297,6 +367,15 @@ function GameActionsMenu({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenDecisions}>
+                <ScrollText /> Decisions
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={onAddStance}
+                disabled={terminal || resolvingTurn}
+              >
+                <CirclePlus /> Add stance
               </DropdownMenuItem>
               {turnReportAvailable && (
                 <DropdownMenuItem onSelect={onOpenTurnReport}>
@@ -352,12 +431,17 @@ export function GameHeader(props: GameHeaderProps) {
     playerName,
     state,
     resources,
+    onResourceHover,
+    onResourceSelect,
     activeCrisisCount,
     urgentGameOverWarning,
-    gameOver,
+    terminal,
+    normalEnding,
     canLoad,
     resolvingTurn,
     onAdvance,
+    onAddStance,
+    pendingDilemmaCount,
     onSave,
     onLoad,
     onReset,
@@ -365,9 +449,10 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenOverview,
     onOpenCrises,
     onOpenChronicle,
+    onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
-    onOpenGameOver,
+    onOpenFinalReport,
     musicMuted,
     onToggleMusic,
   } = props;
@@ -379,6 +464,10 @@ export function GameHeader(props: GameHeaderProps) {
     onMainMenu,
     onOpenCrises,
     onOpenChronicle,
+    onOpenDecisions,
+    onAddStance,
+    terminal,
+    resolvingTurn,
     turnReportAvailable,
     onOpenTurnReport,
     onSave,
@@ -408,16 +497,25 @@ export function GameHeader(props: GameHeaderProps) {
           playerName={playerName}
         />
         <TurnDisplay state={state} />
-        <ResourceStrip resources={resources} state={state} />
+        <ResourceStrip
+          resources={resources}
+          state={state}
+          onResourceHover={onResourceHover}
+          onResourceSelect={onResourceSelect}
+        />
         <PanelActions
           activeCrisisCount={activeCrisisCount}
           urgentGameOverWarning={urgentGameOverWarning}
+          terminal={terminal}
+          resolvingTurn={resolvingTurn}
           onOpenCrises={onOpenCrises}
           onOpenChronicle={onOpenChronicle}
+          onOpenDecisions={onOpenDecisions}
+          onAddStance={onAddStance}
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />
-        {urgentGameOverWarning && !gameOver && (
+        {urgentGameOverWarning && !terminal && (
           <Button
             type="button"
             variant="outline"
@@ -442,33 +540,47 @@ export function GameHeader(props: GameHeaderProps) {
           size="lg"
           className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
           data-game-advance
-          onClick={gameOver ? onOpenGameOver : onAdvance}
-          disabled={resolvingTurn && !gameOver}
+          onClick={terminal ? onOpenFinalReport : onAdvance}
+          disabled={resolvingTurn && (!terminal || normalEnding)}
         >
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
-            {gameOver
-              ? "Game over"
-              : state.year === undefined
-                ? `Turn ${state.turn}`
-                : `Year ${state.year}`}
+            {terminal
+              ? normalEnding
+                ? "Scenario complete"
+                : "Game over"
+              : pendingDilemmaCount > 0
+                ? `${pendingDilemmaCount} pending`
+                : state.year === undefined
+                  ? `Turn ${state.turn}`
+                  : `Year ${state.year}`}
           </span>
           <span className="flex items-center gap-2 sm:contents">
             <span className="hidden xl:inline">
-              {gameOver
+              {terminal
                 ? "View final report"
-                : resolvingTurn
-                  ? "Recording proceedings"
-                  : "Advance the year"}
+                : pendingDilemmaCount > 0
+                  ? `Resolve ${pendingDilemmaCount} ${pendingDilemmaCount === 1 ? "Dilemma" : "Dilemmas"}`
+                  : resolvingTurn
+                    ? "Recording proceedings"
+                    : "Advance the year"}
             </span>
             <span className="xl:hidden">
-              {gameOver
+              {terminal
                 ? "Final report"
-                : resolvingTurn
-                  ? "Recording"
-                  : "Advance"}
+                : pendingDilemmaCount > 0
+                  ? pendingDilemmaCount === 1
+                    ? "Resolve Dilemma"
+                    : "Resolve Dilemmas"
+                  : resolvingTurn
+                    ? "Recording"
+                    : "Advance"}
             </span>
-            {gameOver ? (
-              <ShieldAlert data-icon="inline-end" />
+            {terminal ? (
+              normalEnding ? (
+                <ArrowRight data-icon="inline-end" />
+              ) : (
+                <ShieldAlert data-icon="inline-end" />
+              )
             ) : (
               <ArrowRight data-icon="inline-end" />
             )}

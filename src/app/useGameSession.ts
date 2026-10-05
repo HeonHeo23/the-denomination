@@ -21,7 +21,9 @@ export function useGameSession(
       dispatch({ type: "enact-stance", stanceId, value }),
     repealStance: (stanceId: string) =>
       dispatch({ type: "repeal-stance", stanceId }),
-    nextTurn: () => dispatch({ type: "advance" }),
+    nextTurn: () => dispatch({ type: "advance", randomValue: Math.random() }),
+    resolveDilemma: (dilemmaId: string, choiceId: string) =>
+      dispatch({ type: "resolve-dilemma", dilemmaId, choiceId }),
     reset: () => dispatch({ type: "reset" }),
   };
 }

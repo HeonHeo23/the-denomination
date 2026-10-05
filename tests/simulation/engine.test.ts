@@ -1,7 +1,13 @@
+import { runFactionTests } from "./factions.test";
+import { runEndingTests } from "./endings.test";
+import { ongoingCompletion } from "./fixtures";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import { runComplianceTests } from "./compliance.test";
-import { exampleScenario } from "../../src/scenarios/example/index";
+import { runDilemmaTests } from "./dilemmas.test";
+import { runEventTests } from "./events.test";
+import { runResourceTests } from "./resources.test";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   executeCommand,
   initializeScenario,
   validateScenario,
@@ -12,6 +18,17 @@ import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
+import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+import { runDilemmaDecisionProjectionTests } from "../ui/projectDilemmaDecisions.test";
+
+const exampleScenario = {
+  ...bundledScenario,
+  completion: ongoingCompletion,
+  dilemmas: [bundledScenario.dilemmas[0]],
+};
+
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -24,23 +41,25 @@ function closeTo(actual: number, expected: number, message: string) {
   );
 }
 
+runFactionTests();
+runEndingTests();
+runDilemmaTests();
+runEventTests();
+runEventDetailTests();
+runDilemmaDecisionProjectionTests();
+
 assert(
   validateScenario(exampleScenario).length === 0,
   "Example Scenario must validate",
 );
 assert(
-  exampleScenario.nodes.length === 48,
+  exampleScenario.nodes.length === 64,
   "Expanded Scenario should contain the original and expanded ministry nodes",
 );
 assert(
   exampleScenario.nodes.find((node) => node.id === "institutional-authority")
     ?.type === "indicator",
   "Institutional Authority should be a simulated Indicator",
-);
-assert(
-  exampleScenario.nodes.find((node) => node.id === "authority")?.baseline ===
-    25,
-  "Authority should have a lower underlying baseline",
 );
 assert(
   exampleScenario.nodes.find((node) => node.id === "ministry-capacity")
@@ -111,6 +130,10 @@ for (const effect of exampleScenario.effects) {
 }
 
 const initial = initializeScenario(exampleScenario);
+assert(
+  initial.nodes.authority.value === 40 && initial.nodes.money.value === 40,
+  "Both Resources should start with 40 visible stock",
+);
 assert(
   !initial.nodes["governance-tension"].isActive,
   "Governance Tension should start inactive",
@@ -259,6 +282,8 @@ assert(
 
 const terminalScenario: ScenarioDefinition = {
   schemaVersion: 3,
+  historicalActors: [],
+  completion: ongoingCompletion,
   id: "terminal-test",
   title: "Terminal test",
   description: "Exercises reusable prerequisites and consequences.",
@@ -280,7 +305,6 @@ const terminalScenario: ScenarioDefinition = {
       description: "Available reserve.",
       domain: { min: 0, max: 10, clamp: true },
       initial: { value: 10, isActive: true, isForced: true },
-      baseline: 10,
     },
     {
       id: "confidence",
@@ -293,11 +317,11 @@ const terminalScenario: ScenarioDefinition = {
     },
     {
       id: "council",
-      type: "faction",
+      type: "stance",
       name: "Council",
       description: "Governing council.",
-      valueMeaning: "support",
       domain: { min: 0, max: 1, clamp: true },
+      control: { kind: "continuous" },
       initial: { value: 0.5, isActive: true, isForced: false },
     },
   ],
@@ -370,7 +394,6 @@ let terminalState = advanceTurn(
 assert(
   terminalState.gameOverProgress.collapse.consecutiveTurns === 1 &&
     terminalState.nodes.reserve.value === 7 &&
-    terminalState.nodes.reserve.baseValue === 7 &&
     !terminalState.nodes.council.isActive &&
     terminalState.grudges.some(({ label }) => label === "Crisis shock"),
   "A warning stage should apply every reusable consequence exactly once",
@@ -390,7 +413,8 @@ assert(
 );
 terminalState = advanceTurn(terminalScenario, terminalState).state;
 assert(
-  terminalState.outcome?.causes[0]?.gameOverId === "collapse",
+  terminalState.outcome?.kind === "game-over" &&
+    terminalState.outcome.causes[0]?.gameOverId === "collapse",
   "A persistent trajectory should become terminal on its authored turn",
 );
 assert(
@@ -480,9 +504,12 @@ for (let index = 0; index < 3; index += 1)
     simultaneousState,
   ).state;
 assert(
-  simultaneousState.outcome?.causes.length === 2,
+  simultaneousState.outcome?.kind === "game-over" &&
+    simultaneousState.outcome.causes.length === 2,
   "Every trajectory becoming terminal on the same turn should be reported",
 );
+
+runResourceTests();
 
 runComplianceTests();
 runNodeEffectProjectionTests();

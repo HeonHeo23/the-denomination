@@ -3,6 +3,13 @@ import type {
   NodeId,
   ScenarioDefinition,
 } from "../domain/definitions";
+import type { NodeHistoryState, NodeRuntimeState } from "../domain/runtime";
+
+export function createNodeHistoryState(
+  node: NodeRuntimeState,
+): NodeHistoryState {
+  return { value: node.value, isActive: node.isActive };
+}
 
 /** Builds an ID-keyed lookup for a Scenario's immutable node definitions. */
 export function indexNodes(

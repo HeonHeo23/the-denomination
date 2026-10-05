@@ -1,7 +1,8 @@
+import { ongoingCompletion } from "./fixtures";
 import assert from "node:assert/strict";
-import { exampleScenario } from "../../src/scenarios/example";
+import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
 import {
-  advanceTurn,
+  advanceTurn as advanceTurnRaw,
   assessStanceEnactment,
   assessStanceRepeal,
   executeCommand,
@@ -19,6 +20,8 @@ import {
 import {
   projectEffectsToReactFlow,
   projectGraphCategories,
+  projectGraphNavigationCategories,
+  factionRowsForHeight,
   projectToReactFlow,
   type GraphTurnFeedback,
 } from "../../src/ui/graph/projectToReactFlow";
@@ -35,6 +38,14 @@ import {
   meterPercent,
   toPercent,
 } from "../../src/ui/formatValue";
+
+const advanceTurn = (...args: Parameters<typeof advanceTurnRaw>) =>
+  advanceTurnRaw(args[0], args[1], args[2] ?? 0);
+const exampleScenario = {
+  ...bundledScenario,
+  completion: ongoingCompletion,
+  dilemmas: [bundledScenario.dilemmas[0]],
+};
 
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
@@ -55,10 +66,15 @@ export function runComplianceTests() {
   assert.ok(Object.isFrozen(loaded.scenario.nodes[0].initial));
   assert.equal(loaded.scenario.nodes[0].graphVisible, true);
   assert.equal(loaded.scenario.effects[0].inertiaTurns, 1);
-  assert.deepEqual(loaded.scenario.events, []);
+  assert.deepEqual(
+    loaded.scenario.events?.map(({ id }) => id),
+    exampleScenario.events.map(({ id }) => id),
+  );
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
   const minimal: ScenarioDefinition = {
     schemaVersion: 3,
+    historicalActors: [],
+    completion: ongoingCompletion,
     id: "minimal",
     title: "Minimal",
     description: "Empty content",
@@ -82,7 +98,10 @@ export function runComplianceTests() {
           i === 0
             ? {
                 ...n,
-                initial: { value: n.initial.value, activation: "active" },
+                initial: {
+                  value: n.initial.value,
+                  activation: "active",
+                },
               }
             : n,
         ),
@@ -94,7 +113,13 @@ export function runComplianceTests() {
         ...exampleScenario,
         nodes: exampleScenario.nodes.map((n, i) =>
           i === 0
-            ? { ...n, initial: { value: n.initial.value, isForced: false } }
+            ? {
+                ...n,
+                initial: {
+                  value: n.initial.value,
+                  isForced: false,
+                },
+              }
             : n,
         ),
       },
@@ -148,7 +173,10 @@ export function runComplianceTests() {
       "$.nodes[0].initial.value",
     ],
     [
-      editNode("centralization", (n) => ({ ...n, baseline: 2 })),
+      editNode(
+        "centralization",
+        (n) => ({ ...n, baseline: 2 }) as NodeDefinition,
+      ),
       "$.nodes[0].baseline",
     ],
     [
@@ -156,10 +184,14 @@ export function runComplianceTests() {
       "$.nodes[0].id",
     ],
     [
-      editNode("centralization", (n) => ({
-        ...n,
-        domain: { ...n.domain, max: Infinity },
-      })),
+      editNode(
+        "centralization",
+        (n) =>
+          ({
+            ...n,
+            domain: { ...n.domain, max: Infinity },
+          }) as NodeDefinition,
+      ),
       "$.nodes[0].domain.max",
     ],
     [
@@ -167,21 +199,25 @@ export function runComplianceTests() {
         "governance-tension",
         (n) => ({ ...n, startThreshold: 2 }) as NodeDefinition,
       ),
-      "$.nodes[10].startThreshold",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "governance-tension")}].startThreshold`,
     ],
     [
       editNode(
         "governance-tension",
         (n) => ({ ...n, stopThreshold: 0.9 }) as NodeDefinition,
       ),
-      "$.nodes[10].stopThreshold",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "governance-tension")}].stopThreshold`,
     ],
     [
       editNode(
-        "localist-movement",
-        (n) => ({ ...n, valueMeaning: "" }) as NodeDefinition,
+        "lay-leadership-satisfaction",
+        (n) =>
+          ({
+            ...n,
+            initial: { ...n.initial, value: 2 },
+          }) as unknown as NodeDefinition,
       ),
-      "$.nodes[6].valueMeaning",
+      `$.nodes[${exampleScenario.nodes.findIndex(({ id }) => id === "lay-leadership-satisfaction")}].initial.value`,
     ],
     [
       {
@@ -375,6 +411,7 @@ export function runComplianceTests() {
 
   const accessor = {
     ...exampleScenario,
+    completion: ongoingCompletion,
     get title(): string {
       throw new Error("must not execute content");
     },
@@ -416,27 +453,31 @@ export function runComplianceTests() {
   );
 
   const inactive = editNode(
-    "localist-movement",
+    "social-teaching",
     (n) =>
       ({
         ...n,
-        initial: { value: 0.2, isActive: false, isForced: false },
+        initial: { ...n.initial, isActive: false, isForced: false },
       }) as NodeDefinition,
   );
   const inactiveInitial = initializeScenario(inactive);
   const inactiveTurn = advanceTurn(inactive, inactiveInitial);
   assert.strictEqual(
-    inactiveTurn.state.nodes["localist-movement"],
-    inactiveInitial.nodes["localist-movement"],
+    inactiveTurn.state.nodes["social-teaching"],
+    inactiveInitial.nodes["social-teaching"],
   );
   assert.equal(
-    inactiveTurn.state.effects["localists-to-cohesion"].lastContribution,
+    inactiveTurn.state.effects["social-teaching-to-charity"].lastContribution,
     0,
   );
-  const forced = editNode("governance-tension", (n) => ({
-    ...n,
-    initial: { ...n.initial, isActive: true, isForced: true },
-  }));
+  const forced = editNode(
+    "governance-tension",
+    (n) =>
+      ({
+        ...n,
+        initial: { ...n.initial, isActive: true, isForced: true },
+      }) as NodeDefinition,
+  );
   const forcedTurn = advanceTurn(forced, initializeScenario(forced)).state;
   assert.equal(forcedTurn.nodes["governance-tension"].isActive, true);
   assert.equal(forcedTurn.nodes["governance-tension"].isForced, true);
@@ -694,7 +735,141 @@ export function runComplianceTests() {
   assert.equal(meterPercent(100, domain), 100);
   assert.equal(formatValue(0.4, { min: 0, max: 1, clamp: true }), "40%");
   const graph = projectToReactFlow(exampleScenario, initial);
+  assert.deepEqual(
+    graph.navigationCategories,
+    projectGraphNavigationCategories(exampleScenario, initial),
+  );
   const graphCategories = projectGraphCategories(exampleScenario, initial);
+  const factionCategory = projectGraphNavigationCategories(
+    exampleScenario,
+    initial,
+  ).find(({ includeFactions }) => includeFactions);
+  assert.ok(factionCategory);
+  assert.equal(factionCategory?.label, "Factions");
+  assert.equal(factionRowsForHeight(0), 1);
+  assert.equal(factionRowsForHeight(100), 1);
+  assert.equal(factionRowsForHeight(733), 5);
+  assert.equal(factionRowsForHeight(734), 6);
+  assert.equal(factionRowsForHeight(860), 7);
+  assert.equal(factionRowsForHeight(986), 8);
+  const alphabeticalFactionIds = graph.nodes
+    .filter(({ data }) => data.nodeType === "faction")
+    .sort((a, b) => a.data.label.localeCompare(b.data.label))
+    .map(({ id }) => id);
+  for (const rows of [1, 3, 6, 7, 8, 20]) {
+    const wrappedGraph = projectToReactFlow(
+      exampleScenario,
+      initial,
+      undefined,
+      undefined,
+      [],
+      rows,
+    );
+    const firstPosition = wrappedGraph.nodes.find(
+      ({ id }) => id === alphabeticalFactionIds[0],
+    )!.position;
+    alphabeticalFactionIds.forEach((id, index) => {
+      assert.deepEqual(
+        wrappedGraph.nodes.find((node) => node.id === id)!.position,
+        {
+          x: firstPosition.x + Math.floor(index / rows) * 244,
+          y: (index % rows) * 126,
+        },
+        `Faction ${index + 1} should fill columns downwards at capacity ${rows}`,
+      );
+    });
+    assert.deepEqual(
+      wrappedGraph.nodes
+        .filter(({ data }) => data.nodeType !== "faction")
+        .map(({ id, position }) => ({ id, position })),
+      graph.nodes
+        .filter(({ data }) => data.nodeType !== "faction")
+        .map(({ id, position }) => ({ id, position })),
+      "Faction wrapping should preserve thematic node positions",
+    );
+  }
+  const thematicHeight = Math.max(
+    ...graph.nodes
+      .filter(({ data }) => data.nodeType !== "faction")
+      .map(({ position, height }) => position.y + height!),
+  );
+  const automaticRows = factionRowsForHeight(thematicHeight);
+  assert.deepEqual(
+    projectToReactFlow(
+      exampleScenario,
+      initial,
+      undefined,
+      undefined,
+      [],
+      automaticRows,
+    ).nodes,
+    graph.nodes,
+    "Default faction capacity should follow occupied thematic height",
+  );
+  assert.ok((automaticRows - 1) * 126 + 104 <= thematicHeight);
+  assert.ok(automaticRows * 126 + 104 > thematicHeight);
+  const firstThematicId = graph.nodes.find(
+    ({ data }) => data.nodeType !== "faction",
+  )!.id;
+  const shortThematicGraph = projectToReactFlow(
+    {
+      ...exampleScenario,
+      nodes: exampleScenario.nodes.map((node) =>
+        node.type === "faction" || node.id === firstThematicId
+          ? node
+          : { ...node, graphVisible: false },
+      ),
+    },
+    initial,
+  );
+  assert.ok(
+    shortThematicGraph.nodes
+      .filter(({ data }) => data.nodeType === "faction")
+      .every(({ position }) => position.y === 0),
+    "A one-card thematic layout should wrap factions after one card",
+  );
+  const factionOnlyGraph = projectToReactFlow(
+    {
+      ...exampleScenario,
+      nodes: exampleScenario.nodes.filter(({ type }) => type === "faction"),
+    },
+    initial,
+  );
+  assert.ok(factionOnlyGraph.nodes.every(({ position }) => position.y === 0));
+  const reversedGraph = projectToReactFlow(
+    { ...exampleScenario, nodes: [...exampleScenario.nodes].reverse() },
+    initial,
+    undefined,
+    undefined,
+    [],
+    automaticRows,
+  );
+  alphabeticalFactionIds.forEach((id) =>
+    assert.deepEqual(
+      reversedGraph.nodes.find((node) => node.id === id)!.position,
+      graph.nodes.find((node) => node.id === id)!.position,
+      "Faction order should depend on names rather than declarations",
+    ),
+  );
+  assert.ok(
+    !projectToReactFlow(
+      {
+        ...exampleScenario,
+        factionGroups: [],
+        constraints: [],
+        nodes: exampleScenario.nodes.filter(({ type }) => type !== "faction"),
+      },
+      initial,
+    ).nodes.some(({ data }) => data.nodeType === "faction"),
+  );
+  assert.deepEqual(
+    [...factionCategory.nodeIds].sort(),
+    graph.nodes
+      .filter((node) => node.data.nodeType === "faction")
+      .map((node) => node.id)
+      .sort(),
+  );
+  assert.equal(factionCategory.count, factionCategory.nodeIds.length);
   assert.deepEqual(
     graphCategories.map(({ label }) => label),
     [
@@ -727,7 +902,7 @@ export function runComplianceTests() {
         nonFactionNodeCount ===
         nodeIds.filter(
           (id) =>
-            exampleScenario.nodes.find((node) => node.id === id)?.type !==
+            graph.nodes.find((node) => node.id === id)?.data.nodeType !==
             "faction",
         ).length,
     ),
@@ -748,7 +923,9 @@ export function runComplianceTests() {
     exampleScenario.nodes.map((definition) => [definition.id, definition]),
   );
   for (const projectedNode of graph.nodes) {
-    const definition = definitionsById.get(projectedNode.id);
+    const definition = definitionsById.get(
+      projectedNode.data.nodeId ?? projectedNode.id,
+    );
     assert.ok(
       definition,
       `Missing Scenario definition for ${projectedNode.id}`,
@@ -779,6 +956,12 @@ export function runComplianceTests() {
           { kind: "stop-threshold", value: definition.stopThreshold },
         ],
         `${projectedNode.id} should show activation thresholds without a baseline`,
+      );
+    } else if (definition.type === "faction") {
+      assert.equal(projectedNode.data.referenceMarkers[0].kind, "baseline");
+      assert.deepEqual(
+        projectedNode.data.factionMetrics?.map(({ metric }) => metric),
+        ["Satisfaction"],
       );
     } else {
       const baseline = projectedNode.data.referenceMarkers.find(
@@ -813,11 +996,9 @@ export function runComplianceTests() {
   assert.ok(hiddenResource && hiddenResource.type === "resource");
   assert.ok(!graph.nodes.some((node) => node.id === hiddenResource.id));
   assert.deepEqual(
-    projectNodeReferenceMarkers(hiddenResource).map(
-      ({ kind, value, positionPercent }) => ({ kind, value, positionPercent }),
-    ),
-    [{ kind: "baseline", value: 25, positionPercent: 25 }],
-    "Hidden Resources should keep their baseline available to dossier meters",
+    projectNodeReferenceMarkers(hiddenResource),
+    [],
+    "Resources have no baseline marker",
   );
   assert.deepEqual(
     graph.nodes.map(({ id, position }) => ({ id, position })),
@@ -837,8 +1018,29 @@ export function runComplianceTests() {
   const searchEntries = projectNodeSearchEntries(exampleScenario, initial);
   assert.equal(
     searchEntries.length,
-    exampleScenario.nodes.length,
-    "Search should index every Scenario node",
+    exampleScenario.nodes.filter((node) => node.type !== "faction").length +
+      exampleScenario.factionGroups.length *
+        exampleScenario.factionMetrics!.length,
+    "Search should index ordinary nodes and each Faction metric",
+  );
+  const factionSearchEntries = searchEntries.filter(
+    (entry) => entry.factionMetric !== undefined,
+  );
+  assert.equal(
+    factionSearchEntries.length,
+    exampleScenario.factionGroups.length *
+      exampleScenario.factionMetrics!.length,
+    "Each Faction group/metric pair should have its own search result",
+  );
+  assert.ok(
+    factionSearchEntries.every(
+      ({ factionMetric, id }) =>
+        factionMetric !== undefined &&
+        exampleScenario.nodes.some(
+          (node) => node.id === id && node.type === "faction",
+        ),
+    ),
+    "Faction search results should target their Faction nodes",
   );
   assert.ok(
     searchEntries
@@ -907,7 +1109,7 @@ export function runComplianceTests() {
   );
   assert.ok(
     graph.edges.every((edge) => edge.label === undefined),
-    "Unfocused Effects should not display labels",
+    "Unfocused Effects do not display labels",
   );
   const tracedEdges = projectEffectsToReactFlow(
     exampleScenario,
@@ -1017,6 +1219,19 @@ export function runComplianceTests() {
     ]).nodes.some(({ id }) => id === "centralization"),
     "A newly inactive node should remain on the graph for the completed turn",
   );
+  const carriedGraph = projectToReactFlow(
+    exampleScenario,
+    endedState,
+    undefined,
+    undefined,
+    ["centralization"],
+  );
+  assert.deepEqual(
+    carriedGraph.navigationCategories,
+    projectGraphNavigationCategories(exampleScenario, endedState, undefined, [
+      "centralization",
+    ]),
+  );
   const carriedEndedCategory = projectGraphCategories(
     exampleScenario,
     endedState,
@@ -1028,8 +1243,8 @@ export function runComplianceTests() {
     carriedEndedCategory.nonFactionNodeCount,
     carriedEndedCategory.nodeIds.filter(
       (nodeId) =>
-        exampleScenario.nodes.find(({ id }) => id === nodeId)?.type !==
-          "faction" && endedState.nodes[nodeId].isActive,
+        !nodeId.startsWith("faction-group:") &&
+        endedState.nodes[nodeId].isActive,
     ).length,
     "A carried ended node should not increase an active category count",
   );
@@ -1039,9 +1254,7 @@ export function runComplianceTests() {
     "effect-edge effect-edge--turn-changed",
     "Changed Effects should receive reveal styling",
   );
-  assert.ok(
-    normalTurn.nodes.authority.value !== initial.nodes.authority.baseValue,
-  );
+  assert.ok(normalTurn.nodes.authority.value !== initial.nodes.authority.value);
 
   const namedConstructor: ScenarioDefinition = {
     ...minimal,
@@ -1073,10 +1286,14 @@ export function runComplianceTests() {
 
   const session = createGameSession({
     ...exampleScenario,
+    completion: ongoingCompletion,
     start: { turn: 7, year: 2040 },
   });
   assert.ok(session.ok);
-  const advanced = reduceGameSession(session, { type: "advance" });
+  const advanced = reduceGameSession(session, {
+    type: "advance",
+    randomValue: 0,
+  });
   assert.ok(advanced.ok);
   assert.equal(advanced.state.turn, 8);
   assert.equal(advanced.state.year, 2041);
@@ -1090,5 +1307,11 @@ export function runComplianceTests() {
   assert.equal(noYear.state.year, undefined);
   const failure = createGameSession({});
   assert.ok(!failure.ok);
-  assert.strictEqual(reduceGameSession(failure, { type: "advance" }), failure);
+  assert.strictEqual(
+    reduceGameSession(failure, {
+      type: "advance",
+      randomValue: 0,
+    }),
+    failure,
+  );
 }

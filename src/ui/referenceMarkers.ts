@@ -16,7 +16,7 @@ export function projectNodeReferenceMarkers(
   definition: NodeDefinition,
 ): NodeReferenceMarker[] {
   // Stance meters omit baselines; Situation meters use thresholds instead.
-  if (definition.type === "stance") return [];
+  if (definition.type === "stance" || definition.type === "resource") return [];
 
   const references: {
     readonly kind: NodeReferenceMarkerKind;

@@ -91,15 +91,42 @@ export interface IndicatorDefinition extends BaseNodeDefinition {
   };
 }
 
-/** A constituency or tendency represented by one scenario-defined scalar. */
+export type FactionCategory =
+  "theological" | "demographic" | "geographic" | "institutional";
+/** Scenario-defined metric identifier; numeric references use node IDs. */
+export type FactionMetric = string;
+export interface FactionMetricDefinition {
+  readonly id: FactionMetric;
+  readonly label: string;
+}
+export interface FactionGroupDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly metrics: Readonly<Record<FactionMetric, NodeId>>;
+}
+/** An ordinary calculated metric owned by a static Faction group. */
 export interface FactionDefinition extends BaseNodeDefinition {
   readonly type: "faction";
-  readonly valueMeaning: string;
+  readonly factionCategory: FactionCategory;
+  readonly constraintId?: string;
+  readonly graphVisible?: true;
+  readonly initial: InitialNodeState & {
+    readonly isActive: true;
+    readonly isForced: true;
+  };
 }
-
+// This may be extended to other types of constraint as well.
+export interface SumConstraintDefinition {
+  readonly id: string;
+  readonly kind: "sum-limit";
+  readonly maxTotal: number;
+  readonly name?: string;
+}
 /** A spendable or accumulable capacity represented as a node. */
 export interface ResourceDefinition extends BaseNodeDefinition {
   readonly type: "resource";
+  readonly baseline?: never;
   readonly initial: InitialNodeState & {
     readonly isActive: true;
     readonly isForced: true;
@@ -170,12 +197,21 @@ export type PrerequisiteDefinition =
       readonly kind: "node-activation";
       readonly nodeId: NodeId;
       readonly active: boolean;
-    };
+    }
+  | { readonly kind: "turn"; readonly atTurn: number }
+  | { readonly kind: "event"; readonly eventId: string }
+  | {
+      readonly kind: "dilemma-choice";
+      readonly dilemmaId: string;
+      readonly choiceId?: string;
+    }
+  | { readonly kind: "situation-resolved"; readonly nodeId: NodeId };
 
 /** A named conjunction; consumers may treat several groups as alternatives. */
 export interface PrerequisiteGroupDefinition {
   readonly id: string;
   readonly title: string;
+  readonly description?: string;
   readonly allOf: readonly PrerequisiteDefinition[];
 }
 
@@ -225,18 +261,84 @@ export interface GameOverDefinition {
   };
 }
 
+export interface IncidentInfluence {
+  readonly source: NodeId | "_random_";
+  readonly coefficient: number;
+  readonly intercept?: number;
+}
+
+export interface EventDefinition {
+  readonly kind: "event";
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly influences: readonly IncidentInfluence[];
+  readonly threshold: number;
+  readonly cooldownTurns: number;
+  readonly requires?: readonly string[];
+  readonly consequences: readonly ConsequenceDefinition[];
+}
+
+export interface DilemmaDefinition {
+  readonly kind: "dilemma";
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly influences: readonly IncidentInfluence[];
+  readonly threshold: number;
+  readonly cooldownTurns: number;
+  readonly requires?: readonly string[];
+  readonly choices: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly description: string;
+    readonly consequences: readonly ConsequenceDefinition[];
+  }[];
+}
+
+export interface HistoricalActorDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly description: string;
+}
+
+export interface EndingNarrativeDefinition {
+  readonly id: string;
+  readonly title: string;
+  readonly narrative: string;
+}
+
+export interface EndingDefinition extends EndingNarrativeDefinition {
+  readonly priority: number;
+  readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
+}
+
+export interface CompletionDefinition {
+  readonly prerequisiteGroups: readonly (PrerequisiteGroupDefinition & {
+    readonly description: string;
+  })[];
+  readonly endings: readonly EndingDefinition[];
+  readonly fallbackEnding: EndingNarrativeDefinition;
+  readonly reportNodeIds: readonly NodeId[];
+}
+
 /** Complete immutable content required to initialize a playable session. */
 export interface ScenarioDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
   readonly schemaVersion: 3;
+  readonly historicalActors: readonly HistoricalActorDefinition[];
+  readonly completion: CompletionDefinition;
   readonly start: { readonly turn: number; readonly year?: number };
   readonly conditions?: readonly string[];
-  /** Incidents are not supported by this implementation yet. */
-  readonly events?: readonly never[];
-  readonly dilemmas?: readonly never[];
+  readonly events?: readonly EventDefinition[];
+  readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];
+  readonly factionMetrics?: readonly FactionMetricDefinition[];
+  readonly factionGroups?: readonly FactionGroupDefinition[];
+  readonly constraints?: readonly SumConstraintDefinition[];
   readonly nodes: readonly NodeDefinition[];
   readonly effects: readonly EffectDefinition[];
 }

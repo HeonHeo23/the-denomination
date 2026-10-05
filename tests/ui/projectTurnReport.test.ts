@@ -164,8 +164,7 @@ export function runTurnReportProjectionTests() {
     "Game Over warnings should project countdowns and mechanical prerequisites",
   );
   assert(
-    projectCrises(exampleScenario, warningState)[0]?.status ===
-      "warning",
+    projectCrises(exampleScenario, warningState)[0]?.status === "warning",
     "Qualifying Game Overs should project warning Crisis records",
   );
   const crisisReport = projectTurnReport(
@@ -348,9 +347,36 @@ export function runTurnReportProjectionTests() {
   );
 
   const sampleContributions: Contribution[] = [
-    { id: "a", kind: "effect", amount: -0.2, sourceTitle: "A", label: "A", value: "−20%", targetId: "x", targetTitle: "X" },
-    { id: "b", kind: "effect", amount: 0.3, sourceTitle: "B", label: "B", value: "+30%", targetId: "y", targetTitle: "Y" },
-    { id: "c", kind: "grudge", amount: -0.3, sourceTitle: "C", label: "C", value: "−30%", targetId: "x", targetTitle: "X" },
+    {
+      id: "a",
+      kind: "effect",
+      amount: -0.2,
+      sourceTitle: "A",
+      label: "A",
+      value: "−20%",
+      targetId: "x",
+      targetTitle: "X",
+    },
+    {
+      id: "b",
+      kind: "effect",
+      amount: 0.3,
+      sourceTitle: "B",
+      label: "B",
+      value: "+30%",
+      targetId: "y",
+      targetTitle: "Y",
+    },
+    {
+      id: "c",
+      kind: "grudge",
+      amount: -0.3,
+      sourceTitle: "C",
+      label: "C",
+      value: "−30%",
+      targetId: "x",
+      targetTitle: "X",
+    },
   ];
   const grouped = groupContributions(sampleContributions);
   assert(
@@ -395,7 +421,9 @@ export function runTurnReportProjectionTests() {
     navigation.crisis === undefined && navigation.reportOpen,
     "Closing a crisis opened from Game Over should reveal the open report",
   );
-  navigation = moveDossierNavigation(navigation, { type: "review-final-state" });
+  navigation = moveDossierNavigation(navigation, {
+    type: "review-final-state",
+  });
   navigation = moveDossierNavigation(navigation, {
     type: "open-crisis",
     crisisId: gameOverDefinition.id,

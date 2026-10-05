@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Clock3, History, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  Clock3,
+  History,
+  ScrollText,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import type {
   NodeDefinition,
   ScenarioDefinition,
@@ -30,12 +36,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatSignedValue } from "@/ui/formatValue";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 import { projectCrises } from "./projectGameOvers";
+import { DossierItemButton } from "@/ui/panels/DossierItemButton";
+import { projectDilemmaDecisions } from "./projectDilemmaDecisions";
 
-export type DashboardPanel = "overview" | "crises" | "chronicle";
+export type DashboardPanel = "overview" | "crises" | "chronicle" | "decisions";
 
 interface DashboardSheetsProps {
   readonly activePanel?: DashboardPanel;
@@ -44,6 +51,7 @@ interface DashboardSheetsProps {
   readonly resources: readonly NodeDefinition[];
   readonly onClose: () => void;
   readonly onCrisisSelect: (crisisId: string) => void;
+  readonly onEventSelect: (occurrenceId: string) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
@@ -106,13 +114,12 @@ export function DashboardSheets({
   resources,
   onClose,
   onCrisisSelect,
+  onEventSelect,
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
-  const nodeDomains = new Map(
-    scenario.nodes.map((node) => [node.id, node.domain]),
-  );
   const crises = projectCrises(scenario, state);
+  const decisions = projectDilemmaDecisions(scenario, state);
 
   return (
     <>
@@ -185,7 +192,7 @@ export function DashboardSheets({
       <DashboardSheet
         open={activePanel === "chronicle"}
         title="Chronicle"
-        description="Recent institutional history and temporary effects still in force."
+        description="Institutional history and temporary effects still in force."
         eyebrow="Institutional ledger"
         onClose={onClose}
       >
@@ -203,10 +210,19 @@ export function DashboardSheets({
           </Empty>
         ) : (
           <ItemGroup>
-            {[...state.history]
-              .reverse()
-              .slice(0, 8)
-              .map((entry) => (
+            {[...state.history].reverse().map((entry) =>
+              entry.kind === "event" ? (
+                <DossierItemButton
+                  key={entry.id}
+                  variant="muted"
+                  leading={<Clock3 aria-hidden="true" />}
+                  title={entry.title}
+                  description={entry.detail}
+                  trailing={<Badge variant="outline">Turn {entry.turn}</Badge>}
+                  aria-label={`Open ${entry.title} Event details from turn ${entry.turn}`}
+                  onSelect={() => onEventSelect(entry.id)}
+                />
+              ) : (
                 <Item
                   role="listitem"
                   variant="muted"
@@ -222,7 +238,57 @@ export function DashboardSheets({
                     <Badge variant="outline">Turn {entry.turn}</Badge>
                   </ItemActions>
                 </Item>
-              ))}
+              ),
+            )}
+          </ItemGroup>
+        )}
+      </DashboardSheet>
+
+      <DashboardSheet
+        open={activePanel === "decisions"}
+        title="Decisions"
+        description="The choices made when the institution faced a dilemma."
+        eyebrow={`${decisions.length} ${decisions.length === 1 ? "decision" : "decisions"}`}
+        onClose={onClose}
+      >
+        {decisions.length === 0 ? (
+          <Empty className="min-h-64 border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ScrollText />
+              </EmptyMedia>
+              <EmptyTitle>No decisions recorded</EmptyTitle>
+              <EmptyDescription>
+                Resolved dilemmas will appear here.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ItemGroup>
+            {decisions.map((decision) => (
+              <Item role="listitem" variant="muted" key={decision.id}>
+                <ScrollText aria-hidden="true" />
+                <ItemContent>
+                  <ItemTitle className="line-clamp-none">
+                    {decision.title}
+                  </ItemTitle>
+                  <ItemDescription className="line-clamp-none">
+                    <strong>{decision.choiceLabel}</strong>
+                    {decision.choiceDescription && (
+                      <span className="block">
+                        {decision.choiceDescription}
+                      </span>
+                    )}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant="outline">
+                    {decision.year === undefined ? "Turn" : "Year"}{" "}
+                    {decision.year ?? decision.turn}
+                  </Badge>
+                </ItemActions>
+              </Item>
+            ))}
           </ItemGroup>
         )}
       </DashboardSheet>

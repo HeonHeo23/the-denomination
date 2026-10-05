@@ -62,8 +62,11 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  shortcut,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  shortcut?: string;
+}) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
@@ -78,6 +81,13 @@ function CommandInput({
         <InputGroupAddon>
           <SearchIcon className="shrink-0 opacity-50" />
         </InputGroupAddon>
+        {shortcut && (
+          <InputGroupAddon align="inline-end">
+            <kbd className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[0.65rem]">
+              {shortcut}
+            </kbd>
+          </InputGroupAddon>
+        )}
       </InputGroup>
     </div>
   );

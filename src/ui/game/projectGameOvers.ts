@@ -1,19 +1,18 @@
+import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
   GameOverDefinition,
+  FactionMetric,
   GameOverStageDefinition,
-  PrerequisiteDefinition,
   PrerequisiteGroupDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
-import { formatSignedValue, formatValue } from "../formatValue";
+import { formatSignedValue } from "../formatValue";
 
-export interface PrerequisiteStatus {
-  readonly prerequisite: PrerequisiteDefinition;
-  readonly nodeName: string;
-  readonly description: string;
-  readonly met: boolean;
-}
+import {
+  projectPrerequisite,
+  type PrerequisiteView,
+} from "./projectPrerequisite";
 
 export interface GameOverWarningView {
   readonly definition: GameOverDefinition;
@@ -24,7 +23,7 @@ export interface GameOverWarningView {
   readonly allGroups: readonly GameOverGroupView[];
   readonly matchedGroups: readonly {
     readonly group: PrerequisiteGroupDefinition;
-    readonly prerequisites: readonly PrerequisiteStatus[];
+    readonly prerequisites: readonly PrerequisiteView[];
   }[];
   readonly matchedPrerequisiteNodeIds: readonly string[];
 }
@@ -32,7 +31,7 @@ export interface GameOverWarningView {
 export interface GameOverGroupView {
   readonly group: PrerequisiteGroupDefinition;
   readonly matched: boolean;
-  readonly prerequisites: readonly PrerequisiteStatus[];
+  readonly prerequisites: readonly PrerequisiteView[];
 }
 
 export interface CrisisTurnTransition {
@@ -49,35 +48,6 @@ export interface CrisisView extends GameOverWarningView {
   readonly status: CrisisStatus;
 }
 
-export function prerequisiteStatus(
-  prerequisite: PrerequisiteDefinition,
-  scenario: ScenarioDefinition,
-  state: SimulationState,
-): PrerequisiteStatus {
-  const definition = scenario.nodes.find(
-    ({ id }) => id === prerequisite.nodeId,
-  )!;
-  const runtime = state.nodes[prerequisite.nodeId];
-  if (prerequisite.kind === "node-activation") {
-    return {
-      prerequisite,
-      nodeName: definition.name,
-      met: runtime.isActive === prerequisite.active,
-      description: `${definition.name} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
-    };
-  }
-  const met =
-    prerequisite.comparison === "at-most"
-      ? runtime.value <= prerequisite.value
-      : runtime.value >= prerequisite.value;
-  return {
-    prerequisite,
-    nodeName: definition.name,
-    met,
-    description: `${definition.name} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
-  };
-}
-
 export function getGroups(
   definition: GameOverDefinition,
   matchedGroupIds: readonly string[],
@@ -89,7 +59,7 @@ export function getGroups(
     group,
     matched: matchedIds.has(group.id),
     prerequisites: group.allOf.map((prerequisite) =>
-      prerequisiteStatus(prerequisite, scenario, state),
+      projectPrerequisite(prerequisite, scenario, state),
     ),
   }));
 }
@@ -143,8 +113,8 @@ export function projectGameOverWarnings(
           matchedGroups,
           matchedPrerequisiteNodeIds: [
             ...new Set(
-              matchedGroups.flatMap(({ group }) =>
-                group.allOf.map(({ nodeId }) => nodeId),
+              matchedGroups.flatMap(({ prerequisites }) =>
+                prerequisites.flatMap(({ nodeId }) => (nodeId ? [nodeId] : [])),
               ),
             ),
           ],
@@ -166,7 +136,9 @@ export function projectCrises(
 ): readonly CrisisView[] {
   const warnings = projectGameOverWarnings(scenario, state);
   const terminalIds = new Set(
-    state.outcome?.causes.map(({ gameOverId }) => gameOverId) ?? [],
+    state.outcome?.kind === "game-over"
+      ? state.outcome.causes.map(({ gameOverId }) => gameOverId)
+      : [],
   );
   const items: CrisisView[] = warnings.map((warning) => ({
     ...warning,
@@ -205,14 +177,20 @@ export interface Contribution {
   readonly amount: number;
   readonly sourceId?: string;
   readonly sourceTitle: string;
+  readonly sourceMetric?: FactionMetric;
+  readonly sourceMetricId?: string;
   readonly label: string;
   readonly value: string;
   readonly targetId: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly targetTitle: string;
 }
 
 export interface ContributionGroup {
   readonly targetId: string;
+  readonly targetMetric?: FactionMetric;
+  readonly targetMetricId?: string;
   readonly targetTitle: string;
   readonly contributions: readonly Contribution[];
 }
@@ -222,13 +200,18 @@ export function groupContributions(
 ): readonly ContributionGroup[] {
   const groups = new Map<string, Contribution[]>();
   for (const contribution of contributions) {
-    const group = groups.get(contribution.targetId) ?? [];
+    const key = `${contribution.targetId}:${contribution.targetMetric ?? "value"}`;
+    const group = groups.get(key) ?? [];
     group.push(contribution);
-    groups.set(contribution.targetId, group);
+    groups.set(key, group);
   }
-  return [...groups].map(([targetId, entries]) => ({
-    targetId,
+  return [...groups.values()].map((entries) => ({
+    targetId: entries[0].targetId,
+    ...(entries[0].targetMetric
+      ? { targetMetric: entries[0].targetMetric }
+      : {}),
     targetTitle: entries[0].targetTitle,
+    targetMetricId: entries[0].targetMetricId,
     contributions: entries,
   }));
 }
@@ -262,18 +245,26 @@ export function projectGameOverContributions(
     const sourceTitle =
       effect.source === "_default_"
         ? "Default pressure"
-        : (scenario.nodes.find(({ id }) => id === effect.source)?.name ??
-          effect.source);
+        : getNodeDisplayInfo(scenario, effect.source).name;
     contributions.push({
       id: effect.id,
       kind: "effect",
       amount: value,
       ...(effect.source === "_default_" ? {} : { sourceId: effect.source }),
       sourceTitle,
+      sourceMetricId: getNodeDisplayInfo(scenario, effect.source).metricId,
+      sourceMetric:
+        effect.source === "_default_"
+          ? undefined
+          : getNodeDisplayInfo(scenario, effect.source).metric,
       label: effect.label ?? effect.id,
       value: formatSignedValue(value, target.domain),
       targetId: target.id,
-      targetTitle: target.name,
+      ...(getNodeDisplayInfo(scenario, effect.target).metric
+        ? { targetMetric: getNodeDisplayInfo(scenario, effect.target).metric }
+        : {}),
+      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetricId: getNodeDisplayInfo(scenario, target.id).metricId,
     });
   }
   for (const grudge of state.grudges) {
@@ -289,7 +280,11 @@ export function projectGameOverContributions(
       label: grudge.label,
       value: formatSignedValue(grudge.magnitude, target.domain),
       targetId: target.id,
-      targetTitle: target.name,
+      ...(getNodeDisplayInfo(scenario, grudge.target).metric
+        ? { targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric }
+        : {}),
+      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetricId: getNodeDisplayInfo(scenario, target.id).metricId,
     });
   }
   return contributions;
@@ -306,7 +301,7 @@ export function projectGameOverReport(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): readonly GameOverReportCauseView[] {
-  if (!state.outcome) return [];
+  if (state.outcome?.kind !== "game-over") return [];
   return state.outcome.causes.flatMap((cause) => {
     const definition = scenario.gameOvers?.find(
       ({ id }) => id === cause.gameOverId,
@@ -321,8 +316,8 @@ export function projectGameOverReport(
       .filter(({ matched }) => matched)
       .map(({ group, prerequisites }) => ({ group, prerequisites }));
     const affectedNodeIds = new Set(
-      matchedGroups.flatMap(({ group }) =>
-        group.allOf.map(({ nodeId }) => nodeId),
+      matchedGroups.flatMap(({ prerequisites }) =>
+        prerequisites.flatMap(({ nodeId }) => (nodeId ? [nodeId] : [])),
       ),
     );
     const contributions = projectGameOverContributions(scenario, state, [

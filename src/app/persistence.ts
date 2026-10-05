@@ -1,8 +1,7 @@
 import type { ScenarioDefinition, SimulationState } from "../simulation";
 import type { LoadedScenarioCatalogEntry } from "./scenarioCatalog";
 
-export const SAVE_STORAGE_KEY = "the-denomination.save.v2";
-export const LEGACY_SAVE_STORAGE_KEY = "the-denomination.save.v1";
+export const SAVE_STORAGE_KEY = "the-denomination.save.v4";
 
 export interface SaveStorage {
   getItem(key: string): string | null;
@@ -33,7 +32,6 @@ export interface SavedTurnReport {
     readonly id: string;
     readonly label: string;
     readonly targetId: string;
-    readonly targetName: string;
     readonly magnitude: number;
   }[];
   readonly crisisTransitions: readonly {
@@ -43,10 +41,11 @@ export interface SavedTurnReport {
     readonly consecutiveTurns: number;
     readonly turnsRemaining: number;
   }[];
+  readonly eventIds: readonly string[];
 }
 
 export interface SavedGame {
-  readonly version: 2;
+  readonly version: 4;
   readonly scenarioId: string;
   readonly scenarioContentVersion: number;
   readonly playerName: string;
@@ -84,24 +83,73 @@ const finite = (value: unknown): value is number =>
 const nonempty = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+const integer = (value: unknown, min = 0, max = Infinity): value is number =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= min &&
+  value <= max;
+
+function uniqueReferences(
+  value: unknown,
+  ids: ReadonlySet<string>,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    new Set(value).size === value.length &&
+    value.every((id) => typeof id === "string" && ids.has(id))
+  );
+}
+
+/** Constraints have no runtime state; validate their derived numeric totals. */
+function constraintTotalsValid(
+  nodes: ObjectValue,
+  scenario: ScenarioDefinition,
+): boolean {
+  return (scenario.constraints ?? []).every((constraint) => {
+    const total = scenario.nodes
+      .filter(
+        (node) =>
+          node.type === "faction" && node.constraintId === constraint.id,
+      )
+      .reduce(
+        (sum, node) => sum + ((nodes[node.id] as ObjectValue).value as number),
+        0,
+      );
+    return Number.isFinite(total) && total <= constraint.maxTotal + 1e-12;
+  });
+}
+
 function validNodeState(
   value: unknown,
   definition: ScenarioDefinition["nodes"][number],
 ): boolean {
   if (
-    !exactObject(value, ["value", "baseValue", "isActive", "isForced"]) ||
+    !exactObject(
+      value,
+      definition.type === "resource"
+        ? ["value", "netFlow", "isActive", "isForced"]
+        : ["value", "baseValue", "isActive", "isForced"],
+    ) ||
     !finite(value.value) ||
-    !finite(value.baseValue) ||
+    (definition.type !== "resource" && !finite(value.baseValue)) ||
     typeof value.isActive !== "boolean" ||
     typeof value.isForced !== "boolean" ||
     value.isForced !== definition.initial.isForced ||
     (value.isForced && !value.isActive)
   )
     return false;
-  if (!definition.domain.clamp) return true;
+  if (definition.type === "resource" && !finite(value.netFlow)) return false;
+  if (
+    definition.type === "faction" &&
+    (value.isActive !== true || value.isForced !== true)
+  )
+    return false;
+  if (definition.type === "resource" || !definition.domain.clamp) return true;
   return [value.value, value.baseValue].every(
     (number) =>
-      number >= definition.domain.min && number <= definition.domain.max,
+      finite(number) &&
+      number >= definition.domain.min &&
+      number <= definition.domain.max,
   );
 }
 
@@ -133,15 +181,16 @@ function validRuntimeState(
         "grudges",
         "history",
         "nodeValueHistory",
+        "dilemmas",
+        "events",
+        "pendingDilemmaIds",
         "gameOverProgress",
         "outcome",
       ],
       ["year"],
     ) ||
     value.scenarioId !== scenario.id ||
-    !finite(value.turn) ||
-    !Number.isInteger(value.turn) ||
-    value.turn < scenario.start.turn ||
+    !integer(value.turn, scenario.start.turn) ||
     !exactObject(
       value.nodes,
       scenario.nodes.map(({ id }) => id),
@@ -152,7 +201,16 @@ function validRuntimeState(
     ) ||
     !Array.isArray(value.grudges) ||
     !Array.isArray(value.history) ||
-    !Array.isArray(value.nodeValueHistory) ||
+    !value.nodeValueHistory ||
+    !exactObject(
+      value.dilemmas,
+      (scenario.dilemmas ?? []).map(({ id }) => id),
+    ) ||
+    !exactObject(
+      value.events,
+      (scenario.events ?? []).map(({ id }) => id),
+    ) ||
+    !Array.isArray(value.pendingDilemmaIds) ||
     !exactObject(
       value.gameOverProgress,
       (scenario.gameOvers ?? []).map(({ id }) => id),
@@ -169,6 +227,73 @@ function validRuntimeState(
   const nodes = value.nodes as ObjectValue;
   const effects = value.effects as ObjectValue;
   const gameOverProgress = value.gameOverProgress as ObjectValue;
+  const dilemmaProgress = value.dilemmas as ObjectValue;
+  const eventProgress = value.events as ObjectValue;
+
+  for (const definition of scenario.events ?? []) {
+    const progress = eventProgress[definition.id];
+    if (
+      !exactObject(progress, ["lastTriggerTurn", "triggerCount"]) ||
+      !integer(progress.triggerCount) ||
+      (progress.lastTriggerTurn === null) !== (progress.triggerCount === 0) ||
+      (progress.lastTriggerTurn !== null &&
+        !integer(progress.lastTriggerTurn, scenario.start.turn + 1, value.turn))
+    )
+      return false;
+  }
+
+  const pendingIds = new Set<string>();
+  for (const pendingId of value.pendingDilemmaIds) {
+    if (
+      typeof pendingId !== "string" ||
+      pendingIds.has(pendingId) ||
+      !(scenario.dilemmas ?? []).some(({ id }) => id === pendingId) ||
+      value.outcome !== null
+    )
+      return false;
+    pendingIds.add(pendingId);
+  }
+  for (const definition of scenario.dilemmas ?? []) {
+    const progress = dilemmaProgress[definition.id];
+    if (
+      !exactObject(progress, [
+        "lastTriggerTurn",
+        "triggerCount",
+        "lastResolvedTurn",
+        "lastResolvedChoiceId",
+      ]) ||
+      !integer(progress.triggerCount) ||
+      (progress.lastTriggerTurn === null) !== (progress.triggerCount === 0) ||
+      (progress.lastTriggerTurn !== null &&
+        !integer(
+          progress.lastTriggerTurn,
+          scenario.start.turn + 1,
+          value.turn,
+        )) ||
+      (pendingIds.has(definition.id) && progress.lastTriggerTurn !== value.turn)
+    )
+      return false;
+    if (
+      (progress.lastResolvedTurn === null) !==
+        (progress.lastResolvedChoiceId === null) ||
+      (progress.lastResolvedTurn !== null &&
+        (!integer(
+          progress.lastResolvedTurn,
+          scenario.start.turn + 1,
+          value.turn,
+        ) ||
+          !finite(progress.lastTriggerTurn) ||
+          progress.lastResolvedTurn > progress.lastTriggerTurn ||
+          !definition.choices.some(
+            ({ id }) => id === progress.lastResolvedChoiceId,
+          ))) ||
+      (!pendingIds.has(definition.id) &&
+        progress.lastTriggerTurn !== progress.lastResolvedTurn) ||
+      (pendingIds.has(definition.id) &&
+        progress.lastResolvedTurn === progress.lastTriggerTurn)
+    )
+      return false;
+  }
 
   if (
     !scenario.nodes.every((node) => validNodeState(nodes[node.id], node)) ||
@@ -178,31 +303,48 @@ function validRuntimeState(
   )
     return false;
 
+  if (!constraintTotalsValid(nodes, scenario)) return false;
   const trackedNodes = scenario.nodes;
   const historyLength = value.turn - scenario.start.turn + 1;
-  if (value.nodeValueHistory.length !== historyLength) return false;
+  const nodeValueHistory = value.nodeValueHistory;
+  if (
+    !nodeValueHistory ||
+    typeof nodeValueHistory !== "object" ||
+    Array.isArray(nodeValueHistory) ||
+    Object.keys(nodeValueHistory).length !== historyLength
+  )
+    return false;
+  const historyByTurn = nodeValueHistory as ObjectValue;
   for (let index = 0; index < historyLength; index += 1) {
-    const point = value.nodeValueHistory[index];
+    const turnKey = String(scenario.start.turn + index);
+    if (!Object.hasOwn(historyByTurn, turnKey)) return false;
+    const readings = historyByTurn[turnKey];
     if (
-      !exactObject(point, ["turn", "values"]) ||
-      point.turn !== scenario.start.turn + index ||
       !exactObject(
-        point.values,
+        readings,
         trackedNodes.map((node) => node.id),
       )
     )
       return false;
     for (const node of trackedNodes) {
-      const reading = point.values[node.id];
+      const reading = readings[node.id];
       if (
         !exactObject(reading, ["value", "isActive"]) ||
         !finite(reading.value) ||
+        (node.type === "faction" && reading.isActive !== true) ||
         typeof reading.isActive !== "boolean" ||
-        (node.domain.clamp &&
+        (node.type !== "resource" &&
+          node.domain.clamp &&
           (reading.value < node.domain.min ||
             reading.value > node.domain.max)) ||
         (index === 0 &&
-          (reading.value !== node.initial.value ||
+          (reading.value !==
+            (node.type === "resource" && node.domain.clamp
+              ? Math.min(
+                  node.domain.max,
+                  Math.max(node.domain.min, node.initial.value),
+                )
+              : node.initial.value) ||
             reading.isActive !== node.initial.isActive)) ||
         (index === historyLength - 1 &&
           (reading.value !== (nodes[node.id] as ObjectValue).value ||
@@ -210,6 +352,7 @@ function validRuntimeState(
       )
         return false;
     }
+    if (!constraintTotalsValid(readings, scenario)) return false;
   }
 
   const gameOvers = new Map(
@@ -223,23 +366,13 @@ function validRuntimeState(
         "consecutiveTurns",
         "matchedPrerequisiteGroupIds",
       ]) ||
-      !finite(progress.episode) ||
-      !Number.isInteger(progress.episode) ||
-      progress.episode < 0 ||
-      !finite(progress.consecutiveTurns) ||
-      !Number.isInteger(progress.consecutiveTurns) ||
-      progress.consecutiveTurns < 0 ||
-      progress.consecutiveTurns > definition.terminalAfterTurns ||
-      !Array.isArray(progress.matchedPrerequisiteGroupIds)
+      !integer(progress.episode) ||
+      !integer(progress.consecutiveTurns, 0, definition.terminalAfterTurns)
     )
       return false;
     const groupIds = new Set(definition.prerequisiteGroups.map(({ id }) => id));
     if (
-      progress.matchedPrerequisiteGroupIds.some(
-        (id) => typeof id !== "string" || !groupIds.has(id),
-      ) ||
-      new Set(progress.matchedPrerequisiteGroupIds).size !==
-        progress.matchedPrerequisiteGroupIds.length ||
+      !uniqueReferences(progress.matchedPrerequisiteGroupIds, groupIds) ||
       (progress.consecutiveTurns === 0) !==
         (progress.matchedPrerequisiteGroupIds.length === 0) ||
       (progress.consecutiveTurns > 0 && progress.episode === 0)
@@ -247,7 +380,67 @@ function validRuntimeState(
       return false;
   }
 
-  if (value.outcome !== null) {
+  const terminalIds = new Set(
+    [...gameOvers.values()]
+      .filter(
+        ({ id, terminalAfterTurns }) =>
+          (gameOverProgress[id] as ObjectValue).consecutiveTurns ===
+          terminalAfterTurns,
+      )
+      .map(({ id }) => id),
+  );
+
+  if (
+    value.outcome !== null &&
+    typeof value.outcome === "object" &&
+    (value.outcome as ObjectValue).kind === "ending"
+  ) {
+    if (
+      !exactObject(value.outcome, [
+        "kind",
+        "turn",
+        "endingId",
+        "matchedTriggerIds",
+        "matchedPrerequisiteGroupIds",
+        "usedFallback",
+      ]) ||
+      value.outcome.turn !== value.turn ||
+      typeof value.outcome.endingId !== "string" ||
+      typeof value.outcome.usedFallback !== "boolean" ||
+      Object.values(value.dilemmas as ObjectValue).some(
+        (progress) => (progress as ObjectValue).lastResolvedTurn === value.turn,
+      ) ||
+      terminalIds.size > 0
+    )
+      return false;
+    const outcome = value.outcome;
+    const conditional = scenario.completion.endings.find(
+      ({ id }) => id === outcome.endingId,
+    );
+    const ending = outcome.usedFallback
+      ? scenario.completion.fallbackEnding
+      : conditional;
+    const triggerIds = new Set(
+      scenario.completion.prerequisiteGroups.map(({ id }) => id),
+    );
+    const groupIds = new Set(
+      outcome.usedFallback
+        ? []
+        : (conditional?.prerequisiteGroups.map(({ id }) => id) ?? []),
+    );
+    if (
+      !ending ||
+      ending.id !== outcome.endingId ||
+      value.turn <= scenario.start.turn ||
+      !uniqueReferences(outcome.matchedTriggerIds, triggerIds) ||
+      outcome.matchedTriggerIds.length === 0 ||
+      !uniqueReferences(outcome.matchedPrerequisiteGroupIds, groupIds) ||
+      (outcome.usedFallback
+        ? outcome.matchedPrerequisiteGroupIds.length !== 0
+        : outcome.matchedPrerequisiteGroupIds.length === 0)
+    )
+      return false;
+  } else if (value.outcome !== null) {
     if (
       !exactObject(value.outcome, ["kind", "turn", "causes"]) ||
       value.outcome.kind !== "game-over" ||
@@ -266,43 +459,25 @@ function validRuntimeState(
       )
         return false;
       const definition = gameOvers.get(cause.gameOverId);
-      const progress = gameOverProgress[cause.gameOverId] as
-        ObjectValue | undefined;
       const groupIds = new Set(
         definition?.prerequisiteGroups.map(({ id }) => id) ?? [],
       );
       if (
         !definition ||
-        progress?.consecutiveTurns !== definition.terminalAfterTurns ||
+        !terminalIds.has(cause.gameOverId) ||
         cause.matchedPrerequisiteGroupIds.length === 0 ||
-        new Set(cause.matchedPrerequisiteGroupIds).size !==
-          cause.matchedPrerequisiteGroupIds.length ||
-        cause.matchedPrerequisiteGroupIds.some(
-          (id) => typeof id !== "string" || !groupIds.has(id),
-        ) ||
+        !uniqueReferences(cause.matchedPrerequisiteGroupIds, groupIds) ||
         cause.matchedPrerequisiteGroupIds.join("\u0000") !==
-          (progress.matchedPrerequisiteGroupIds as unknown[]).join("\u0000")
+          (
+            (gameOverProgress[cause.gameOverId] as ObjectValue)
+              .matchedPrerequisiteGroupIds as unknown[]
+          ).join("\u0000")
       )
         return false;
       causeIds.add(cause.gameOverId);
     }
-    if (
-      [...gameOvers.values()].some(
-        (definition) =>
-          (gameOverProgress[definition.id] as ObjectValue).consecutiveTurns ===
-            definition.terminalAfterTurns && !causeIds.has(definition.id),
-      )
-    )
-      return false;
-  } else if (
-    [...gameOvers.values()].some(
-      (definition) =>
-        (gameOverProgress[definition.id] as ObjectValue).consecutiveTurns ===
-        definition.terminalAfterTurns,
-    )
-  ) {
-    return false;
-  }
+    if (causeIds.size !== terminalIds.size) return false;
+  } else if (terminalIds.size) return false;
 
   const nodeIds = new Set(scenario.nodes.map(({ id }) => id));
   const grudgeIds = new Set<string>();
@@ -325,10 +500,7 @@ function validRuntimeState(
       !finite(grudge.decay) ||
       grudge.decay <= 0 ||
       grudge.decay > 1 ||
-      !finite(grudge.createdTurn) ||
-      !Number.isInteger(grudge.createdTurn) ||
-      grudge.createdTurn < scenario.start.turn ||
-      grudge.createdTurn > value.turn
+      !integer(grudge.createdTurn, scenario.start.turn, value.turn)
     )
       return false;
     grudgeIds.add(grudge.id);
@@ -340,19 +512,35 @@ function validRuntimeState(
       !exactObject(entry, ["id", "turn", "kind", "title", "detail"]) ||
       !nonempty(entry.id) ||
       historyIds.has(entry.id) ||
-      !finite(entry.turn) ||
-      !Number.isInteger(entry.turn) ||
-      entry.turn < scenario.start.turn ||
-      entry.turn > value.turn ||
-      !["stance", "situation", "crisis", "consequence", "game-over"].includes(
-        String(entry.kind),
-      ) ||
+      !integer(entry.turn, scenario.start.turn, value.turn) ||
+      ![
+        "stance",
+        "situation",
+        "crisis",
+        "consequence",
+        "game-over",
+        "ending",
+        "dilemma",
+        "event",
+      ].includes(String(entry.kind)) ||
       !nonempty(entry.title) ||
       typeof entry.detail !== "string"
     )
       return false;
     historyIds.add(entry.id);
   }
+  const endingEntries = value.history.filter(
+    (entry) => (entry as ObjectValue).kind === "ending",
+  ) as ObjectValue[];
+  const outcome = value.outcome as ObjectValue | null;
+  if (outcome?.kind === "ending") {
+    if (
+      endingEntries.length !== 1 ||
+      endingEntries[0].id !== `${outcome.endingId}:ending:${value.turn}` ||
+      endingEntries[0].turn !== value.turn
+    )
+      return false;
+  } else if (endingEntries.length) return false;
   return true;
 }
 
@@ -371,18 +559,19 @@ function validSavedTurnReport(
         "situationTransitions",
         "grudges",
         "crisisTransitions",
+        "eventIds",
       ],
       ["year"],
     ) ||
-    !finite(value.turn) ||
-    !Number.isInteger(value.turn) ||
+    !integer(value.turn) ||
     value.turn !== state.turn ||
     value.year !== state.year ||
     !Array.isArray(value.changes) ||
     !Array.isArray(value.changedEffectIds) ||
     !Array.isArray(value.situationTransitions) ||
     !Array.isArray(value.grudges) ||
-    !Array.isArray(value.crisisTransitions)
+    !Array.isArray(value.crisisTransitions) ||
+    !Array.isArray(value.eventIds)
   )
     return false;
 
@@ -391,6 +580,15 @@ function validSavedTurnReport(
   const gameOvers = new Map(
     (scenario.gameOvers ?? []).map((definition) => [definition.id, definition]),
   );
+  const eventIds = new Set((scenario.events ?? []).map(({ id }) => id));
+  if (
+    (value.eventIds as unknown[]).some(
+      (id) => typeof id !== "string" || !eventIds.has(id),
+    ) ||
+    new Set(value.eventIds as unknown[]).size !==
+      (value.eventIds as unknown[]).length
+  )
+    return false;
 
   const changeIds = new Set<string>();
   for (const change of value.changes) {
@@ -415,20 +613,24 @@ function validSavedTurnReport(
       typeof change.isActive !== "boolean"
     )
       return false;
+    const domain = nodes.get(change.nodeId)!.domain;
+    if (
+      domain.clamp &&
+      nodes.get(change.nodeId)!.type === "faction" &&
+      [change.previousValue, change.value].some(
+        (v) => v < domain.min || v > domain.max,
+      )
+    )
+      return false;
+    if (
+      nodes.get(change.nodeId)!.type === "faction" &&
+      (!change.previousActive || !change.isActive)
+    )
+      return false;
     changeIds.add(change.nodeId);
   }
 
-  const changedEffectIds = new Set<string>();
-  if (
-    value.changedEffectIds.some(
-      (id) =>
-        typeof id !== "string" ||
-        !effectIds.has(id) ||
-        changedEffectIds.has(id),
-    )
-  )
-    return false;
-  value.changedEffectIds.forEach((id) => changedEffectIds.add(id));
+  if (!uniqueReferences(value.changedEffectIds, effectIds)) return false;
 
   const situationIds = new Set<string>();
   for (const transition of value.situationTransitions) {
@@ -446,19 +648,12 @@ function validSavedTurnReport(
   const grudgeIds = new Set<string>();
   for (const grudge of value.grudges) {
     if (
-      !exactObject(grudge, [
-        "id",
-        "label",
-        "targetId",
-        "targetName",
-        "magnitude",
-      ]) ||
+      !exactObject(grudge, ["id", "label", "targetId", "magnitude"]) ||
       !nonempty(grudge.id) ||
       grudgeIds.has(grudge.id) ||
       !nonempty(grudge.label) ||
       typeof grudge.targetId !== "string" ||
       !nodes.has(grudge.targetId) ||
-      grudge.targetName !== nodes.get(grudge.targetId)?.name ||
       !finite(grudge.magnitude)
     )
       return false;
@@ -477,15 +672,10 @@ function validSavedTurnReport(
       crisisIds.has(transition.gameOverId) ||
       !gameOvers.has(transition.gameOverId) ||
       (transition.kind !== "stage" && transition.kind !== "recovered") ||
-      !finite(transition.consecutiveTurns) ||
-      !Number.isInteger(transition.consecutiveTurns) ||
-      transition.consecutiveTurns < 0 ||
-      !finite(transition.turnsRemaining) ||
-      !Number.isInteger(transition.turnsRemaining) ||
-      transition.turnsRemaining < 0 ||
+      !integer(transition.consecutiveTurns) ||
+      !integer(transition.turnsRemaining) ||
       (transition.stageAtTurn !== undefined &&
-        (!finite(transition.stageAtTurn) ||
-          !Number.isInteger(transition.stageAtTurn) ||
+        (!integer(transition.stageAtTurn) ||
           !gameOvers
             .get(transition.gameOverId)
             ?.stages.some((stage) => stage.atTurn === transition.stageAtTurn)))
@@ -514,10 +704,9 @@ export function validateSavedGame(
       ],
       ["turnReport"],
     ) ||
-    value.version !== 2 ||
+    value.version !== 4 ||
     typeof value.scenarioId !== "string" ||
-    !finite(value.scenarioContentVersion) ||
-    !Number.isInteger(value.scenarioContentVersion) ||
+    !integer(value.scenarioContentVersion) ||
     !nonempty(value.playerName) ||
     value.playerName !== value.playerName.trim() ||
     value.playerName.length > 40 ||
@@ -532,8 +721,8 @@ export function validateSavedGame(
       scenario.id === value.scenarioId &&
       contentVersion === value.scenarioContentVersion,
   );
-  if (!entry || !validRuntimeState(value.state, entry.scenario))
-    return undefined;
+  if (!entry) return undefined;
+  if (!validRuntimeState(value.state, entry.scenario)) return undefined;
   if (
     value.turnReport !== undefined &&
     !validSavedTurnReport(value.turnReport, entry.scenario, value.state)
@@ -557,25 +746,7 @@ export function loadSavedGame(
       discardInvalid: false,
     };
   }
-  if (serialized === null) {
-    try {
-      if (storage.getItem(LEGACY_SAVE_STORAGE_KEY) !== null)
-        return {
-          status: "unavailable",
-          message:
-            "The previous saved game uses an older format and cannot be restored after the Game Over update.",
-          discardInvalid: true,
-        };
-    } catch {
-      return {
-        status: "unavailable",
-        message:
-          "Saved progress is unavailable because browser storage could not be read.",
-        discardInvalid: false,
-      };
-    }
-    return { status: "empty" };
-  }
+  if (serialized === null) return { status: "empty" };
 
   let parsed: unknown;
   try {
@@ -609,7 +780,6 @@ export function storeSavedGame(
 export function clearSavedGame(storage: SaveStorage): string | undefined {
   try {
     storage.removeItem(SAVE_STORAGE_KEY);
-    storage.removeItem(LEGACY_SAVE_STORAGE_KEY);
     return undefined;
   } catch {
     return "Saved progress could not be removed from browser storage.";

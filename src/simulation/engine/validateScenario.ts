@@ -10,25 +10,20 @@ export function validateScenario(input: unknown): readonly string[] {
     path: string,
     fields: string[],
   ): value is ObjectValue {
-    if (
-      !value ||
-      typeof value !== "object" ||
-      Array.isArray(value) ||
-      ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-    ) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
       error(path, "expected a plain object");
       return false;
     }
     for (const key of Reflect.ownKeys(value)) {
       if (typeof key !== "string" || !fields.includes(key))
         error(`${path}.${String(key)}`, "unknown field");
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (descriptor?.get || descriptor?.set)
-        error(`${path}.${String(key)}`, "accessors are not content");
     }
-    return !Object.values(Object.getOwnPropertyDescriptors(value)).some(
-      (d) => d.get || d.set,
-    );
+    return true;
+  }
+  function only(value: ObjectValue, path: string, fields: string[]) {
+    for (const key of Object.keys(value))
+      if (!fields.includes(key))
+        error(`${path}.${key}`, "field is not valid here");
   }
   function array(value: unknown, path: string): unknown[] {
     if (!Array.isArray(value)) {
@@ -48,8 +43,7 @@ export function validateScenario(input: unknown): readonly string[] {
     return value;
   }
   function string(value: unknown, path: string) {
-    if (typeof value !== "string" || !value.trim())
-      error(path, "expected a nonempty string");
+    if (typeof value !== "string") error(path, "expected a string");
   }
   function id(value: unknown, path: string) {
     if (typeof value !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))
@@ -127,6 +121,7 @@ export function validateScenario(input: unknown): readonly string[] {
     path: string;
     resource?: boolean;
     deactivate?: boolean;
+    numeric?: boolean;
   }[] = [];
   if (
     !object(input, "$", [
@@ -141,6 +136,11 @@ export function validateScenario(input: unknown): readonly string[] {
       "events",
       "dilemmas",
       "gameOvers",
+      "completion",
+      "historicalActors",
+      "factionMetrics",
+      "factionGroups",
+      "constraints",
     ])
   )
     return errors;
@@ -150,15 +150,15 @@ export function validateScenario(input: unknown): readonly string[] {
   string(input.title, "$.title");
   string(input.description, "$.description");
   if (object(input.start, "$.start", ["turn", "year"])) {
-    number(input.start.turn, "$.start.turn");
+    if (
+      number(input.start.turn, "$.start.turn") &&
+      (!Number.isInteger(input.start.turn) || input.start.turn < 0)
+    )
+      error("$.start.turn", "expected a nonnegative integer");
     if (input.start.year !== undefined)
       number(input.start.year, "$.start.year");
   }
   tags(input.conditions, "$.conditions");
-  for (const kind of ["events", "dilemmas"]) {
-    if (input[kind] !== undefined && array(input[kind], `$.${kind}`).length)
-      error(`$.${kind}`, "nonempty incident content is not supported yet");
-  }
   const base = [
     "id",
     "type",
@@ -175,7 +175,7 @@ export function validateScenario(input: unknown): readonly string[] {
     stance: ["control", "cost", "enactmentCost", "repealCost"],
     indicator: [],
     resource: [],
-    faction: ["valueMeaning"],
+    faction: ["factionCategory", "constraintId"],
     situation: ["startThreshold", "stopThreshold"],
   };
   array(input.nodes, "$.nodes").forEach((value, i) => {
@@ -188,7 +188,8 @@ export function validateScenario(input: unknown): readonly string[] {
         "cost",
         "enactmentCost",
         "repealCost",
-        "valueMeaning",
+        "factionCategory",
+        "constraintId",
         "startThreshold",
         "stopThreshold",
       ])
@@ -250,7 +251,20 @@ export function validateScenario(input: unknown): readonly string[] {
     ])
       ? value.initial
       : {};
-    bounded(initial.value, `${path}.initial.value`, domain);
+    if (type === "resource") number(initial.value, `${path}.initial.value`);
+    else bounded(initial.value, `${path}.initial.value`, domain);
+    if (type === "faction") {
+      if (
+        !["theological", "demographic", "geographic", "institutional"].includes(
+          String(value.factionCategory),
+        )
+      )
+        error(`${path}.factionCategory`, "unknown faction category");
+      if (value.constraintId !== undefined)
+        id(value.constraintId, `${path}.constraintId`);
+      if (value.graphVisible === false)
+        error(`${path}.graphVisible`, "Factions are always graph-visible");
+    }
     if (typeof initial.isActive !== "boolean")
       error(`${path}.initial.isActive`, "expected a boolean");
     if (typeof initial.isForced !== "boolean")
@@ -261,16 +275,17 @@ export function validateScenario(input: unknown): readonly string[] {
         "must be true when initial.isForced is true",
       );
     if (
-      ["indicator", "resource"].includes(type) &&
+      ["indicator", "resource", "faction"].includes(type) &&
       (initial.isActive !== true || initial.isForced !== true)
     )
       error(
         `${path}.initial`,
-        "Indicators and Resources must start active and forced",
+        "Indicators, Resources and Factions must start active and forced",
       );
-    if (value.baseline !== undefined)
+    if (type === "resource" && value.baseline !== undefined)
+      error(`${path}.baseline`, "Resources do not use a baseline");
+    else if (value.baseline !== undefined)
       bounded(value.baseline, `${path}.baseline`, domain);
-    if (type === "faction") string(value.valueMeaning, `${path}.valueMeaning`);
     if (type === "situation") {
       bounded(value.startThreshold, `${path}.startThreshold`, domain);
       bounded(value.stopThreshold, `${path}.stopThreshold`, domain);
@@ -359,6 +374,126 @@ export function validateScenario(input: unknown): readonly string[] {
       }
     }
   });
+  // Validate the metric catalog and keep IDs available for group checks.
+  const metrics = new Set<string>();
+  array(
+    input.factionMetrics === undefined ? [] : input.factionMetrics,
+    "$.factionMetrics",
+  ).forEach((metric, i) => {
+    const path = `$.factionMetrics[${i}]`;
+    if (!object(metric, path, ["id", "label"])) return;
+    id(metric.id, `${path}.id`);
+    string(metric.label, `${path}.label`);
+    if (typeof metric.label === "string" && !metric.label.trim())
+      error(`${path}.label`, "expected a nonempty label");
+    if (typeof metric.id === "string") {
+      if (metrics.has(metric.id))
+        error(`${path}.id`, "duplicate metric identifier");
+      metrics.add(metric.id);
+    }
+  });
+  // Check group mappings, node ownership, and category consistency.
+  const owners = new Set<string>();
+  const groups = new Set<string>();
+  array(
+    input.factionGroups === undefined ? [] : input.factionGroups,
+    "$.factionGroups",
+  ).forEach((group, i) => {
+    const path = `$.factionGroups[${i}]`;
+    if (!object(group, path, ["id", "name", "description", "metrics"])) return;
+    id(group.id, `${path}.id`);
+    string(group.name, `${path}.name`);
+    string(group.description, `${path}.description`);
+    if (typeof group.id === "string") {
+      if (groups.has(group.id))
+        error(`${path}.id`, "duplicate group identifier");
+      groups.add(group.id);
+    }
+    if (!metrics.size)
+      error(`${path}.metrics`, "groups require a nonempty metric catalog");
+    if (!object(group.metrics, `${path}.metrics`, [...metrics])) return;
+    let category: unknown;
+    for (const metric of metrics) {
+      const ref = group.metrics[metric];
+      id(ref, `${path}.metrics.${metric}`);
+      const node = typeof ref === "string" ? nodes.get(ref) : undefined;
+      if (node?.type !== "faction")
+        error(
+          `${path}.metrics.${metric}`,
+          "expected a node for a Faction metric",
+        );
+      if (typeof ref === "string") {
+        if (owners.has(ref))
+          error(
+            `${path}.metrics.${metric}`,
+            "node belongs to more than one group/metric",
+          );
+        owners.add(ref);
+      }
+      if (node) {
+        if (category !== undefined && node.factionCategory !== category)
+          error(
+            `${path}.metrics.${metric}`,
+            "group faction categories must agree",
+          );
+        category = node.factionCategory;
+      }
+    }
+  });
+  // Validate each sum constraint against its derived node participants.
+  const constraints = new Set<string>();
+  array(
+    input.constraints === undefined ? [] : input.constraints,
+    "$.constraints",
+  ).forEach((constraint, i) => {
+    const path = `$.constraints[${i}]`;
+    if (!object(constraint, path, ["id", "kind", "maxTotal", "name"])) return;
+    id(constraint.id, `${path}.id`);
+    if (constraint.kind !== "sum-limit")
+      error(`${path}.kind`, "unknown constraint kind");
+    if (constraint.name !== undefined) string(constraint.name, `${path}.name`);
+    if (
+      number(constraint.maxTotal, `${path}.maxTotal`) &&
+      constraint.maxTotal <= 0
+    )
+      error(`${path}.maxTotal`, "expected a positive cap");
+    if (typeof constraint.id !== "string") return;
+    if (constraints.has(constraint.id))
+      error(`${path}.id`, "duplicate constraint identifier");
+    constraints.add(constraint.id);
+    const participants = [...nodes.values()].filter(
+      (node) => node.type === "faction" && node.constraintId === constraint.id,
+    );
+    if (participants.length < 2)
+      error(path, "constraint requires at least two participants");
+    let total = 0;
+    for (const node of participants) {
+      const domain = node.domain as ObjectValue | undefined;
+      if (domain?.min !== 0 || domain.clamp !== true)
+        error(path, "participants require zero-minimum clamped domains");
+      const initial = node.initial as ObjectValue | undefined;
+      if (typeof initial?.value === "number") total += initial.value;
+    }
+    if (typeof constraint.maxTotal === "number" && total > constraint.maxTotal)
+      error(path, "initial total exceeds constraint cap");
+  });
+  // Ensure every Faction node is owned and its optional constraint resolves.
+  for (const [nodeId, node] of nodes) {
+    if (node.type !== "faction") continue;
+    if (!owners.has(nodeId))
+      error(
+        "$.factionGroups",
+        `Faction node ${nodeId} requires exactly one owner`,
+      );
+    if (
+      node.constraintId !== undefined &&
+      !constraints.has(String(node.constraintId))
+    )
+      error("$.constraints", `constraint for ${nodeId} does not resolve`);
+  }
+  function numericReference(value: unknown, path: string) {
+    refs.push({ value, path, numeric: true });
+  }
   const effects = new Set<unknown>();
   array(input.effects, "$.effects").forEach((effect, i) => {
     const path = `$.effects[${i}]`;
@@ -378,8 +513,8 @@ export function validateScenario(input: unknown): readonly string[] {
       error(`${path}.id`, "duplicate Effect identifier");
     effects.add(effect.id);
     if (effect.source !== "_default_")
-      refs.push({ value: effect.source, path: `${path}.source` });
-    refs.push({ value: effect.target, path: `${path}.target` });
+      numericReference(effect.source, `${path}.source`);
+    numericReference(effect.target, `${path}.target`);
     if (effect.label !== undefined) string(effect.label, `${path}.label`);
     if (
       effect.inertiaTurns !== undefined &&
@@ -410,17 +545,14 @@ export function validateScenario(input: unknown): readonly string[] {
       error(`${path}.response.kind`, "unknown response kind");
       return;
     }
-    for (const key of Object.keys(response))
-      if (!["kind", ...shapes[kind]].includes(key))
-        error(`${path}.response.${key}`, "unknown field for response kind");
+    only(response, `${path}.response`, ["kind", ...shapes[kind]]);
     for (const field of shapes[kind]) {
       if (field === "factors")
         array(response.factors, `${path}.response.factors`).forEach(
-          (factor, j) =>
-            refs.push({
-              value: factor,
-              path: `${path}.response.factors[${j}]`,
-            }),
+          (factor, j) => {
+            const p = `${path}.response.factors[${j}]`;
+            numericReference(factor, p);
+          },
         );
       else if (field !== "intercept" || response[field] !== undefined)
         number(response[field], `${path}.response.${field}`);
@@ -444,9 +576,7 @@ export function validateScenario(input: unknown): readonly string[] {
       )
         return;
       if (consequence.kind === "resource") {
-        for (const key of Object.keys(consequence))
-          if (!["kind", "target", "amount"].includes(key))
-            error(`${p}.${key}`, "field is not valid for resource consequence");
+        only(consequence, p, ["kind", "target", "amount"]);
         refs.push({
           value: consequence.target,
           path: `${p}.target`,
@@ -454,10 +584,8 @@ export function validateScenario(input: unknown): readonly string[] {
         });
         number(consequence.amount, `${p}.amount`);
       } else if (consequence.kind === "grudge") {
-        for (const key of Object.keys(consequence))
-          if (!["kind", "target", "magnitude", "decay", "label"].includes(key))
-            error(`${p}.${key}`, "field is not valid for grudge consequence");
-        refs.push({ value: consequence.target, path: `${p}.target` });
+        only(consequence, p, ["kind", "target", "magnitude", "decay", "label"]);
+        numericReference(consequence.target, `${p}.target`);
         number(consequence.magnitude, `${p}.magnitude`);
         if (
           number(consequence.decay, `${p}.decay`) &&
@@ -466,12 +594,7 @@ export function validateScenario(input: unknown): readonly string[] {
           error(`${p}.decay`, "must be greater than 0 and at most 1");
         string(consequence.label, `${p}.label`);
       } else if (consequence.kind === "activation") {
-        for (const key of Object.keys(consequence))
-          if (!["kind", "target", "active"].includes(key))
-            error(
-              `${p}.${key}`,
-              "field is not valid for activation consequence",
-            );
+        only(consequence, p, ["kind", "target", "active"]);
         if (typeof consequence.active !== "boolean")
           error(`${p}.active`, "expected a boolean");
         refs.push({
@@ -481,6 +604,295 @@ export function validateScenario(input: unknown): readonly string[] {
         });
       } else error(`${p}.kind`, "unknown consequence kind");
     });
+  }
+
+  function influences(value: unknown, path: string) {
+    array(value, path).forEach((influence, index) => {
+      const p = `${path}[${index}]`;
+      if (!object(influence, p, ["source", "coefficient", "intercept"])) return;
+      if (influence.source !== "_random_")
+        numericReference(influence.source, `${p}.source`);
+      number(influence.coefficient, `${p}.coefficient`);
+      if (influence.intercept !== undefined)
+        number(influence.intercept, `${p}.intercept`);
+    });
+  }
+
+  function incidents(value: unknown, path: string, kind: "event" | "dilemma") {
+    if (value === undefined) return;
+    const ids = new Set<unknown>();
+    array(value, path).forEach((definition, index) => {
+      const p = `${path}[${index}]`;
+      const isEvent = kind === "event";
+      if (
+        !object(definition, p, [
+          "kind",
+          "id",
+          "title",
+          "description",
+          "influences",
+          "threshold",
+          "cooldownTurns",
+          "requires",
+          isEvent ? "consequences" : "choices",
+        ])
+      )
+        return;
+      if (definition.kind !== kind) error(`${p}.kind`, `expected ${kind}`);
+      id(definition.id, `${p}.id`);
+      if (ids.has(definition.id))
+        error(
+          `${p}.id`,
+          `duplicate ${isEvent ? "Event" : "Dilemma"} identifier`,
+        );
+      ids.add(definition.id);
+      string(definition.title, `${p}.title`);
+      string(definition.description, `${p}.description`);
+      number(definition.threshold, `${p}.threshold`);
+      if (
+        number(definition.cooldownTurns, `${p}.cooldownTurns`) &&
+        (!Number.isInteger(definition.cooldownTurns) ||
+          definition.cooldownTurns < 1)
+      )
+        error(`${p}.cooldownTurns`, "expected a positive integer");
+      tags(definition.requires, `${p}.requires`);
+      influences(definition.influences, `${p}.influences`);
+      if (isEvent) {
+        if (definition.consequences === undefined)
+          error(`${p}.consequences`, "expected an array");
+        else consequences(definition.consequences, `${p}.consequences`);
+        return;
+      }
+      const choices = array(definition.choices, `${p}.choices`);
+      if (choices.length < 2)
+        error(`${p}.choices`, "expected at least two choices");
+      const choiceIds = new Set<unknown>();
+      choices.forEach((choice, choiceIndex) => {
+        const choicePath = `${p}.choices[${choiceIndex}]`;
+        if (
+          !object(choice, choicePath, [
+            "id",
+            "label",
+            "description",
+            "consequences",
+          ])
+        )
+          return;
+        id(choice.id, `${choicePath}.id`);
+        if (choiceIds.has(choice.id))
+          error(`${choicePath}.id`, "duplicate choice identifier");
+        choiceIds.add(choice.id);
+        string(choice.label, `${choicePath}.label`);
+        string(choice.description, `${choicePath}.description`);
+        if (choice.consequences === undefined)
+          error(`${choicePath}.consequences`, "expected an array");
+        else consequences(choice.consequences, `${choicePath}.consequences`);
+      });
+    });
+  }
+  incidents(input.events, "$.events", "event");
+  incidents(input.dilemmas, "$.dilemmas", "dilemma");
+
+  const scenarioContent = input;
+  const startTurn = (input.start as ObjectValue | null | undefined)?.turn;
+  function prerequisiteGroups(
+    value: unknown,
+    path: string,
+    descriptions = false,
+  ) {
+    const groupIds = new Set<unknown>();
+    const groups = array(value, path);
+    if (groups.length === 0) error(path, "expected at least one group");
+    groups.forEach((group, groupIndex) => {
+      const groupPath = `${path}[${groupIndex}]`;
+      if (!object(group, groupPath, ["id", "title", "description", "allOf"]))
+        return;
+      id(group.id, `${groupPath}.id`);
+      if (groupIds.has(group.id))
+        error(`${groupPath}.id`, "duplicate prerequisite group identifier");
+      groupIds.add(group.id);
+      string(group.title, `${groupPath}.title`);
+      if (descriptions || group.description !== undefined)
+        string(group.description, `${groupPath}.description`);
+      const prerequisites = array(group.allOf, `${groupPath}.allOf`);
+      if (prerequisites.length === 0)
+        error(`${groupPath}.allOf`, "expected at least one prerequisite");
+      prerequisites.forEach((prerequisite, prerequisiteIndex) => {
+        const p = `${groupPath}.allOf[${prerequisiteIndex}]`;
+        if (
+          !object(prerequisite, p, [
+            "kind",
+            "nodeId",
+            "comparison",
+            "value",
+            "active",
+            "atTurn",
+            "eventId",
+            "dilemmaId",
+            "choiceId",
+          ])
+        )
+          return;
+        switch (prerequisite.kind) {
+          case "node-value": {
+            only(prerequisite, p, ["kind", "nodeId", "comparison", "value"]);
+            numericReference(prerequisite.nodeId, `${p}.nodeId`);
+            if (
+              !["at-most", "at-least"].includes(String(prerequisite.comparison))
+            )
+              error(`${p}.comparison`, "unknown comparison");
+            const target =
+              typeof prerequisite.nodeId === "string"
+                ? nodes.get(prerequisite.nodeId)
+                : undefined;
+            bounded(
+              prerequisite.value,
+              `${p}.value`,
+              (target?.domain as ObjectValue | undefined) ??
+                (Object.create(null) as ObjectValue),
+            );
+            break;
+          }
+          case "node-activation":
+            only(prerequisite, p, ["kind", "nodeId", "active"]);
+            refs.push({ value: prerequisite.nodeId, path: `${p}.nodeId` });
+            if (typeof prerequisite.active !== "boolean")
+              error(`${p}.active`, "expected a boolean");
+            break;
+          case "turn":
+            only(prerequisite, p, ["kind", "atTurn"]);
+            if (
+              number(prerequisite.atTurn, `${p}.atTurn`) &&
+              (!Number.isInteger(prerequisite.atTurn) ||
+                prerequisite.atTurn < 0 ||
+                (typeof startTurn === "number" &&
+                  prerequisite.atTurn <= startTurn))
+            )
+              error(
+                `${p}.atTurn`,
+                "expected an integer greater than start.turn",
+              );
+            break;
+          case "event":
+            only(prerequisite, p, ["kind", "eventId"]);
+            id(prerequisite.eventId, `${p}.eventId`);
+            if (
+              !Array.isArray(scenarioContent.events) ||
+              !scenarioContent.events.some(
+                (event) => event && event.id === prerequisite.eventId,
+              )
+            )
+              error(`${p}.eventId`, "unknown Event reference");
+            break;
+          case "dilemma-choice": {
+            only(prerequisite, p, ["kind", "dilemmaId", "choiceId"]);
+            id(prerequisite.dilemmaId, `${p}.dilemmaId`);
+            const dilemma = Array.isArray(scenarioContent.dilemmas)
+              ? scenarioContent.dilemmas.find(
+                  (dilemma) => dilemma && dilemma.id === prerequisite.dilemmaId,
+                )
+              : undefined;
+            if (!dilemma) error(`${p}.dilemmaId`, "unknown Dilemma reference");
+            if (prerequisite.choiceId !== undefined) {
+              id(prerequisite.choiceId, `${p}.choiceId`);
+              if (
+                !Array.isArray(dilemma?.choices) ||
+                !dilemma.choices.some(
+                  (choice: ObjectValue) =>
+                    choice && choice.id === prerequisite.choiceId,
+                )
+              )
+                error(`${p}.choiceId`, "unknown choice reference");
+            }
+            break;
+          }
+          case "situation-resolved":
+            only(prerequisite, p, ["kind", "nodeId"]);
+            id(prerequisite.nodeId, `${p}.nodeId`);
+            if (
+              typeof prerequisite.nodeId !== "string" ||
+              nodes.get(prerequisite.nodeId)?.type !== "situation"
+            )
+              error(`${p}.nodeId`, "expected a Situation reference");
+            break;
+          default:
+            error(`${p}.kind`, "unknown prerequisite kind");
+        }
+      });
+    });
+  }
+
+  const actorIds = new Set<unknown>();
+  array(input.historicalActors, "$.historicalActors").forEach(
+    (actor, index) => {
+      const path = `$.historicalActors[${index}]`;
+      if (!object(actor, path, ["id", "name", "role", "description"])) return;
+      id(actor.id, `${path}.id`);
+      if (actorIds.has(actor.id))
+        error(`${path}.id`, "duplicate actor identifier");
+      actorIds.add(actor.id);
+      for (const field of ["name", "role", "description"])
+        string(actor[field], `${path}.${field}`);
+    },
+  );
+  if (
+    object(input.completion, "$.completion", [
+      "prerequisiteGroups",
+      "endings",
+      "fallbackEnding",
+      "reportNodeIds",
+    ])
+  ) {
+    const completion = input.completion;
+    prerequisiteGroups(
+      completion.prerequisiteGroups,
+      "$.completion.prerequisiteGroups",
+      true,
+    );
+    const endingIds = new Set<unknown>();
+    function ending(value: unknown, path: string, conditional: boolean) {
+      if (
+        !object(value, path, [
+          "id",
+          "title",
+          "narrative",
+          ...(conditional ? ["priority", "prerequisiteGroups"] : []),
+        ])
+      )
+        return;
+      id(value.id, `${path}.id`);
+      if (endingIds.has(value.id))
+        error(`${path}.id`, "duplicate ending identifier");
+      endingIds.add(value.id);
+      string(value.title, `${path}.title`);
+      string(value.narrative, `${path}.narrative`);
+      if (conditional) {
+        if (
+          number(value.priority, `${path}.priority`) &&
+          !Number.isInteger(value.priority)
+        )
+          error(`${path}.priority`, "expected an integer");
+        prerequisiteGroups(
+          value.prerequisiteGroups,
+          `${path}.prerequisiteGroups`,
+        );
+      }
+    }
+    array(completion.endings, "$.completion.endings").forEach((value, index) =>
+      ending(value, `$.completion.endings[${index}]`, true),
+    );
+    ending(completion.fallbackEnding, "$.completion.fallbackEnding", false);
+    const reportIds = new Set<unknown>();
+    array(completion.reportNodeIds, "$.completion.reportNodeIds").forEach(
+      (value, index) => {
+        const path = `$.completion.reportNodeIds[${index}]`;
+        id(value, path);
+        refs.push({ value, path });
+        if (reportIds.has(value))
+          error(path, "duplicate report node reference");
+        reportIds.add(value);
+      },
+    );
   }
 
   if (input.gameOvers !== undefined) {
@@ -514,73 +926,10 @@ export function validateScenario(input: unknown): readonly string[] {
           "expected an integer of at least 2",
         );
 
-      const groupIds = new Set<unknown>();
-      const groups = array(
+      prerequisiteGroups(
         definition.prerequisiteGroups,
         `${path}.prerequisiteGroups`,
       );
-      if (groups.length === 0)
-        error(`${path}.prerequisiteGroups`, "expected at least one group");
-      groups.forEach((group, groupIndex) => {
-        const groupPath = `${path}.prerequisiteGroups[${groupIndex}]`;
-        if (!object(group, groupPath, ["id", "title", "allOf"])) return;
-        id(group.id, `${groupPath}.id`);
-        if (groupIds.has(group.id))
-          error(`${groupPath}.id`, "duplicate prerequisite group identifier");
-        groupIds.add(group.id);
-        string(group.title, `${groupPath}.title`);
-        const prerequisites = array(group.allOf, `${groupPath}.allOf`);
-        if (prerequisites.length === 0)
-          error(`${groupPath}.allOf`, "expected at least one prerequisite");
-        prerequisites.forEach((prerequisite, prerequisiteIndex) => {
-          const prerequisitePath = `${groupPath}.allOf[${prerequisiteIndex}]`;
-          if (
-            !object(prerequisite, prerequisitePath, [
-              "kind",
-              "nodeId",
-              "comparison",
-              "value",
-              "active",
-            ])
-          )
-            return;
-          refs.push({
-            value: prerequisite.nodeId,
-            path: `${prerequisitePath}.nodeId`,
-          });
-          if (prerequisite.kind === "node-value") {
-            for (const key of Object.keys(prerequisite))
-              if (!["kind", "nodeId", "comparison", "value"].includes(key))
-                error(
-                  `${prerequisitePath}.${key}`,
-                  "field is not valid for node-value prerequisite",
-                );
-            if (
-              !["at-most", "at-least"].includes(String(prerequisite.comparison))
-            )
-              error(`${prerequisitePath}.comparison`, "unknown comparison");
-            const target =
-              typeof prerequisite.nodeId === "string"
-                ? nodes.get(prerequisite.nodeId)
-                : undefined;
-            bounded(
-              prerequisite.value,
-              `${prerequisitePath}.value`,
-              (target?.domain as ObjectValue | undefined) ??
-                (Object.create(null) as ObjectValue),
-            );
-          } else if (prerequisite.kind === "node-activation") {
-            for (const key of Object.keys(prerequisite))
-              if (!["kind", "nodeId", "active"].includes(key))
-                error(
-                  `${prerequisitePath}.${key}`,
-                  "field is not valid for node-activation prerequisite",
-                );
-            if (typeof prerequisite.active !== "boolean")
-              error(`${prerequisitePath}.active`, "expected a boolean");
-          } else error(`${prerequisitePath}.kind`, "unknown prerequisite kind");
-        });
-      });
 
       const stageIds = new Set<unknown>();
       const stageTurns = new Set<unknown>();
