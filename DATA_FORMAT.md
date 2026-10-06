@@ -418,12 +418,17 @@ interface DilemmaDefinition extends BaseIncidentDefinition {
     id: string;
     label: string;
     description: string;
+    image?: { src: string; alt: string };
     consequences: ConsequenceDefinition[];
   }>;
 }
 ```
 
 Choice IDs are unique within their Dilemma. A Dilemma has at least two choices.
+Choice images are optional authored presentation metadata. `src` MUST be a
+nonempty string and `alt` MUST be a string; an empty `alt` denotes decorative
+artwork. Relative sources resolve against the application base URL; absolute
+URLs are supported. Missing or failed images display an option placeholder.
 
 ## Reusable consequences and Grudge creation
 

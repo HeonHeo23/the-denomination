@@ -42,6 +42,7 @@ The primary flow is:
 - Present one always-visible card per Faction group.
 - A global graph selector switches the displayed metric and dossiers select metrics independently.
 - Use Scenario metric order and labels.
+- Faction metric identity SHOULD appear optionally inline within the target-name area, without a dedicated row or column. Dedicated metric space is appropriate for metric selectors and comparative readings.
 - Use compact separate rows for Dilemma consequences.
 - Use Sheets for overview, Crises, and Chronicle review, and more. Situations
   remain available as canonical graph nodes and dossiers.

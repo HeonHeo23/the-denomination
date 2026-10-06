@@ -50,12 +50,6 @@ export function projectNodeEffects(
   state: SimulationState,
   previewStanceValue?: number,
 ): NodeEffectsView {
-  const nodeNames = new Map(
-    scenario.nodes.map((node) => [
-      node.id,
-      getNodeDisplayInfo(scenario, node.id).name,
-    ]),
-  );
   const previewByEffect = new Map<
     string,
     { readonly contribution: number; readonly kind: "settled" | "estimate" }
@@ -71,30 +65,32 @@ export function projectNodeEffects(
   const outgoing: NodeEffectView[] = [];
 
   for (const effect of scenario.effects) {
+    if (effect.source !== nodeId && effect.target !== nodeId) continue;
+    const sourceInfo =
+      effect.source === "_default_"
+        ? undefined
+        : getNodeDisplayInfo(scenario, effect.source);
+    const targetInfo = getNodeDisplayInfo(scenario, effect.target);
     const previewingOwnEffect =
       previewStanceValue !== undefined && effect.source === nodeId;
     const contribution = state.effects[effect.id]?.lastContribution ?? 0;
     const inactiveSource =
       effect.source !== "_default_" && !state.nodes[effect.source].isActive;
     const view = (
-      effectId: string,
       relatedName: string,
       relatedNodeId?: string,
     ): NodeEffectView => {
-      const preview = previewByEffect.get(effectId);
+      const preview = previewByEffect.get(effect.id);
       return {
         id: effect.id,
         kind: "effect",
         relatedNodeId,
         relatedName,
         label: effect.label,
-        sourceMetric:
-          effect.source === "_default_"
-            ? undefined
-            : getNodeDisplayInfo(scenario, effect.source).metric,
-        targetMetric: getNodeDisplayInfo(scenario, effect.target).metric,
-        sourceMetricId: getNodeDisplayInfo(scenario, effect.source).metricId,
-        targetMetricId: getNodeDisplayInfo(scenario, effect.target).metricId,
+        sourceMetric: sourceInfo?.metric,
+        targetMetric: targetInfo.metric,
+        sourceMetricId: sourceInfo?.metricId,
+        targetMetricId: targetInfo.metricId,
         contribution,
         contributionLabel: formatContributionPercent(contribution),
         contributionTone: contributionTone(contribution),
@@ -119,10 +115,9 @@ export function projectNodeEffects(
       if (inactiveSource && Math.abs(contribution) <= 0.000001) continue;
       incoming.push(
         view(
-          effect.id,
           effect.source === "_default_"
             ? "Default pressure"
-            : (nodeNames.get(effect.source) ?? effect.source),
+            : (sourceInfo?.name ?? effect.source),
           effect.source === "_default_" ? undefined : effect.source,
         ),
       );
@@ -138,18 +133,13 @@ export function projectNodeEffects(
       ) {
         continue;
       }
-      outgoing.push(
-        view(
-          effect.id,
-          nodeNames.get(effect.target) ?? effect.target,
-          effect.target,
-        ),
-      );
+      outgoing.push(view(targetInfo.name, effect.target));
     }
   }
 
   const target = scenario.nodes.find(({ id }) => id === nodeId);
   if (target) {
+    const targetInfo = getNodeDisplayInfo(scenario, nodeId);
     for (const grudge of state.grudges) {
       if (grudge.target !== nodeId) continue;
       incoming.push({
@@ -157,8 +147,8 @@ export function projectNodeEffects(
         kind: "grudge",
         relatedName: "Grudge",
         label: grudge.label,
-        targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric,
-        targetMetricId: getNodeDisplayInfo(scenario, grudge.target).metricId,
+        targetMetric: targetInfo.metric,
+        targetMetricId: targetInfo.metricId,
         contribution: grudge.magnitude,
         contributionLabel: formatSignedValue(grudge.magnitude, target.domain),
         contributionTone: contributionTone(grudge.magnitude),

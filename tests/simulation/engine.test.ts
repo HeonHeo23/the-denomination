@@ -19,7 +19,11 @@ import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
 import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
-import { runDilemmaDecisionProjectionTests } from "../ui/projectDilemmaDecisions.test";
+import {
+  runDilemmaDecisionProjectionTests,
+  runDilemmaConsequenceProjectionTests,
+  runPendingDilemmaProjectionTests,
+} from "../ui/projectDilemma.test";
 
 const exampleScenario = {
   ...bundledScenario,
@@ -47,6 +51,8 @@ runDilemmaTests();
 runEventTests();
 runEventDetailTests();
 runDilemmaDecisionProjectionTests();
+runDilemmaConsequenceProjectionTests();
+runPendingDilemmaProjectionTests();
 
 assert(
   validateScenario(exampleScenario).length === 0,

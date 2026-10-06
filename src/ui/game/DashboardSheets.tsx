@@ -40,7 +40,7 @@ import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 import { projectCrises } from "./projectGameOvers";
 import { DossierItemButton } from "@/ui/panels/DossierItemButton";
-import { projectDilemmaDecisions } from "./projectDilemmaDecisions";
+import { projectDilemmaDecisions } from "./projectDilemma";
 
 export type DashboardPanel = "overview" | "crises" | "chronicle" | "decisions";
 

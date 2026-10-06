@@ -675,6 +675,7 @@ export function validateScenario(input: unknown): readonly string[] {
             "label",
             "description",
             "consequences",
+            "image",
           ])
         )
           return;
@@ -684,6 +685,17 @@ export function validateScenario(input: unknown): readonly string[] {
         choiceIds.add(choice.id);
         string(choice.label, `${choicePath}.label`);
         string(choice.description, `${choicePath}.description`);
+        if (choice.image !== undefined) {
+          const imagePath = `${choicePath}.image`;
+          if (object(choice.image, imagePath, ["src", "alt"])) {
+            if (
+              typeof choice.image.src !== "string" ||
+              choice.image.src.trim().length === 0
+            )
+              error(`${imagePath}.src`, "expected a nonempty string");
+            string(choice.image.alt, `${imagePath}.alt`);
+          }
+        }
         if (choice.consequences === undefined)
           error(`${choicePath}.consequences`, "expected an array");
         else consequences(choice.consequences, `${choicePath}.consequences`);

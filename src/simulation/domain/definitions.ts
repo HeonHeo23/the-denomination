@@ -292,6 +292,10 @@ export interface DilemmaDefinition {
     readonly id: string;
     readonly label: string;
     readonly description: string;
+    readonly image?: {
+      readonly src: string;
+      readonly alt: string;
+    };
     readonly consequences: readonly ConsequenceDefinition[];
   }[];
 }

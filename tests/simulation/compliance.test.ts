@@ -71,6 +71,59 @@ export function runComplianceTests() {
     exampleScenario.events.map(({ id }) => id),
   );
   assert.equal(loaded.scenario.nodes[0].baseline, undefined);
+  const withChoiceImage = (image: unknown) => ({
+    ...exampleScenario,
+    dilemmas: exampleScenario.dilemmas.map((dilemma) => ({
+      ...dilemma,
+      choices: dilemma.choices.map((choice, index) =>
+        index === 0 ? { ...choice, image } : choice,
+      ),
+    })),
+  });
+  for (const alt of ["Council members considering the response", ""]) {
+    const image = { src: "images/council.webp", alt };
+    const illustrated = loadScenario(withChoiceImage(image));
+    assert.ok(illustrated.ok);
+    assert.deepEqual(illustrated.scenario.dilemmas![0].choices[0].image, image);
+    assert.ok(
+      Object.isFrozen(illustrated.scenario.dilemmas![0].choices[0].image),
+    );
+    image.src = "images/changed.webp";
+    assert.equal(
+      illustrated.scenario.dilemmas![0].choices[0].image!.src,
+      "images/council.webp",
+    );
+    assert.equal(illustrated.scenario.dilemmas![0].choices[1].image, undefined);
+  }
+  assert.deepEqual(
+    validateScenario(
+      withChoiceImage({
+        src: "https://example.com/choice.webp",
+        alt: "Choice artwork",
+      }),
+    ),
+    [],
+  );
+  for (const [image, field] of [
+    [null, "image"],
+    ["choice.webp", "image"],
+    [{ src: "", alt: "" }, "image.src"],
+    [{ src: "   ", alt: "" }, "image.src"],
+    [{ src: 1, alt: "" }, "image.src"],
+    [{ alt: "" }, "image.src"],
+    [{ src: "choice.webp" }, "image.alt"],
+    [{ src: "choice.webp", alt: 1 }, "image.alt"],
+    [{ src: "choice.webp", alt: "", caption: "Unsupported" }, "image.caption"],
+  ] as const) {
+    const result = loadScenario(withChoiceImage(image));
+    assert.equal(result.ok, false);
+    if (!result.ok)
+      assert.ok(
+        result.diagnostics.some((message) =>
+          message.startsWith(`$.dilemmas[0].choices[0].${field}:`),
+        ),
+      );
+  }
   const minimal: ScenarioDefinition = {
     schemaVersion: 3,
     historicalActors: [],
