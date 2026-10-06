@@ -10,15 +10,17 @@ import {
 export function runNodeValueHistoryProjectionTests() {
   if (
     historyYearMarkLabels(1).get(0) !== "last" ||
-    historyYearMarkLabels(2).size !== 2 ||
-    historyYearMarkLabels(6).size !== 2 ||
+    historyYearMarkLabels(2).size !== 1 ||
+    historyYearMarkLabels(6).size !== 1 ||
     historyYearMarkLabels(7).get(0) !== "first" ||
     historyYearMarkLabels(9).size !== 2 ||
     historyYearMarkLabels(10).size !== 2 ||
-    historyYearMarkLabels(11).has(5) ||
-    historyYearMarkLabels(12).size !== 2
+    historyYearMarkLabels(11).get(5) !== "middle" ||
+    historyYearMarkLabels(12).size !== 3
   )
-    throw new Error("Only the first and last years should be labeled");
+    throw new Error(
+      "Year labels should appear only when marks are far enough apart",
+    );
   const initial = initializeScenario(exampleScenario);
   const node = exampleScenario.nodes.find(
     (candidate) => candidate.id === "money",
@@ -61,10 +63,10 @@ export function runNodeValueHistoryProjectionTests() {
     );
   if (
     rangeEnds.points[1].x !== initialChart.points[0].x ||
-    rangeEnds.points[0].x !== 16
+    Math.abs(rangeEnds.points[1].x - rangeEnds.points[0].x - 568 / 11) > 0.001
   )
     throw new Error(
-      "The first and latest readings should align with the grid boundaries",
+      "New readings should enter from the right and shift older readings left by one slot",
     );
 
   const situation = exampleScenario.nodes.find(
