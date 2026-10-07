@@ -1,4 +1,5 @@
 import { runFactionTests } from "./factions.test";
+import { runStrasbourgTests } from "./strasbourg.test";
 import { runEndingTests } from "./endings.test";
 import { ongoingCompletion } from "./fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
@@ -15,7 +16,7 @@ import {
   type ScenarioDefinition,
 } from "../../src/simulation/index";
 import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
-import { runTurnReportProjectionTests } from "../ui/projectTurnReport.test";
+import { runReportProjectionTests } from "../ui/projectReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
 import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
@@ -46,6 +47,7 @@ function closeTo(actual: number, expected: number, message: string) {
 }
 
 runFactionTests();
+runStrasbourgTests();
 runEndingTests();
 runDilemmaTests();
 runEventTests();
@@ -520,7 +522,7 @@ runResourceTests();
 runComplianceTests();
 runNodeEffectProjectionTests();
 runNodeValueHistoryProjectionTests();
-runTurnReportProjectionTests();
+runReportProjectionTests();
 runInterfaceSoundTests();
 
 console.log("Engine checks passed across core MVP mechanics.");
