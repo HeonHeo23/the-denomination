@@ -1,8 +1,6 @@
 import { FactionMetricName } from "@/ui/FactionMetric";
-import { useState } from "react";
 import {
   BookOpenText,
-  ChevronDown,
   CircleCheck,
   CircleAlert,
   Flame,
@@ -12,11 +10,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DialogClose,
   DialogDescription,
@@ -30,13 +23,13 @@ import {
 } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatSignedValue, formatValue } from "@/ui/formatValue";
+import { formatSignedValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
 import { crisisTurnsLabel } from "@/ui/game/crisisPresentation";
 import { DossierDialogFrame } from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
-import type { TurnReport, TurnReportChange } from "./projectTurnReport";
-import { nodeTypeLabel } from "./projectTurnReport";
+import type { TurnReport } from "./projectReport";
+import { ChangesSection } from "./ChangesSection";
 import "./panels.css";
 
 interface TurnReportDialogProps {
@@ -48,63 +41,6 @@ interface TurnReportDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
-function statusChange(change: TurnReportChange): string | undefined {
-  if (change.previousActive === change.isActive) return undefined;
-  return change.isActive ? "Became active" : "Became inactive";
-}
-
-function ChangeItem({
-  change,
-  onNodeSelect,
-}: {
-  readonly change: TurnReportChange;
-  readonly onNodeSelect: (nodeId: string) => void;
-}) {
-  const status = statusChange(change);
-  const selectNode = () => onNodeSelect(change.node.id);
-  return (
-    <DossierItemButton
-      variant="muted"
-      size="sm"
-      aria-label={`Open ${change.node.name}${change.metric ? ` ${change.metric}` : ""} dossier`}
-      onSelect={selectNode}
-      title={
-        <FactionMetricName
-          name={change.node.name}
-          metric={change.metric}
-          metricId={change.metricId}
-        />
-      }
-      description={
-        <span className="flex flex-wrap gap-2">
-          <span>{nodeTypeLabel(change.node.type)}</span>
-          {status && <Badge variant="outline">{status}</Badge>}
-        </span>
-      }
-      data-game-change={
-        change.delta > 0
-          ? "increasing"
-          : change.delta < 0
-            ? "decreasing"
-            : "neutral"
-      }
-      trailing={
-        <span className="flex flex-col items-end text-right font-mono text-xs">
-          <span className="block">
-            {formatValue(change.previousValue, change.node.domain)} →{" "}
-            {formatValue(change.value, change.node.domain)}
-          </span>
-          {Math.abs(change.delta) > 1e-9 && (
-            <Badge variant={change.delta > 0 ? "default" : "destructive"}>
-              {formatSignedValue(change.delta, change.node.domain)}
-            </Badge>
-          )}
-        </span>
-      }
-    />
-  );
-}
-
 export function TurnReportDialog({
   report,
   open,
@@ -113,10 +49,8 @@ export function TurnReportDialog({
   onEventSelect,
   onOpenChange,
 }: TurnReportDialogProps) {
-  const [showAllChanges, setShowAllChanges] = useState(false);
   const heading =
     report.year === undefined ? `Turn ${report.turn}` : `Year ${report.year}`;
-  const visibleChanges = report.highlights.slice(0, 4);
   const hasOutcomes =
     report.changes.length > 0 ||
     report.situationTransitions.length > 0 ||
@@ -162,7 +96,7 @@ export function TurnReportDialog({
       footerClassName="rounded-none"
     >
       <ScrollArea className="min-h-0 flex-1">
-        <div className="min-h-full px-6 pb-6">
+        <div className="min-h-full px-6">
           {!hasOutcomes ? (
             <Empty className="my-6 min-h-56 border">
               <EmptyHeader>
@@ -173,7 +107,7 @@ export function TurnReportDialog({
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="flex min-h-full flex-col gap-6 pb-6">
+            <div className="flex min-h-full flex-col gap-6">
               {(report.events.length > 0 ||
                 report.crisisTransitions.length > 0 ||
                 report.grudges.length > 0 ||
@@ -301,48 +235,12 @@ export function TurnReportDialog({
                 </ItemGroup>
               )}
 
-              {visibleChanges.length > 0 && (
-                <section className="mt-auto flex flex-col gap-4">
-                  <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                    {visibleChanges.map((change) => (
-                      <ChangeItem
-                        change={change}
-                        key={`${change.node.id}:${change.metric ?? "value"}`}
-                        onNodeSelect={onNodeSelect}
-                      />
-                    ))}
-                  </ItemGroup>
-
-                  {report.changes.length > visibleChanges.length && (
-                    <Collapsible
-                      open={showAllChanges}
-                      onOpenChange={setShowAllChanges}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          className="w-full"
-                          type="button"
-                          variant="outline"
-                        >
-                          Review all changes ({report.changes.length})
-                          <ChevronDown data-icon="inline-end" />
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-3">
-                        <ItemGroup className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                          {report.changes.map((change) => (
-                            <ChangeItem
-                              change={change}
-                              key={`${change.node.id}:${change.metric ?? "value"}`}
-                              onNodeSelect={onNodeSelect}
-                            />
-                          ))}
-                        </ItemGroup>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-                </section>
-              )}
+              <ChangesSection
+                title="Changes this turn"
+                changes={report.changes}
+                onNodeSelect={onNodeSelect}
+                previewCount={4}
+              />
             </div>
           )}
         </div>

@@ -16,7 +16,7 @@ import { exampleScenario } from "../../src/scenarios/example";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
 import { projectGameOverWarnings } from "../../src/ui/game/projectGameOvers";
 import { projectPrerequisite } from "../../src/ui/game/projectPrerequisite";
-import { projectEndingReport } from "../../src/ui/game/projectEndingReport";
+import { projectEndingReport } from "../../src/ui/panels/projectReport";
 import {
   beginAutomaticEvents,
   closeEventPresentation,
@@ -660,10 +660,7 @@ export function runEndingTests() {
   assert.equal(report.ending.title, "alpha");
   assert.equal(report.year, 1981);
   assert.equal(report.actors[0].id, "delegates");
-  assert.deepEqual(
-    report.readings.map(({ value }) => value),
-    ["60%", "2.0"],
-  );
+  assert.deepEqual(report.changes, [], "Unchanged readings are omitted");
   assert.equal(projectEndingReport(terminal, gameOver), undefined);
   const presentation = beginAutomaticEvents(["first", "second"], "ending")!;
   const next = closeEventPresentation(presentation);

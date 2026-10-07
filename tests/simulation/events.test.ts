@@ -12,7 +12,7 @@ import {
   projectTurnReport,
   serializeTurnReport,
   restoreTurnReport,
-} from "../../src/ui/panels/projectTurnReport";
+} from "../../src/ui/panels/projectReport";
 
 const resourceEvent = (id: string, amount: number): EventDefinition => ({
   kind: "event",

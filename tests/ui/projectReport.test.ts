@@ -3,7 +3,7 @@ import {
   initializeScenario,
   type GrudgeRuntimeState,
 } from "../../src/simulation";
-import { projectTurnReport } from "../../src/ui/panels/projectTurnReport";
+import { projectTurnReport } from "../../src/ui/panels/projectReport";
 import { institutionEra, isEtherealTurn } from "../../src/ui/institutionEra";
 import {
   getBiggestContribution,
@@ -34,7 +34,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
-export function runTurnReportProjectionTests() {
+export function runReportProjectionTests() {
   const initial = initializeScenario(exampleScenario);
   const grudge: GrudgeRuntimeState = {
     id: "report-grudge",

@@ -2,6 +2,7 @@ import {
   getNodeDisplayInfo,
   projectNodeForDisplay,
 } from "../projections/projectFactionGroups";
+import { initializeScenario } from "../../simulation";
 import type {
   NodeDefinition,
   FactionMetric,
@@ -19,8 +20,46 @@ import type {
 } from "../../app/persistence";
 
 const CHANGE_EPSILON = 1e-9;
+const startingSnapshots = new WeakMap<ScenarioDefinition, SimulationState>();
 
-export interface TurnReportChange {
+/** Compare all nodes with initialized content, including graph-hidden nodes. */
+export function projectEndingChanges(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+) {
+  let initial = startingSnapshots.get(scenario);
+  if (!initial) {
+    initial = initializeScenario(scenario);
+    startingSnapshots.set(scenario, initial);
+  }
+  return projectChanges(scenario, initial, state);
+}
+
+/** Project recorded completion and all net changes without evaluating mechanics. */
+export function projectEndingReport(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+) {
+  const outcome = state.outcome;
+  if (outcome?.kind !== "ending") return undefined;
+  const ending = outcome.usedFallback
+    ? scenario.completion.fallbackEnding
+    : scenario.completion.endings.find(({ id }) => id === outcome.endingId);
+  if (!ending) return undefined;
+  return {
+    ending,
+    turn: outcome.turn,
+    year: state.year,
+    usedFallback: outcome.usedFallback,
+    triggers: scenario.completion.prerequisiteGroups.filter(({ id }) =>
+      outcome.matchedTriggerIds.includes(id),
+    ),
+    actors: scenario.historicalActors,
+    changes: projectEndingChanges(scenario, state),
+  };
+}
+
+export interface ReportChange {
   readonly metric?: FactionMetric;
   readonly metricId?: string;
   readonly node: NodeDefinition;
@@ -51,8 +90,8 @@ export interface TurnReportGrudge {
 export interface TurnReport {
   readonly turn: number;
   readonly year?: number;
-  readonly highlights: readonly TurnReportChange[];
-  readonly changes: readonly TurnReportChange[];
+  readonly highlights: readonly ReportChange[];
+  readonly changes: readonly ReportChange[];
   readonly changedEffectIds: readonly string[];
   readonly situationTransitions: readonly TurnReportSituationTransition[];
   readonly grudges: readonly TurnReportGrudge[];
@@ -78,13 +117,42 @@ function isSituation(
   return node.type === "situation";
 }
 
+/** Compare node values and activation between snapshots in authored order. */
+export function projectChanges(
+  scenario: ScenarioDefinition,
+  previous: SimulationState,
+  current: SimulationState,
+): ReportChange[] {
+  return scenario.nodes.flatMap<ReportChange>((node) => {
+    const before = previous.nodes[node.id];
+    const after = current.nodes[node.id];
+    const delta = after.value - before.value;
+    if (Math.abs(delta) <= CHANGE_EPSILON && before.isActive === after.isActive)
+      return [];
+    const display = getNodeDisplayInfo(scenario, node.id);
+    return [
+      {
+        node: projectNodeForDisplay(scenario, node),
+        metricId: display.metricId,
+        ...(display.metric ? { metric: display.metric } : {}),
+        previousValue: before.value,
+        value: after.value,
+        delta,
+        relativeMagnitude: relativeMagnitude(delta, node),
+        previousActive: before.isActive,
+        isActive: after.isActive,
+      },
+    ];
+  });
+}
+
 /** Projects one completed turn into disposable, player-facing report data. */
 export function projectTurnReport(
   scenario: ScenarioDefinition,
   previous: SimulationState,
   current: SimulationState,
 ): TurnReport {
-  const changes: TurnReportChange[] = [];
+  const changes = projectChanges(scenario, previous, current);
   const situationTransitions: TurnReportSituationTransition[] = [];
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
   const crisisTransitions: TurnReportCrisisTransition[] = [];
@@ -120,24 +188,6 @@ export function projectTurnReport(
     const before = previous.nodes[node.id];
     const after = current.nodes[node.id];
     const activationChanged = before.isActive !== after.isActive;
-    const metric = getNodeDisplayInfo(scenario, node.id).metric;
-    const previousValue = before.value;
-    const value = after.value;
-    const delta = value - previousValue;
-    if (Math.abs(delta) > CHANGE_EPSILON || activationChanged) {
-      changes.push({
-        node: projectNodeForDisplay(scenario, node),
-        metricId: getNodeDisplayInfo(scenario, node.id).metricId,
-        ...(metric ? { metric } : {}),
-        previousValue,
-        value,
-        delta,
-        relativeMagnitude: relativeMagnitude(delta, node),
-        previousActive: before.isActive,
-        isActive: after.isActive,
-      });
-    }
-
     if (isSituation(node) && activationChanged) {
       situationTransitions.push({
         node,

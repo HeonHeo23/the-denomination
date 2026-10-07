@@ -17,7 +17,7 @@ import {
   restoreTurnReport,
   serializeTurnReport,
   type TurnReport,
-} from "@/ui/panels/projectTurnReport";
+} from "@/ui/panels/projectReport";
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
 import { DilemmaDialog } from "./DilemmaDialog";
@@ -478,6 +478,8 @@ export function GameView({
 
       {navigation.reportOpen && session.state.outcome?.kind === "game-over" && (
         <GameOverReportDialog
+          denominationName={denominationName}
+          onNodeSelect={selectNode}
           scenario={scenario}
           state={session.state}
           onCrisisSelect={selectCrisis}
