@@ -13,7 +13,7 @@ import {
 } from "../../src/simulation";
 import { assemblyScenario, endingScenario } from "../simulation/endings.test";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
-import { projectEndingReport } from "../../src/ui/game/projectEndingReport";
+import { projectEndingReport } from "../../src/ui/panels/projectReport";
 import { projectGameOverReport } from "../../src/ui/game/projectGameOvers";
 import { moveDossierNavigation } from "../../src/ui/game/useDossierNavigation";
 
@@ -37,6 +37,10 @@ export function runEndingPersistenceTests() {
       entries,
     );
   assert.ok(restore(state));
+  assert.deepEqual(
+    projectEndingReport(scenario, restore(state)!.state)?.changes,
+    projectEndingReport(scenario, state)?.changes,
+  );
   const restored = createGameSession(scenario, save.state);
   assert.ok(restored.ok);
   assert.equal(

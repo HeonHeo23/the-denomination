@@ -17,12 +17,16 @@ export function formatValue(value: number, domain: NumericDomain): string {
 export function formatSignedValue(
   value: number,
   domain?: NumericDomain,
+  percentagePoints = false,
 ): string {
   const isPercentage = domain !== undefined && isPercentDomain(domain);
   const displayValue = isPercentage ? toPercent(value) : value;
-  const sign = displayValue > 0 ? "+" : "";
+  const roundedValue = percentagePoints
+    ? Number(displayValue.toFixed(1))
+    : displayValue;
+  const sign = roundedValue > 0 ? "+" : "";
 
-  return `${sign}${displayValue.toFixed(1)}${isPercentage ? "%" : ""}`;
+  return `${sign}${roundedValue.toFixed(1)}${isPercentage ? (percentagePoints ? "%p" : "%") : ""}`;
 }
 
 export function formatContributionPercent(value: number): string {

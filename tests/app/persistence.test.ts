@@ -1,3 +1,4 @@
+import { runEndingChangesTests } from "./endingChanges.test";
 import { ongoingCompletion } from "../simulation/fixtures";
 import { runEndingPersistenceTests } from "./endings.test";
 import assert from "node:assert/strict";
@@ -25,7 +26,7 @@ import {
   projectTurnReport,
   restoreTurnReport,
   serializeTurnReport,
-} from "../../src/ui/panels/projectTurnReport";
+} from "../../src/ui/panels/projectReport";
 
 const exampleScenario = { ...bundledScenario, completion: ongoingCompletion };
 
@@ -517,3 +518,4 @@ assert.equal(storage.getItem("unrelated-setting"), "preserved");
 console.log("Application persistence checks passed.");
 
 runEndingPersistenceTests();
+runEndingChangesTests();

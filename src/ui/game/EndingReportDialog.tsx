@@ -1,13 +1,12 @@
-import { FactionMetricReadings } from "@/ui/FactionMetric";
-import { Home, Image, RotateCcw, Search } from "lucide-react";
+import { Home, Landmark, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import type { ScenarioDefinition, SimulationState } from "@/simulation";
 import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
-import { DossierItemButton } from "@/ui/panels/DossierItemButton";
-import { projectEndingReport } from "./projectEndingReport";
+import { ChangesSection } from "@/ui/panels/ChangesSection";
+import { projectEndingReport } from "../panels/projectReport";
 
 interface EndingReportDialogProps {
   readonly scenario: ScenarioDefinition;
@@ -40,7 +39,9 @@ export function EndingReportDialog({
       }}
       header={
         <>
-          <DialogTitle>{report.ending.title}</DialogTitle>
+          <DialogTitle className="font-heading text-3xl leading-none sm:text-4xl">
+            {report.ending.title}
+          </DialogTitle>
           <DialogDescription>
             {denominationName} ·{" "}
             {report.year === undefined
@@ -73,14 +74,26 @@ export function EndingReportDialog({
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-5 px-6 pb-6">
           <div
-            className="flex aspect-video max-h-56 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted text-muted-foreground"
             role="img"
-            aria-label="Institutional ending illustration placeholder"
+            aria-label={`${report.ending.title} illustration placeholder`}
+            className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-lg border bg-muted/40 px-6 py-8 text-center sm:min-h-48"
           >
-            <Image aria-hidden="true" className="size-10" />
-            <span className="text-sm">Ending illustration placeholder</span>
+            <Landmark
+              aria-hidden="true"
+              className="size-8 text-muted-foreground"
+            />
+            <span className="font-heading text-2xl">{report.ending.title}</span>
+            <span className="text-xs tracking-widest text-muted-foreground uppercase">
+              Illustration forthcoming
+            </span>
           </div>
           <p className="text-sm leading-relaxed">{report.ending.narrative}</p>
+          <ChangesSection
+            title="Changes since the beginning"
+            changes={report.changes}
+            onNodeSelect={onNodeSelect}
+          />
+          <Separator />
           <section
             className="flex flex-col gap-3"
             aria-label="Completion triggers"
@@ -95,42 +108,6 @@ export function EndingReportDialog({
               </div>
             ))}
           </section>
-          {report.readings.length > 0 && (
-            <>
-              <Separator />
-              <section
-                className="flex flex-col gap-3"
-                aria-label="Final institutional readings"
-              >
-                <h2 className="text-sm font-semibold">
-                  The institution at completion
-                </h2>
-                <div role="list" className="grid gap-2 md:grid-cols-2">
-                  {report.readings.map((reading) => (
-                    <DossierItemButton
-                      key={reading.definition.id}
-                      title={reading.definition.name}
-                      description={
-                        reading.isActive
-                          ? reading.definition.description
-                          : "Inactive at completion"
-                      }
-                      trailing={
-                        reading.factionMetrics ? (
-                          <FactionMetricReadings
-                            readings={reading.factionMetrics}
-                          />
-                        ) : (
-                          reading.value
-                        )
-                      }
-                      onSelect={() => onNodeSelect(reading.definition.id)}
-                    />
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
           {report.actors.length > 0 && (
             <>
               <Separator />

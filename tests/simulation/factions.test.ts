@@ -25,12 +25,12 @@ import {
 } from "../../src/ui/graph/projectNodeSearch";
 import {
   projectTurnReport,
+  projectEndingReport,
   serializeTurnReport,
   restoreTurnReport,
-} from "../../src/ui/panels/projectTurnReport";
+} from "../../src/ui/panels/projectReport";
 import { projectNodeValueHistory } from "../../src/ui/panels/projectNodeValueHistory";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
-import { projectEndingReport } from "../../src/ui/game/projectEndingReport";
 import { projectEventOccurrence } from "../../src/ui/game/projectEventOccurrence";
 import { validateSavedGame, type SavedGame } from "../../src/app/persistence";
 
@@ -520,10 +520,19 @@ export function runFactionTests() {
       },
     },
   )!;
-  assert.equal(ending.readings.length, 1);
-  assert.deepEqual(
-    ending.readings[0].factionMetrics!.map((reading) => reading.metric),
-    ["Satisfaction", "Membership", "Institutional confidence"],
+  assert.ok(
+    ending.changes.some((change) => change.node.id === "a-satisfaction"),
+  );
+  assert.ok(
+    ending.changes
+      .filter((change) => change.node.type === "faction")
+      .every((change) => change.metric && change.metricId),
+  );
+  assert.ok(
+    ending.changes.some(
+      (change) => !completion.reportNodeIds.includes(change.node.id),
+    ),
+    "Report-node selection does not restrict net changes",
   );
 
   const eventScenario: ScenarioDefinition = {

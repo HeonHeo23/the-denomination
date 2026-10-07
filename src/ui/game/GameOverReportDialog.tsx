@@ -1,6 +1,9 @@
-import { Home, RotateCcw, Search } from "lucide-react";
+import { Home, RotateCcw, Search, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { ChangesSection } from "@/ui/panels/ChangesSection";
+import { projectEndingChanges } from "../panels/projectReport";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ScenarioDefinition, SimulationState } from "@/simulation";
 import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
@@ -10,6 +13,8 @@ import { projectCrises, projectGameOverReport } from "./projectGameOvers";
 interface GameOverReportDialogProps {
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
+  readonly denominationName: string;
+  readonly onNodeSelect: (nodeId: string) => void;
   readonly onCrisisSelect: (crisisId: string) => void;
   readonly onReview: () => void;
   readonly onRestart: () => void;
@@ -19,11 +24,14 @@ interface GameOverReportDialogProps {
 export function GameOverReportDialog({
   scenario,
   state,
+  denominationName,
+  onNodeSelect,
   onCrisisSelect,
   onReview,
   onRestart,
   onMainMenu,
 }: GameOverReportDialogProps) {
+  const changes = projectEndingChanges(scenario, state);
   const causes = projectGameOverReport(scenario, state);
   const crisisById = new Map(
     projectCrises(scenario, state).map((crisis) => [
@@ -37,6 +45,9 @@ export function GameOverReportDialog({
       open
       surface="game-over"
       showCloseButton={false}
+      onOpenChange={(open) => {
+        if (!open) onReview();
+      }}
       header={
         <>
           <div className="min-w-0">
@@ -44,8 +55,11 @@ export function GameOverReportDialog({
               Game Over
             </DialogTitle>
             <DialogDescription>
-              The institution can no longer continue. Review the historical and
-              mechanical causes of this Game Over below.
+              {denominationName} ·{" "}
+              {state.year === undefined
+                ? `Turn ${state.turn}`
+                : `${state.year} · Turn ${state.turn}`}{" "}
+              · Institutional closure
             </DialogDescription>
           </div>
         </>
@@ -69,6 +83,31 @@ export function GameOverReportDialog({
     >
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-5 px-6 pb-6">
+          <div
+            role="img"
+            aria-label="Game Over illustration placeholder"
+            className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-lg border bg-muted/40 px-6 py-8 text-center sm:min-h-48"
+          >
+            <ShieldOff
+              aria-hidden="true"
+              className="size-8 text-muted-foreground"
+            />
+            <span className="font-heading text-2xl">Game Over</span>
+            <span className="text-xs tracking-widest text-muted-foreground uppercase">
+              Illustration forthcoming
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed">
+            The institution can no longer continue. Its terminal crises are
+            recorded below.
+          </p>
+          <ChangesSection
+            title="Changes since the beginning"
+            changes={changes}
+            onNodeSelect={onNodeSelect}
+          />
+          <Separator />
+          <h2 className="font-heading text-xl">Causes of closure</h2>
           {causes.map((cause) => (
             <CrisisSummaryCard
               key={cause.definition.id}

@@ -1,4 +1,4 @@
-import type { TurnReport } from "./panels/projectTurnReport";
+import type { TurnReport } from "./panels/projectReport";
 
 export type InstitutionEra = "humble" | "growing" | "established";
 
