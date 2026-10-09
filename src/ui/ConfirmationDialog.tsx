@@ -11,29 +11,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export type ConfirmationKind = "new-game" | "main-menu";
-
 interface ConfirmationDialogProps {
-  readonly kind?: ConfirmationKind;
+  readonly open: boolean;
   readonly onConfirm: () => void;
   readonly onSaveAndExit?: () => void;
   readonly onCancel: () => void;
 }
 
 export function ConfirmationDialog({
-  kind,
+  open,
   onConfirm,
   onSaveAndExit,
   onCancel,
 }: ConfirmationDialogProps) {
-  if (kind === undefined) return <AlertDialog open={false} />;
-
-  const isReplacement = kind === "new-game";
-  const isMainMenu = kind === "main-menu";
+  if (!open) return <AlertDialog open={false} />;
 
   return (
     <AlertDialog
-      open={kind !== undefined}
+      open={open}
       onOpenChange={(open) => {
         if (!open) onCancel();
       }}
@@ -46,26 +41,16 @@ export function ConfirmationDialog({
           <AlertDialogMedia>
             <CircleAlert aria-hidden="true" />
           </AlertDialogMedia>
-          <AlertDialogTitle>
-            {isReplacement
-              ? "Begin a new history?"
-              : "Return to the main menu?"}
-          </AlertDialogTitle>
+          <AlertDialogTitle>Return to the main menu?</AlertDialogTitle>
           <AlertDialogDescription className="text-left leading-relaxed">
-            {isReplacement
-              ? "Starting a new game will permanently replace the progress currently saved in this browser."
-              : "Choose whether to save this game before returning to the main menu."}
+            Choose whether to save this game before returning to the main menu.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter
-          className={
-            isMainMenu ? "grid grid-cols-1" : "grid grid-cols-1 sm:grid-cols-2"
-          }
-        >
+        <AlertDialogFooter className="grid grid-cols-1">
           <AlertDialogCancel className="h-auto min-h-10 w-full min-w-0 whitespace-normal leading-snug">
             Keep current game
           </AlertDialogCancel>
-          {isMainMenu && onSaveAndExit && (
+          {onSaveAndExit && (
             <AlertDialogAction
               className="h-auto min-h-10 w-full min-w-0 whitespace-normal leading-snug"
               onClick={onSaveAndExit}
@@ -78,7 +63,7 @@ export function ConfirmationDialog({
             variant="destructive"
             onClick={onConfirm}
           >
-            {isReplacement ? "Start new game" : "Don’t save and go"}
+            Don’t save and go
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

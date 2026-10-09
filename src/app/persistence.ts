@@ -6,7 +6,6 @@ export const SAVE_STORAGE_KEY = "the-denomination.save.v4";
 export interface SaveStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
-  removeItem(key: string): void;
 }
 
 export interface SavedTurnReportChange {
@@ -53,15 +52,6 @@ export interface SavedGame {
   readonly state: SimulationState;
   readonly turnReport?: SavedTurnReport;
 }
-
-export type SavedGameLoadResult =
-  | { readonly status: "empty" }
-  | { readonly status: "ready"; readonly save: SavedGame }
-  | {
-      readonly status: "unavailable";
-      readonly message: string;
-      readonly discardInvalid: boolean;
-    };
 
 type ObjectValue = Record<string, unknown>;
 
@@ -315,6 +305,8 @@ function validRuntimeState(
   )
     return false;
   const historyByTurn = nodeValueHistory as ObjectValue;
+  // Commands update the current turn's readings, including the starting turn.
+  // Validate runtime history rather than requiring authored initial values.
   for (let index = 0; index < historyLength; index += 1) {
     const turnKey = String(scenario.start.turn + index);
     if (!Object.hasOwn(historyByTurn, turnKey)) return false;
@@ -337,15 +329,6 @@ function validRuntimeState(
           node.domain.clamp &&
           (reading.value < node.domain.min ||
             reading.value > node.domain.max)) ||
-        (index === 0 &&
-          (reading.value !==
-            (node.type === "resource" && node.domain.clamp
-              ? Math.min(
-                  node.domain.max,
-                  Math.max(node.domain.min, node.initial.value),
-                )
-              : node.initial.value) ||
-            reading.isActive !== node.initial.isActive)) ||
         (index === historyLength - 1 &&
           (reading.value !== (nodes[node.id] as ObjectValue).value ||
             reading.isActive !== (nodes[node.id] as ObjectValue).isActive))
@@ -729,59 +712,4 @@ export function validateSavedGame(
   )
     return undefined;
   return value as unknown as SavedGame;
-}
-
-export function loadSavedGame(
-  storage: SaveStorage,
-  catalog: readonly LoadedScenarioCatalogEntry[],
-): SavedGameLoadResult {
-  let serialized: string | null;
-  try {
-    serialized = storage.getItem(SAVE_STORAGE_KEY);
-  } catch {
-    return {
-      status: "unavailable",
-      message:
-        "Saved progress is unavailable because browser storage could not be read.",
-      discardInvalid: false,
-    };
-  }
-  if (serialized === null) return { status: "empty" };
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(serialized);
-  } catch {
-    parsed = undefined;
-  }
-  const save = validateSavedGame(parsed, catalog);
-  if (save) return { status: "ready", save };
-
-  return {
-    status: "unavailable",
-    message:
-      "The previous saved game was invalid or incompatible and could not be restored.",
-    discardInvalid: true,
-  };
-}
-
-export function storeSavedGame(
-  storage: SaveStorage,
-  save: SavedGame,
-): string | undefined {
-  try {
-    storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(save));
-    return undefined;
-  } catch {
-    return "Progress could not be saved. This game will continue in memory.";
-  }
-}
-
-export function clearSavedGame(storage: SaveStorage): string | undefined {
-  try {
-    storage.removeItem(SAVE_STORAGE_KEY);
-    return undefined;
-  } catch {
-    return "Saved progress could not be removed from browser storage.";
-  }
 }

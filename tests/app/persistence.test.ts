@@ -1,12 +1,19 @@
+import { mock } from "node:test";
+import { randomUUID } from "node:crypto";
+import {
+  deleteSavedGameEntry,
+  loadSavedGames,
+  loadSavedGameEntry,
+  getContinueGame,
+  rememberLoadedGame,
+  storeSavedGameEntry,
+} from "../../src/app/savedGames";
 import { runEndingChangesTests } from "./endingChanges.test";
+import { runStartingTurnPersistenceTests } from "./startingTurnPersistence.test";
 import { ongoingCompletion } from "../simulation/fixtures";
 import { runEndingPersistenceTests } from "./endings.test";
 import assert from "node:assert/strict";
 import {
-  clearSavedGame,
-  loadSavedGame,
-  SAVE_STORAGE_KEY,
-  storeSavedGame,
   validateSavedGame,
   type SavedGame,
   type SaveStorage,
@@ -32,17 +39,23 @@ const exampleScenario = { ...bundledScenario, completion: ongoingCompletion };
 
 class MemoryStorage implements SaveStorage {
   readonly values = new Map<string, string>();
+  writes = 0;
+
+  get latestValue(): string {
+    return [...this.values.values()].at(-1)!;
+  }
+
+  set latestValue(value: string) {
+    this.values.set([...this.values.keys()].at(-1)!, value);
+  }
 
   getItem(key: string) {
     return this.values.get(key) ?? null;
   }
 
   setItem(key: string, value: string) {
+    this.writes += 1;
     this.values.set(key, value);
-  }
-
-  removeItem(key: string) {
-    this.values.delete(key);
   }
 }
 
@@ -85,7 +98,6 @@ const save: SavedGame = {
   state,
 };
 
-assert.ok(validateSavedGame(save, catalog), "A valid save should be accepted");
 const exampleDilemma = exampleScenario.dilemmas[0];
 const queuedContent = {
   ...exampleScenario,
@@ -112,10 +124,6 @@ const pendingSave: SavedGame = {
   scenarioContentVersion: 6,
   state: partiallyResolved,
 };
-assert.ok(
-  validateSavedGame(pendingSave, queuedCatalog),
-  "A pending Dilemma can be saved",
-);
 const adjustedWhilePending = executeCommand(queuedScenario, partiallyResolved, {
   type: "set-stance",
   stanceId: "centralization",
@@ -130,14 +138,23 @@ assert.ok(
   "A Stance adjustment during a pending Dilemma can be saved",
 );
 const pendingStorage = new MemoryStorage();
-assert.equal(storeSavedGame(pendingStorage, pendingSave), undefined);
-const pendingLoaded = loadSavedGame(pendingStorage, queuedCatalog);
-assert.equal(pendingLoaded.status, "ready");
-if (pendingLoaded.status === "ready")
-  assert.deepEqual(
-    pendingLoaded.save.state.pendingDilemmaIds,
-    queued.pendingDilemmaIds,
-  );
+assert.equal(
+  storeSavedGameEntry(pendingStorage, queuedCatalog, {
+    id: "pending",
+    save: pendingSave,
+  }),
+  undefined,
+);
+const pendingLoaded = loadSavedGameEntry(
+  pendingStorage,
+  queuedCatalog,
+  "pending",
+).game;
+assert.ok(pendingLoaded);
+assert.deepEqual(
+  pendingLoaded.save.state.pendingDilemmaIds,
+  queued.pendingDilemmaIds,
+);
 assert.equal(
   validateSavedGame(
     {
@@ -179,17 +196,13 @@ const previousContentState = {
   ...initialState,
   dilemmas: { [exampleDilemma.id]: initialState.dilemmas[exampleDilemma.id] },
 };
-const previousContentStorage = new MemoryStorage();
-previousContentStorage.setItem(
-  SAVE_STORAGE_KEY,
-  JSON.stringify({
-    ...save,
-    scenarioContentVersion: 4,
-    state: previousContentState,
-  }),
+assert.equal(
+  validateSavedGame(
+    { ...save, scenarioContentVersion: 4, state: previousContentState },
+    catalog,
+  ),
+  undefined,
 );
-const oldContentSave = loadSavedGame(previousContentStorage, catalog);
-assert.equal(oldContentSave.status, "unavailable");
 const oldPendingScenario = {
   ...exampleScenario,
   dilemmas: [{ ...exampleDilemma, threshold: -1 }],
@@ -199,20 +212,12 @@ const oldPending = advanceTurn(
   initializeScenario(oldPendingScenario),
   0,
 ).state;
-const oldPendingStorage = new MemoryStorage();
-oldPendingStorage.setItem(
-  SAVE_STORAGE_KEY,
-  JSON.stringify({
-    ...save,
-    scenarioContentVersion: 4,
-    state: oldPending,
-  }),
-);
-const oldPendingSave = loadSavedGame(oldPendingStorage, catalog);
-assert.equal(oldPendingSave.status, "unavailable");
-assert.ok(
-  validateSavedGame(reportSave, catalog),
-  "A save with a turn report should be accepted",
+assert.equal(
+  validateSavedGame(
+    { ...save, scenarioContentVersion: 4, state: oldPending },
+    catalog,
+  ),
+  undefined,
 );
 const effectId = exampleScenario.effects[0].id;
 assert.equal(
@@ -269,10 +274,13 @@ assert.ok(
   "A terminal Game Over save should be restorable",
 );
 const storage = new MemoryStorage();
-assert.equal(storeSavedGame(storage, save), undefined);
-const loaded = loadSavedGame(storage, catalog);
-assert.equal(loaded.status, "ready");
-if (loaded.status === "ready") {
+assert.equal(
+  storeSavedGameEntry(storage, catalog, { id: "round-trip", save }),
+  undefined,
+);
+const loaded = loadSavedGameEntry(storage, catalog, "round-trip").game;
+assert.ok(loaded);
+{
   assert.deepEqual(loaded.save, save, "A save must round-trip without loss");
   const session = createGameSession(exampleScenario, loaded.save.state);
   assert.ok(session.ok);
@@ -298,16 +306,17 @@ if (loaded.status === "ready") {
   assert.equal(reset.state.turn, exampleScenario.start.turn);
 }
 
-assert.equal(storeSavedGame(storage, reportSave), undefined);
-const loadedReport = loadSavedGame(storage, catalog);
-assert.equal(loadedReport.status, "ready");
-if (loadedReport.status === "ready") {
-  assert.deepEqual(
-    loadedReport.save.turnReport,
-    savedTurnReport,
-    "A saved turn report must round-trip without loss",
-  );
-}
+assert.equal(
+  storeSavedGameEntry(storage, catalog, { id: "report", save: reportSave }),
+  undefined,
+);
+const loadedReport = loadSavedGameEntry(storage, catalog, "report").game;
+assert.ok(loadedReport);
+assert.deepEqual(
+  loadedReport.save.turnReport,
+  savedTurnReport,
+  "A saved turn report must round-trip without loss",
+);
 
 assert.equal(
   validateSavedGame({ ...save, version: 1 }, catalog),
@@ -457,18 +466,6 @@ assert.equal(
   "Unknown prerequisite groups in crisis progress must be rejected",
 );
 
-storage.setItem(SAVE_STORAGE_KEY, "not json");
-const malformed = loadSavedGame(storage, catalog);
-assert.equal(malformed.status, "unavailable");
-if (malformed.status === "unavailable")
-  assert.equal(malformed.discardInvalid, true);
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(
-  storage.getItem(SAVE_STORAGE_KEY),
-  null,
-  "An invalid save should be cleared",
-);
-
 const failingStorage: SaveStorage = {
   getItem() {
     throw new Error("blocked");
@@ -476,46 +473,308 @@ const failingStorage: SaveStorage = {
   setItem() {
     throw new Error("full");
   },
-  removeItem() {
-    throw new Error("blocked");
-  },
 };
-assert.equal(loadSavedGame(failingStorage, catalog).status, "unavailable");
-assert.match(storeSavedGame(failingStorage, save) ?? "", /could not be saved/);
-assert.match(clearSavedGame(failingStorage) ?? "", /could not be removed/);
-
-assert.equal(clearSavedGame(storage), undefined);
-assert.equal(storage.getItem(SAVE_STORAGE_KEY), null);
-
-const touchedKeys: string[] = [];
-const currentSlotStorage: SaveStorage = {
-  getItem(key) {
-    touchedKeys.push(key);
-    return storage.getItem(key);
-  },
-  setItem(key, value) {
-    touchedKeys.push(key);
-    storage.setItem(key, value);
-  },
-  removeItem(key) {
-    touchedKeys.push(key);
-    storage.removeItem(key);
-  },
-};
-storage.setItem("unrelated-setting", "preserved");
-assert.deepEqual(loadSavedGame(currentSlotStorage, catalog), {
-  status: "empty",
-});
-assert.equal(storeSavedGame(currentSlotStorage, save), undefined);
-assert.equal(clearSavedGame(currentSlotStorage), undefined);
-assert.deepEqual(
-  touchedKeys,
-  [SAVE_STORAGE_KEY, SAVE_STORAGE_KEY, SAVE_STORAGE_KEY],
-  "Persistence touches only its current save slot",
-);
-assert.equal(storage.getItem("unrelated-setting"), "preserved");
-
 console.log("Application persistence checks passed.");
 
 runEndingPersistenceTests();
 runEndingChangesTests();
+runStartingTurnPersistenceTests();
+
+// Listing reads metadata; restoration validates only the selected snapshot.
+mock.timers.enable({
+  apis: ["Date"],
+  now: Date.parse("2026-10-07T12:00:00.000Z"),
+});
+const collectionStorage = new MemoryStorage();
+assert.deepEqual(loadSavedGames(collectionStorage), { games: [] });
+const firstEntry = { id: "first", savedAt: new Date().toISOString(), save };
+assert.equal(
+  storeSavedGameEntry(collectionStorage, catalog, firstEntry),
+  undefined,
+);
+assert.deepEqual(
+  loadSavedGameEntry(collectionStorage, catalog, "first").game,
+  firstEntry,
+);
+assert.equal(
+  collectionStorage.writes,
+  1,
+  "Saving and selecting Continue share one write",
+);
+assert.equal(loadSavedGames(collectionStorage).lastLoadedGameId, "first");
+mock.timers.tick(1000);
+const secondSave = { ...save, denominationName: "Second institution" };
+const secondEntry = {
+  id: "second",
+  savedAt: new Date().toISOString(),
+  save: secondSave,
+};
+assert.equal(
+  storeSavedGameEntry(collectionStorage, catalog, secondEntry),
+  undefined,
+);
+assert.deepEqual(
+  loadSavedGames(collectionStorage).games.map(({ id }) => id),
+  ["second", "first"],
+);
+assert.equal(
+  getContinueGame(
+    loadSavedGames(collectionStorage).games,
+    loadSavedGames(collectionStorage).lastLoadedGameId,
+  )?.id,
+  "second",
+);
+const beforeLoad = collectionStorage.latestValue;
+assert.deepEqual(
+  loadSavedGameEntry(collectionStorage, catalog, "first").game,
+  firstEntry,
+);
+assert.equal(
+  collectionStorage.latestValue,
+  beforeLoad,
+  "Loading preserves stored data and timestamps",
+);
+assert.equal(rememberLoadedGame(collectionStorage, "first"), undefined);
+let listed = loadSavedGames(collectionStorage);
+assert.equal(
+  getContinueGame(listed.games, listed.lastLoadedGameId)?.id,
+  "first",
+);
+assert.deepEqual(JSON.parse(collectionStorage.latestValue).games, [
+  secondEntry,
+  firstEntry,
+]);
+mock.timers.tick(1000);
+const beforeDuplicate = collectionStorage.latestValue;
+const writesBeforeDuplicate = collectionStorage.writes;
+assert.match(
+  storeSavedGameEntry(collectionStorage, catalog, {
+    id: "first",
+    save: { ...save, playerName: "Updated leader" },
+  }) ?? "",
+  /slot already exists/,
+);
+assert.equal(collectionStorage.latestValue, beforeDuplicate);
+assert.equal(collectionStorage.writes, writesBeforeDuplicate);
+assert.equal(loadSavedGames(collectionStorage).lastLoadedGameId, "first");
+for (const invalidSave of [
+  { ...save, scenarioContentVersion: 999 },
+  { ...save, state: { ...save.state, turn: -1 } },
+]) {
+  assert.match(
+    storeSavedGameEntry(collectionStorage, catalog, {
+      id: randomUUID(),
+      save: invalidSave,
+    }) ?? "",
+    /snapshot is invalid/,
+  );
+  assert.equal(collectionStorage.latestValue, beforeDuplicate);
+  assert.equal(collectionStorage.writes, writesBeforeDuplicate);
+}
+const olderCheckpoint = loadSavedGameEntry(
+  collectionStorage,
+  catalog,
+  "first",
+).game!;
+const updatedEntry = {
+  id: randomUUID(),
+  savedAt: new Date().toISOString(),
+  save: olderCheckpoint.save,
+};
+assert.equal(
+  storeSavedGameEntry(collectionStorage, catalog, updatedEntry),
+  undefined,
+);
+assert.deepEqual(JSON.parse(collectionStorage.latestValue).games, [
+  updatedEntry,
+  secondEntry,
+  firstEntry,
+]);
+assert.equal(
+  loadSavedGames(collectionStorage).lastLoadedGameId,
+  updatedEntry.id,
+);
+assert.deepEqual(
+  loadSavedGameEntry(collectionStorage, catalog, "first").game,
+  firstEntry,
+);
+const sameTurnEntry = { ...updatedEntry, id: randomUUID() };
+assert.equal(
+  storeSavedGameEntry(collectionStorage, catalog, sameTurnEntry),
+  undefined,
+);
+assert.deepEqual(JSON.parse(collectionStorage.latestValue).games, [
+  sameTurnEntry,
+  updatedEntry,
+  secondEntry,
+  firstEntry,
+]);
+const reopenedStorage = new MemoryStorage();
+for (const [key, value] of collectionStorage.values)
+  reopenedStorage.values.set(key, value);
+assert.deepEqual(
+  loadSavedGames(reopenedStorage),
+  loadSavedGames(collectionStorage),
+);
+assert.deepEqual(
+  loadSavedGameEntry(reopenedStorage, catalog, "first").game,
+  firstEntry,
+);
+const reopenedGames = loadSavedGames(reopenedStorage);
+assert.equal(
+  getContinueGame(reopenedGames.games, reopenedGames.lastLoadedGameId)?.id,
+  sameTurnEntry.id,
+);
+assert.equal(rememberLoadedGame(reopenedStorage, "first"), undefined);
+assert.equal(
+  getContinueGame(
+    loadSavedGames(reopenedStorage).games,
+    loadSavedGames(reopenedStorage).lastLoadedGameId,
+  )?.id,
+  "first",
+);
+assert.match(
+  loadSavedGameEntry(collectionStorage, catalog, "missing").message ?? "",
+  /no longer available/,
+);
+assert.ok(rememberLoadedGame(collectionStorage, "missing"));
+assert.equal(getContinueGame([]), undefined);
+assert.equal(getContinueGame(listed.games, "missing")?.id, "second");
+
+const invalidEntries = [
+  { id: "missing-time", save },
+  { id: "bad-time", savedAt: "not a date", save },
+  { id: "empty-time", savedAt: "", save },
+  { id: "numeric-time", savedAt: 123, save },
+  { id: "null-time", savedAt: null, save },
+  {
+    id: "incompatible",
+    savedAt: firstEntry.savedAt,
+    save: { ...save, scenarioContentVersion: 999 },
+  },
+  { id: "broken", savedAt: firstEntry.savedAt, save: null },
+  { id: "missing-save", savedAt: firstEntry.savedAt },
+];
+collectionStorage.latestValue = JSON.stringify({
+  version: 1,
+  lastLoadedGameId: "missing-time",
+  games: [...invalidEntries, firstEntry],
+});
+listed = loadSavedGames(collectionStorage);
+assert.deepEqual(
+  listed.games.map(({ id }) => id),
+  [...invalidEntries.map(({ id }) => id), "first"],
+  "All entries are listed in collection order before validation",
+);
+assert.equal(listed.message, undefined);
+assert.equal(listed.games[0].denominationName, save.denominationName);
+assert.equal(listed.games[6].denominationName, undefined);
+assert.equal(
+  getContinueGame(listed.games, listed.lastLoadedGameId)?.id,
+  "missing-time",
+  "Continue does not filter compatibility before selection",
+);
+for (const entry of invalidEntries) {
+  const before = collectionStorage.latestValue;
+  const result = loadSavedGameEntry(collectionStorage, catalog, entry.id);
+  assert.equal(result.game, undefined);
+  assert.ok(result.message, entry.id);
+  assert.equal(
+    collectionStorage.latestValue,
+    before,
+    "Failed restoration preserves data",
+  );
+}
+assert.deepEqual(
+  loadSavedGameEntry(collectionStorage, catalog, "first").game,
+  firstEntry,
+  "Valid saves load alongside invalid entries",
+);
+assert.equal(
+  storeSavedGameEntry(collectionStorage, catalog, secondEntry),
+  undefined,
+);
+assert.deepEqual(
+  JSON.parse(collectionStorage.latestValue).games.slice(1, -1),
+  invalidEntries,
+);
+const futureCatalog = catalog.map((entry) => ({
+  ...entry,
+  contentVersion: 999,
+}));
+assert.equal(
+  loadSavedGameEntry(collectionStorage, futureCatalog, "incompatible").game
+    ?.save.scenarioContentVersion,
+  999,
+);
+assert.equal(rememberLoadedGame(collectionStorage, "first"), undefined);
+assert.equal(
+  deleteSavedGameEntry(collectionStorage, "missing-time"),
+  undefined,
+);
+assert.equal(
+  loadSavedGames(collectionStorage).games.some(
+    ({ id }) => id === "missing-time",
+  ),
+  false,
+);
+assert.equal(loadSavedGames(collectionStorage).lastLoadedGameId, "first");
+assert.equal(deleteSavedGameEntry(collectionStorage, "first"), undefined);
+assert.equal(loadSavedGames(collectionStorage).lastLoadedGameId, undefined);
+assert.deepEqual(
+  loadSavedGameEntry(collectionStorage, catalog, "second").game,
+  { ...secondEntry, savedAt: updatedEntry.savedAt },
+);
+const quotaStorage: SaveStorage = {
+  getItem: (key) => reopenedStorage.getItem(key),
+  setItem() {
+    throw new Error("quota exceeded");
+  },
+};
+const beforeFailure = reopenedStorage.latestValue;
+let attemptedWrites = 0;
+const failingWriteStorage: SaveStorage = {
+  getItem: (key) => reopenedStorage.getItem(key),
+  setItem() {
+    attemptedWrites += 1;
+    throw new Error("quota exceeded");
+  },
+};
+assert.match(
+  storeSavedGameEntry(failingWriteStorage, catalog, {
+    id: randomUUID(),
+    save,
+  }) ?? "",
+  /continue in memory/,
+);
+assert.equal(attemptedWrites, 1);
+assert.match(
+  rememberLoadedGame(quotaStorage, "first") ?? "",
+  /could not be remembered/,
+);
+assert.ok(deleteSavedGameEntry(quotaStorage, "first"));
+assert.equal(reopenedStorage.latestValue, beforeFailure);
+assert.ok(loadSavedGameEntry(failingStorage, catalog, "first").message);
+assert.ok(loadSavedGames(failingStorage).message);
+assert.ok(storeSavedGameEntry(failingStorage, catalog, firstEntry));
+assert.ok(deleteSavedGameEntry(failingStorage, "first"));
+for (const serialized of [
+  "not json",
+  JSON.stringify({ version: 2, games: [] }),
+  JSON.stringify({ version: 1, games: [firstEntry, firstEntry] }),
+]) {
+  collectionStorage.latestValue = serialized;
+  assert.deepEqual(loadSavedGames(collectionStorage).games, []);
+  assert.ok(loadSavedGameEntry(collectionStorage, catalog, "first").message);
+  assert.ok(storeSavedGameEntry(collectionStorage, catalog, firstEntry));
+  assert.ok(deleteSavedGameEntry(collectionStorage, "first"));
+  assert.equal(
+    collectionStorage.latestValue,
+    serialized,
+    "Unreadable collections are not overwritten",
+  );
+}
+mock.timers.reset();
+console.log(
+  "Save metadata listing, selected-entry validation, timestamps, and deletion checks passed.",
+);

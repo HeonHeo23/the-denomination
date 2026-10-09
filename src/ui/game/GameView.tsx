@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import type { SavedGame, SavedTurnReport } from "@/app/persistence";
+import type { SavedTurnReport } from "@/app/persistence";
 import type { LoadedScenarioCatalogEntry } from "@/app/scenarioCatalog";
 import { useGameSession } from "@/app/useGameSession";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -48,7 +48,7 @@ interface GameViewProps {
   readonly restoredState?: SimulationState;
   readonly restoredTurnReport?: SavedTurnReport;
   readonly notice?: string;
-  readonly savedGame?: SavedGame;
+  readonly canLoad: boolean;
   readonly onSave: (state: SimulationState, report?: SavedTurnReport) => void;
   readonly onLoad: () => void;
   readonly onMainMenu: (
@@ -66,7 +66,7 @@ export function GameView({
   restoredState,
   restoredTurnReport,
   notice,
-  savedGame,
+  canLoad,
   onSave,
   onLoad,
   onMainMenu,
@@ -296,7 +296,7 @@ export function GameView({
         terminal={Boolean(session.state.outcome)}
         normalEnding={session.state.outcome?.kind === "ending"}
         pendingDilemmaCount={session.state.pendingDilemmaIds.length}
-        canLoad={Boolean(savedGame)}
+        canLoad={canLoad}
         resolvingTurn={revealingTurn !== undefined}
         onAddStance={() => setInactiveStanceSearchOpen(true)}
         onAdvance={() => {

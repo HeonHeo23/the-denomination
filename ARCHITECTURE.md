@@ -52,17 +52,17 @@ simulation core.
 
 ## Modules
 
-| Module                         | Current path                                                                                   | Responsibility                                                                                        |
-| ------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Domain                         | `src/simulation/domain`                                                                        | Static definition types, runtime-state types, commands, and engine result types                       |
-| Content loading and validation | Initially within `src/simulation`; extract a dedicated folder when multiple loaders warrant it | Parse or accept Scenario data, validate it, and produce trusted static definitions                    |
-| Simulation engine              | `src/simulation/engine`                                                                        | Initialize runtime state and execute commands and turns as pure state transitions                     |
-| Simulation public API          | `src/simulation/index.ts`                                                                      | Stable exports used outside the simulation package                                                    |
-| Scenario content               | `src/scenarios`                                                                                | Authored static Scenario definitions; no runtime state or React code                                  |
-| Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save |
-| UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                     |
-| React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                           |
-| Persistence adapter            | `src/app/persistence.ts`                                                                       | Validate, serialize, restore, and clear versioned browser saves without changing engine semantics     |
+| Module                         | Current path                                                                                   | Responsibility                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Domain                         | `src/simulation/domain`                                                                        | Static definition types, runtime-state types, commands, and engine result types                        |
+| Content loading and validation | Initially within `src/simulation`; extract a dedicated folder when multiple loaders warrant it | Parse or accept Scenario data, validate it, and produce trusted static definitions                     |
+| Simulation engine              | `src/simulation/engine`                                                                        | Initialize runtime state and execute commands and turns as pure state transitions                      |
+| Simulation public API          | `src/simulation/index.ts`                                                                      | Stable exports used outside the simulation package                                                     |
+| Scenario content               | `src/scenarios`                                                                                | Authored static Scenario definitions; no runtime state or React code                                   |
+| Application/session            | `src/app`                                                                                      | Own the active Scenario and runtime snapshot; inject runtime dependencies; coordinate load/reset/save  |
+| UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                      |
+| React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                            |
+| Persistence adapter            | `src/app/persistence.ts`, `src/app/savedGames.ts`                                              | Validate snapshots and coordinate versioned browser save collections without changing engine semantics |
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
@@ -311,13 +311,13 @@ Browser persistence belongs behind the application/session layer and stores:
 
 Do not persist React state, React Flow objects, arbitrary cached projections, or function references.
 The Turn report record is an explicit player-facing save record, keyed by Scenario IDs and rehydrated into a UI projection after load.
-Loading MUST validate saved data before passing runtime state to the engine.
-The MVP uses only the current save slot and rejects incompatible formats without migration.
-The engine remains independent of storage technology.
+`src/app/savedGames.ts` owns the versioned collection; `src/app/persistence.ts` validates snapshots.
 
-The current browser adapter owns one versioned local save slot. It validates the save format, identity limits, Scenario and catalog-version compatibility, and the complete canonical runtime snapshot histories, before offering restoration.
-Validation checks structure, references, and runtime invariants.
-Invalid or incompatible saves are never passed to the session or engine.
+- Every Save and Save and main menu creates a checkpoint with a fresh UUID, newest first. Duplicate IDs MUST be rejected without changing storage; checkpoints remain until explicitly deleted.
+- One Continue card uses `lastLoadedGameId` or the newest entry. Successful saves select the new checkpoint in the same storage write; successful loads remember their checkpoint. Deleting the remembered entry clears its reference.
+- Loading MUST validate format, identity limits, Scenario/content-version compatibility, histories, references, runtime invariants, and a parseable `savedAt`.
+- Each checkpoint receives its own `savedAt`, which survives loading. The prior single save is retained on the first collection write.
+- Writes preserve existing entries, including incompatible saves, and leave unreadable collections intact. Save and main menu exits only after a successful save; failures retain the running game and show feedback.
 
 ## Architectural invariants
 

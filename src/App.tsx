@@ -7,13 +7,18 @@ import {
   type FormEvent,
 } from "react";
 import {
-  clearSavedGame,
-  loadSavedGame,
-  storeSavedGame,
   type SavedGame,
   type SavedTurnReport,
   type SaveStorage,
 } from "@/app/persistence";
+import {
+  deleteSavedGameEntry,
+  getContinueGame,
+  loadSavedGames,
+  loadSavedGameEntry,
+  rememberLoadedGame,
+  storeSavedGameEntry,
+} from "@/app/savedGames";
 import {
   loadScenarioCatalog,
   type LoadedScenarioCatalogEntry,
@@ -22,6 +27,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Toaster } from "@/components/ui/sonner";
 import type { SimulationState } from "@/simulation";
+import { SavedGameLoadDialog } from "@/ui/SavedGameLoadDialog";
 import { ConfirmationDialog } from "@/ui/ConfirmationDialog";
 import { GameView } from "@/ui/game/GameView";
 import { LandingPage, type LandingErrors } from "@/ui/landing/LandingPage";
@@ -37,6 +43,7 @@ interface ActiveGame {
 }
 
 interface LaunchRequest {
+  readonly loadedSaveId?: string;
   readonly entry: LoadedScenarioCatalogEntry;
   readonly playerName: string;
   readonly denominationName: string;
@@ -49,15 +56,11 @@ interface PendingExit {
   readonly turnReport?: SavedTurnReport;
 }
 
-type ConfirmationRequest =
-  | { readonly kind: "new-game"; readonly launch: LaunchRequest }
-  | { readonly kind: "main-menu" };
-
 function unavailableStorage(): SaveStorage {
   const fail = () => {
     throw new Error("Browser storage is unavailable");
   };
-  return { getItem: fail, setItem: fail, removeItem: fail };
+  return { getItem: fail, setItem: fail };
 }
 
 function browserStorage(): SaveStorage {
@@ -130,16 +133,18 @@ function Application({
       window.removeEventListener("keydown", startFromGesture, true);
     };
   }, [musicMuted, startMusic]);
-  const initialSave = useMemo(
-    () => loadSavedGame(storage, entries),
-    [entries, storage],
+  const initialSave = useMemo(() => loadSavedGames(storage), [storage]);
+  const savedAtLoad = getContinueGame(
+    initialSave.games,
+    initialSave.lastLoadedGameId,
   );
-  const savedAtLoad =
-    initialSave.status === "ready" ? initialSave.save : undefined;
   const initialEntry =
     entries.find(({ scenario }) => scenario.id === savedAtLoad?.scenarioId) ??
     entries[0];
-  const [savedGame, setSavedGame] = useState(savedAtLoad);
+  const [savedGames, setSavedGames] = useState(initialSave.games);
+  const [lastLoadedGameId, setLastLoadedGameId] = useState(
+    initialSave.lastLoadedGameId,
+  );
   const [selectedScenarioId, setSelectedScenarioId] = useState(
     initialEntry.scenario.id,
   );
@@ -147,31 +152,33 @@ function Application({
   const [denominationName, setDenominationName] = useState(
     savedAtLoad?.denominationName ?? "",
   );
-  const [notice, setNotice] = useState(
-    initialSave.status === "unavailable" ? initialSave.message : catalogNotice,
-  );
+  const [notice, setNotice] = useState(initialSave.message ?? catalogNotice);
   const [errors, setErrors] = useState<LandingErrors>({});
   const [activeGame, setActiveGame] = useState<ActiveGame>();
-  const [confirmation, setConfirmation] = useState<ConfirmationRequest>();
   const [pendingExit, setPendingExit] = useState<PendingExit>();
   const runKey = useRef(0);
-
-  useEffect(() => {
-    if (initialSave.status === "unavailable" && initialSave.discardInvalid) {
-      clearSavedGame(storage);
-    }
-  }, [initialSave, storage]);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const loadTriggerRef = useRef<HTMLElement | null>(null);
 
   const launch = useCallback(
     (request: LaunchRequest) => {
+      const { loadedSaveId, ...game } = request;
       startMusic();
+      if (loadedSaveId && request.restoredState) {
+        const warning = rememberLoadedGame(storage, loadedSaveId);
+        if (!warning) setLastLoadedGameId(loadedSaveId);
+        setNotice(warning ?? "Saved game loaded.");
+      }
       setPlayerName(request.playerName);
       setDenominationName(request.denominationName);
       setSelectedScenarioId(request.entry.scenario.id);
       runKey.current += 1;
-      setActiveGame({ ...request, key: runKey.current });
+      setActiveGame({
+        ...game,
+        key: runKey.current,
+      });
     },
-    [startMusic],
+    [startMusic, storage],
   );
 
   const buildLaunchRequest = (): LaunchRequest | undefined => {
@@ -200,20 +207,27 @@ function Application({
     event.preventDefault();
     const request = buildLaunchRequest();
     if (!request) return;
-    if (savedGame) setConfirmation({ kind: "new-game", launch: request });
-    else launch(request);
+    launch(request);
   };
 
-  const handleContinue = () => {
-    if (!savedGame) return;
-    startMusic();
+  const handleContinue = (id: string) => {
+    const result = loadSavedGameEntry(storage, entries, id);
+    const savedGame = result.game?.save;
+    if (!savedGame) {
+      const message =
+        result.message ?? "This saved game is no longer available to load.";
+      setNotice(message);
+      return message;
+    }
     const entry = entries.find(
       ({ scenario, contentVersion }) =>
         scenario.id === savedGame.scenarioId &&
         contentVersion === savedGame.scenarioContentVersion,
     );
     if (!entry) return;
+    setLoadDialogOpen(false);
     launch({
+      loadedSaveId: id,
       entry,
       playerName: savedGame.playerName,
       denominationName: savedGame.denominationName,
@@ -223,8 +237,8 @@ function Application({
   };
 
   const saveActiveState = useCallback(
-    (state: SimulationState, turnReport?: SavedTurnReport) => {
-      if (!activeGame) return;
+    (state: SimulationState, turnReport?: SavedTurnReport): boolean => {
+      if (!activeGame) return false;
       const save: SavedGame = {
         version: 4,
         scenarioId: activeGame.entry.scenario.id,
@@ -234,74 +248,58 @@ function Application({
         state,
         ...(turnReport ? { turnReport } : {}),
       };
-      const warning = storeSavedGame(storage, save);
+      const warning = storeSavedGameEntry(storage, entries, {
+        id: crypto.randomUUID(),
+        save,
+      });
       if (warning) {
         setNotice(warning);
-        return;
+        return false;
       }
-      setSavedGame(save);
+      const result = loadSavedGames(storage);
+      setSavedGames(result.games);
+      setLastLoadedGameId(result.lastLoadedGameId);
       setNotice("Progress saved.");
+      return true;
     },
-    [activeGame, storage],
+    [activeGame, entries, storage],
   );
 
-  const loadActiveGame = useCallback(() => {
-    startMusic();
-    const result = loadSavedGame(storage, entries);
-    if (result.status !== "ready") {
-      setNotice(
-        result.status === "unavailable"
-          ? result.message
-          : "No saved game is available to load.",
-      );
-      return;
+  const openLoadDialog = () => {
+    loadTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const result = loadSavedGames(storage);
+    setSavedGames(result.games);
+    setLastLoadedGameId(result.lastLoadedGameId);
+    if (result.message) setNotice(result.message);
+    setLoadDialogOpen(true);
+  };
+
+  const handleDeleteSave = (id: string): boolean => {
+    const warning = deleteSavedGameEntry(storage, id);
+    if (warning) {
+      setNotice(warning);
+      return false;
     }
-    const entry = entries.find(
-      ({ scenario, contentVersion }) =>
-        scenario.id === result.save.scenarioId &&
-        contentVersion === result.save.scenarioContentVersion,
-    );
-    if (!entry) {
-      setNotice(
-        "The saved game is no longer compatible with this Scenario catalog.",
-      );
-      return;
-    }
-    setSavedGame(result.save);
-    setPlayerName(result.save.playerName);
-    setDenominationName(result.save.denominationName);
-    setSelectedScenarioId(result.save.scenarioId);
-    runKey.current += 1;
-    setActiveGame({
-      key: runKey.current,
-      entry,
-      playerName: result.save.playerName,
-      denominationName: result.save.denominationName,
-      restoredState: result.save.state,
-      restoredTurnReport: result.save.turnReport,
-    });
-    setNotice("Saved game loaded.");
-  }, [entries, startMusic, storage]);
+    const result = loadSavedGames(storage);
+    setSavedGames(result.games);
+    setLastLoadedGameId(result.lastLoadedGameId);
+    setNotice("Saved game deleted.");
+    return true;
+  };
 
   const confirmAction = () => {
-    if (!confirmation) return;
-    setConfirmation(undefined);
-    if (confirmation.kind === "new-game") {
-      const warning = clearSavedGame(storage);
-      setSavedGame(undefined);
-      setNotice(warning);
-      launch(confirmation.launch);
-      return;
-    }
+    if (!pendingExit) return;
     setPendingExit(undefined);
     setActiveGame(undefined);
   };
 
   const saveAndReturnToMainMenu = () => {
     if (!activeGame || !pendingExit) return;
-    saveActiveState(pendingExit.state, pendingExit.turnReport);
+    if (!saveActiveState(pendingExit.state, pendingExit.turnReport)) return;
     setPendingExit(undefined);
-    setConfirmation(undefined);
     setActiveGame(undefined);
   };
 
@@ -310,7 +308,6 @@ function Application({
     turnReport?: SavedTurnReport,
   ) => {
     setPendingExit({ state, turnReport });
-    setConfirmation({ kind: "main-menu" });
   };
 
   return (
@@ -332,9 +329,9 @@ function Application({
           restoredState={activeGame.restoredState}
           restoredTurnReport={activeGame.restoredTurnReport}
           notice={notice}
-          savedGame={savedGame}
+          canLoad={savedGames.length > 0}
           onSave={saveActiveState}
-          onLoad={loadActiveGame}
+          onLoad={openLoadDialog}
           onMainMenu={requestMainMenu}
           musicMuted={musicMuted}
           onToggleMusic={toggleMusic}
@@ -342,7 +339,9 @@ function Application({
       ) : (
         <LandingPage
           entries={entries}
-          savedGame={savedGame}
+          savedGames={savedGames}
+          onOpenLoad={openLoadDialog}
+          lastLoadedGameId={lastLoadedGameId}
           selectedScenarioId={selectedScenarioId}
           playerName={playerName}
           denominationName={denominationName}
@@ -370,11 +369,24 @@ function Application({
         />
       )}
 
+      {loadDialogOpen && (
+        <SavedGameLoadDialog
+          open={loadDialogOpen}
+          onOpenChange={setLoadDialogOpen}
+          games={savedGames}
+          entries={entries}
+          lastLoadedGameId={lastLoadedGameId}
+          onLoad={handleContinue}
+          onDelete={handleDeleteSave}
+          onReturnFocus={() => loadTriggerRef.current?.focus()}
+        />
+      )}
+
       <ConfirmationDialog
-        kind={confirmation?.kind}
+        open={Boolean(pendingExit)}
         onConfirm={confirmAction}
         onSaveAndExit={saveAndReturnToMainMenu}
-        onCancel={() => setConfirmation(undefined)}
+        onCancel={() => setPendingExit(undefined)}
       />
     </div>
   );
