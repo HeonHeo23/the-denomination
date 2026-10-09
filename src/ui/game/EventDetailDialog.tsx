@@ -105,7 +105,7 @@ export function EventDetailDialog({
                           onClick={() => target && onNodeSelect(target.id)}
                           aria-label={
                             target
-                              ? `Open ${target.name}${consequence.targetMetric ? ` ${consequence.targetMetric}` : ""} details`
+                              ? `Open ${target.name}${consequence.targetMetric ? ` ${consequence.targetMetric.label}` : ""} details`
                               : undefined
                           }
                         >
@@ -116,7 +116,6 @@ export function EventDetailDialog({
                                 <FactionMetricName
                                   name={target?.name ?? consequence.title}
                                   metric={consequence.targetMetric}
-                                  metricId={consequence.targetMetricId}
                                 />
                               </ItemTitle>
                               <ItemDescription className="min-w-0 truncate text-right">
@@ -158,7 +157,7 @@ export function EventDetailDialog({
                               <ItemDescription className="line-clamp-none">
                                 End-of-turn {target.name}
                                 {consequence.targetMetric
-                                  ? ` ${consequence.targetMetric}`
+                                  ? ` ${consequence.targetMetric.label}`
                                   : ""}{" "}
                                 reading: {formatValue(value, target.domain)}
                               </ItemDescription>

@@ -8,7 +8,6 @@ import {
 } from "react";
 import type {
   NodeDefinition,
-  FactionMetric,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
@@ -24,7 +23,7 @@ interface NodeValueHistoryChartProps {
   readonly definition: NodeDefinition;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
-  readonly metric?: FactionMetric;
+  readonly metricLabel?: string;
   readonly metricSelector?: ReactNode;
 }
 
@@ -39,7 +38,7 @@ export function NodeValueHistoryChart({
   definition,
   scenario,
   state,
-  metric,
+  metricLabel,
   metricSelector,
 }: NodeValueHistoryChartProps) {
   const lineClipId = useId();
@@ -115,7 +114,7 @@ export function NodeValueHistoryChart({
           }
           role="group"
           tabIndex={0}
-          aria-label={`${definition.name}${metric ? ` ${metric}` : ""} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
+          aria-label={`${definition.name}${metricLabel ? ` ${metricLabel}` : ""} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
           aria-describedby={`${lineClipId}-instructions ${lineClipId}-references`}
           onPointerMove={selectAtPointer}
           onPointerDown={selectAtPointer}

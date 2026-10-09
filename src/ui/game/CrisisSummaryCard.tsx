@@ -91,7 +91,6 @@ export function CrisisSummaryCard(props: CrisisSummaryCardProps) {
                     "Activated prerequisites"
                   }
                   metric={props.cause.biggestContribution?.sourceMetric}
-                  metricId={props.cause.biggestContribution?.sourceMetricId}
                 />
               </strong>
               <small className="mt-1 block truncate text-muted-foreground">

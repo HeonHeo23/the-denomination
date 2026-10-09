@@ -215,7 +215,6 @@ export function DilemmaDialog({
                                         <FactionMetricName
                                           name={row.name}
                                           metric={row.metric}
-                                          metricId={row.metricId}
                                         />
                                       </span>
                                       <span

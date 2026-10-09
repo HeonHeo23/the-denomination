@@ -37,14 +37,10 @@ function ChangeItem({
       variant="muted"
       size="sm"
       className="flex-col items-stretch sm:flex-row sm:items-center"
-      aria-label={`Open ${change.node.name}${change.metric ? ` ${change.metric}` : ""} dossier`}
+      aria-label={`Open ${change.node.name}${change.metric ? ` ${change.metric.label}` : ""} dossier`}
       onSelect={() => onNodeSelect(change.node.id)}
       title={
-        <FactionMetricName
-          name={change.node.name}
-          metric={change.metric}
-          metricId={change.metricId}
-        />
+        <FactionMetricName name={change.node.name} metric={change.metric} />
       }
       description={
         <span className="flex flex-wrap items-center gap-2">

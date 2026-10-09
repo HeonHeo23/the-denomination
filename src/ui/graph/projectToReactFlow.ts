@@ -4,7 +4,7 @@ import {
 } from "../projections/projectFactionGroups";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type {
-  FactionMetric,
+  FactionMetricDefinition,
   NumericDomain,
   ScenarioDefinition,
   SimulationState,
@@ -26,10 +26,8 @@ export interface GraphEffectData extends Record<string, unknown> {
   readonly contributionLabel: string;
   readonly sourceName: string;
   readonly targetName: string;
-  readonly sourceMetric?: FactionMetric;
-  readonly sourceMetricId?: string;
-  readonly targetMetric?: FactionMetric;
-  readonly targetMetricId?: string;
+  readonly sourceMetric?: FactionMetricDefinition;
+  readonly targetMetric?: FactionMetricDefinition;
 }
 
 export interface SimulationNodeData extends Record<string, unknown> {
@@ -43,7 +41,7 @@ export interface SimulationNodeData extends Record<string, unknown> {
   readonly nodeId?: string;
   readonly metricLabel?: string;
   readonly factionMetrics?: readonly {
-    readonly metric: string;
+    readonly metricLabel: string;
     readonly value: number;
     readonly delta?: number;
   }[];
@@ -63,7 +61,7 @@ export interface GraphTurnFeedback {
   readonly changes: readonly {
     readonly nodeId: string;
     readonly delta: number;
-    readonly metric?: string;
+    readonly metricLabel?: string;
     readonly previousActive: boolean;
     readonly isActive: boolean;
   }[];
@@ -548,7 +546,7 @@ function annotateEdges(
   edges: Edge[],
   scenario: ScenarioDefinition,
   index: ReturnType<typeof getFactionGroupIndex>,
-): Edge[] {
+): Edge<GraphEffectData>[] {
   const effects = new Map(
     scenario.effects.map((effect) => [effect.id, effect]),
   );
@@ -569,10 +567,8 @@ function annotateEdges(
         ...data,
         sourceNodeId: effect.source,
         targetNodeId: effect.target,
-        sourceMetric: source?.metric.label,
-        sourceMetricId: source?.metric.id,
-        targetMetric: target?.metric.label,
-        targetMetricId: target?.metric.id,
+        sourceMetric: source?.metric,
+        targetMetric: target?.metric,
       },
       ariaLabel: `${data.sourceName}${source ? ` ${source.metric.label}` : ""} affects ${data.targetName}${target ? ` ${target.metric.label}` : ""}: ${data.contributionLabel}`,
     };
@@ -666,7 +662,7 @@ export function projectToReactFlow(
           metricLabel: context.metric.label,
           factionMetrics: [
             {
-              metric: context.metric.label,
+              metricLabel: context.metric.label,
               value: state.nodes[context.node.id].value,
               delta,
             },

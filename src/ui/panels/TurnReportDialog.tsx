@@ -168,7 +168,7 @@ export function TurnReportDialog({
                       variant="outline"
                       size="sm"
                       key={grudge.id}
-                      aria-label={`Open ${grudge.targetName}${grudge.targetMetric ? ` (${grudge.targetMetric})` : ""} dossier`}
+                      aria-label={`Open ${grudge.targetName}${grudge.targetMetric ? ` (${grudge.targetMetric.label})` : ""} dossier`}
                       onSelect={() => onNodeSelect(grudge.targetId)}
                       leading={
                         <Flame aria-hidden="true" className="size-4 shrink-0" />
@@ -180,7 +180,6 @@ export function TurnReportDialog({
                           <FactionMetricName
                             name={grudge.targetName}
                             metric={grudge.targetMetric}
-                            metricId={grudge.targetMetricId}
                           />
                         </span>
                       }

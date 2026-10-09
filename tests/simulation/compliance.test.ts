@@ -1013,7 +1013,9 @@ export function runComplianceTests() {
     } else if (definition.type === "faction") {
       assert.equal(projectedNode.data.referenceMarkers[0].kind, "baseline");
       assert.deepEqual(
-        projectedNode.data.factionMetrics?.map(({ metric }) => metric),
+        projectedNode.data.factionMetrics?.map(
+          ({ metricLabel }) => metricLabel,
+        ),
         ["Satisfaction"],
       );
     } else {

@@ -176,7 +176,7 @@ export function runEndingChangesTests() {
   );
   assert.ok(factions.every((c) => c.node.name === group.name));
   assert.deepEqual(
-    new Set(factions.map((c) => c.metricId)),
+    new Set(factions.map((c) => c.metric?.id)),
     new Set(exampleScenario.factionMetrics.map((m) => m.id)),
   );
   const terminal = {

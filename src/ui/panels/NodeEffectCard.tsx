@@ -27,7 +27,7 @@ interface NodeEffectCardProps {
 
 interface EffectTableCardProps {
   readonly title: ReactNode;
-  readonly legend: ReactNode;
+  readonly legend?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
   readonly headerClassName?: string;
@@ -50,21 +50,19 @@ type EffectBarValue = Pick<
   | "contribution"
   | "contributionLabel"
   | "contributionTone"
-  | "previewContribution"
-  | "previewContributionLabel"
-  | "previewContributionTone"
-  | "previewKind"
+  | "preview"
   | "inertiaTurns"
 >;
 
 export function EffectBar({ effect }: { readonly effect: EffectBarValue }) {
   const currentSpan = effectBarSpanPercent(effect.contribution);
-  const previewContribution = effect.previewContribution ?? effect.contribution;
+  const previewContribution =
+    effect.preview?.contribution ?? effect.contribution;
   const previewSpan = effectBarSpanPercent(previewContribution);
-  const hasTarget = effect.previewContribution !== undefined;
+  const hasTarget = effect.preview !== undefined;
   const hasPreviewDifference =
     hasTarget &&
-    Math.abs(effect.previewContribution - effect.contribution) >= 0.000001;
+    Math.abs(effect.preview.contribution - effect.contribution) >= 0.000001;
   const currentPosition = 50 + Math.sign(effect.contribution) * currentSpan;
   const previewPosition = 50 + Math.sign(previewContribution) * previewSpan;
   const previewExtendsCurrent =
@@ -83,21 +81,17 @@ export function EffectBar({ effect }: { readonly effect: EffectBarValue }) {
     "--effect-bar-preview-start": `${previewStart}%`,
     "--effect-bar-preview-span": `${previewVisibleSpan}%`,
   } as CSSProperties;
-  const displayedLabel = hasTarget
-    ? (effect.previewContributionLabel ?? effect.contributionLabel)
-    : effect.contributionLabel;
-  const displayedTone = hasTarget
-    ? (effect.previewContributionTone ?? effect.contributionTone)
-    : effect.contributionTone;
+  const displayedLabel = effect.preview?.label ?? effect.contributionLabel;
+  const displayedTone = effect.preview?.tone ?? effect.contributionTone;
   const previewDescription = hasTarget
-    ? `Current ${effect.contributionLabel}; ${effect.previewKind === "estimate" ? "hypothetical estimate" : "settled target"} ${displayedLabel} after the full ${effect.inertiaTurns ?? 1}-turn inertia window`
+    ? `Current ${effect.contributionLabel}; ${effect.preview.kind === "estimate" ? "hypothetical estimate" : "settled target"} ${displayedLabel} after the full ${effect.inertiaTurns ?? 1}-turn inertia window`
     : `${effect.contributionLabel} change`;
 
   return (
     <div
       className="effect-bar"
       data-tone={effect.contributionTone}
-      data-preview-tone={effect.previewContributionTone}
+      data-preview-tone={effect.preview?.tone}
       data-label-tone={displayedTone}
       title={previewDescription}
       style={style}
@@ -149,9 +143,10 @@ export function EffectRow({
   const relationshipLabel = effect.label ?? "Persistent causal relationship";
   const relatedMetric =
     direction === "incoming" ? effect.sourceMetric : effect.targetMetric;
+  const metricContext = direction === "incoming" ? "Source" : "Target";
   const metricDescription = [
-    effect.sourceMetric ? `Source ${effect.sourceMetric}` : undefined,
-    effect.targetMetric ? `Target ${effect.targetMetric}` : undefined,
+    effect.sourceMetric ? `Source ${effect.sourceMetric.label}` : undefined,
+    effect.targetMetric ? `Target ${effect.targetMetric.label}` : undefined,
   ]
     .filter(Boolean)
     .join("; ");
@@ -213,12 +208,7 @@ export function EffectRow({
                 {relatedMetric && (
                   <FactionMetricIcon
                     metric={relatedMetric}
-                    metricId={
-                      direction === "incoming"
-                        ? effect.sourceMetricId
-                        : effect.targetMetricId
-                    }
-                    context={direction === "incoming" ? "Source" : "Target"}
+                    context={metricContext}
                   />
                 )}
                 <span className="min-w-0 truncate">{effect.relatedName}</span>
@@ -227,12 +217,7 @@ export function EffectRow({
               <FactionMetricName
                 name={effect.relatedName}
                 metric={relatedMetric}
-                metricId={
-                  direction === "incoming"
-                    ? effect.sourceMetricId
-                    : effect.targetMetricId
-                }
-                context={direction === "incoming" ? "Source" : "Target"}
+                context={metricContext}
               />
             )}
           </ItemTitle>
@@ -285,7 +270,7 @@ export function EffectTableCard({
       className={cn(
         fitContent
           ? "min-w-0 max-w-full md:h-full md:min-h-0"
-          : "h-full min-h-0 max-h-full",
+          : "h-full min-h-0 max-h-full min-w-0 max-w-full",
         interactive &&
           "cursor-pointer border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
         className,
@@ -295,17 +280,19 @@ export function EffectTableCard({
       data-game-effect-table-interactive={interactive ? true : undefined}
       {...trigger}
     >
-      <CardHeader className={cn("shrink-0", headerClassName)}>
-        <div className="flex items-end justify-between gap-3">
-          <CardTitle>{title}</CardTitle>
-          <span className="effect-table__legend">{legend}</span>
+      <CardHeader className={cn("min-w-0 shrink-0", headerClassName)}>
+        <div className="flex min-w-0 items-end justify-between gap-3">
+          <CardTitle className="min-w-0 flex-1">{title}</CardTitle>
+          {legend && (
+            <span className="effect-table__legend shrink-0">{legend}</span>
+          )}
         </div>
       </CardHeader>
       <CardContent
         className={
           fitContent
             ? "min-w-0 p-2 md:flex md:min-h-0 md:flex-1 md:flex-col"
-            : "min-h-0 flex-1 p-2"
+            : "min-h-0 min-w-0 flex-1 p-2"
         }
       >
         {children}
@@ -329,7 +316,9 @@ export function NodeEffectCard({
       fitContent={fitContent}
     >
       {effects.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No {direction} Effects.</p>
+        <p className="text-sm text-muted-foreground">
+          {`No ${direction} Effects.`}
+        </p>
       ) : fitContent ? (
         <div
           className="pr-1 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain"

@@ -305,8 +305,12 @@ export function runFactionTests() {
   assert.equal(edge.target, createFactionGraphId("b"));
   assert.equal(edge.data!.sourceNodeId, "a-membership");
   assert.equal(edge.data!.targetNodeId, "b-satisfaction");
-  assert.equal(edge.data!.sourceMetric, "Membership");
-  assert.equal(edge.data!.targetMetric, "Satisfaction");
+  assert.equal(edge.data!.sourceMetric?.label, "Membership");
+  assert.equal(edge.data!.targetMetric?.label, "Satisfaction");
+  assert.equal(
+    edge.data!.sourceMetric,
+    scenario.factionMetrics!.find(({ id }) => id === "membership"),
+  );
   const self = graph.edges.find((edge) => edge.id === "within-group")!;
   assert.equal(self.source, self.target);
   assert.equal(edge.type, "smoothstep");
@@ -413,7 +417,7 @@ export function runFactionTests() {
   assert.equal(
     projectNodeEffects("b-satisfaction", scenario, initial).incoming.find(
       (effect) => effect.id === "cross-metric",
-    )!.sourceMetric,
+    )!.sourceMetric?.label,
     "Membership",
   );
 
@@ -423,7 +427,7 @@ export function runFactionTests() {
   assert.equal(
     restoreTurnReport(scenario, savedReport).changes.find(
       (change) => change.node.id === "a-membership",
-    )!.metric,
+    )!.metric?.label,
     "Membership",
   );
   const save: SavedGame = {
@@ -526,7 +530,7 @@ export function runFactionTests() {
   assert.ok(
     ending.changes
       .filter((change) => change.node.type === "faction")
-      .every((change) => change.metric && change.metricId),
+      .every((change) => change.metric?.label && change.metric.id),
   );
   assert.ok(
     ending.changes.some(

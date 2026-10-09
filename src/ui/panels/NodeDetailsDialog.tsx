@@ -10,7 +10,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import type {
   NodeDefinition,
-  FactionMetric,
+  FactionMetricId,
   NodeRuntimeState,
   ScenarioDefinition,
   SimulationState,
@@ -77,7 +77,7 @@ function FactionDetailDialog({
 }) {
   const { scenario, state } = props;
   // Start with the metric represented by the node that opened the dossier.
-  const [selectedMetric, setSelectedMetric] = useState<FactionMetric>(
+  const [selectedMetric, setSelectedMetric] = useState<FactionMetricId>(
     factionContext.metric.id,
   );
   // Resolve all nodes in this group.
@@ -119,7 +119,7 @@ function FactionDetailDialog({
           title={metric.label}
           className="node-value-history__metric-button"
         >
-          <FactionMetricIcon metric={metric.label} metricId={metric.id} />
+          <FactionMetricIcon metric={metric} />
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -163,8 +163,7 @@ function FactionSummary({
     <div className="mt-3 flex flex-col gap-2 md:mt-auto">
       <FactionMetricReadings
         readings={groupNodeContexts.map((member) => ({
-          metric: member.metric.label,
-          metricId: member.metric.id,
+          metric: member.metric,
           value: formatValue(
             state.nodes[member.node.id].value,
             member.node.domain,
@@ -316,7 +315,7 @@ function NodeDetailsDialogContent({
                   definition={definition}
                   scenario={scenario}
                   state={state}
-                  metric={metricLabel}
+                  metricLabel={metricLabel}
                   metricSelector={metricSelector}
                 />
               </div>

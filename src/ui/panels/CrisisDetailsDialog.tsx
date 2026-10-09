@@ -1,6 +1,5 @@
 import { FactionMetricName } from "@/ui/FactionMetric";
 import {
-  ArrowDownRight,
   ArrowRight,
   BookOpenText,
   CircleAlert,
@@ -32,8 +31,9 @@ import {
   crisisProgressLabel,
   crisisStageLabel,
 } from "@/ui/game/crisisPresentation";
-import { formatContributionPercent } from "@/ui/formatValue";
+import { formatContributionPercent, formatValue } from "@/ui/formatValue";
 import { EffectRow, EffectTableCard } from "./NodeEffectCard";
+import type { NodeEffectView } from "./projectNodeEffects";
 import { DossierDialogFrame } from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 
@@ -51,10 +51,10 @@ function contributionTone(amount: number): "positive" | "negative" | "neutral" {
   return "neutral";
 }
 
-function effectBarView(contribution: Contribution) {
+function contributionRowView(contribution: Contribution): NodeEffectView {
   return {
     id: contribution.id,
-    kind: "effect",
+    kind: contribution.kind,
     relatedNodeId: contribution.sourceId,
     relatedName: contribution.sourceTitle,
     sourceMetric: contribution.sourceMetric,
@@ -63,7 +63,7 @@ function effectBarView(contribution: Contribution) {
     contribution: contribution.amount,
     contributionLabel: formatContributionPercent(contribution.amount),
     contributionTone: contributionTone(contribution.amount),
-  } as const;
+  };
 }
 
 export function CrisisDetailsDialog({
@@ -141,7 +141,7 @@ export function CrisisDetailsDialog({
                 id="crisis-prerequisites-title"
                 className="font-heading text-base"
               >
-                Prerequisites
+                Prerequisite Groups
               </h3>
             </div>
             <div className="flex flex-col gap-3">
@@ -201,7 +201,7 @@ export function CrisisDetailsDialog({
                   id="crisis-contributions-title"
                   className="font-heading text-base"
                 >
-                  Current contributing factors
+                  Contributing factors
                 </h3>
               </div>
               <div className="grid items-stretch gap-4 lg:grid-cols-2">
@@ -210,77 +210,52 @@ export function CrisisDetailsDialog({
                     targetId,
                     targetTitle,
                     targetMetric,
-                    targetMetricId,
                     contributions: targetContributions,
-                  }) => (
-                    <EffectTableCard
-                      key={`${targetId}:${targetMetric ?? "value"}`}
-                      title={
-                        <FactionMetricName
-                          name={targetTitle}
-                          metric={targetMetric}
-                          metricId={targetMetricId}
-                        />
-                      }
-                      legend={
-                        <>
-                          {targetContributions.length} factor
-                          {targetContributions.length === 1 ? "" : "s"}
-                        </>
-                      }
-                      ariaLabel={`Open ${targetTitle}${targetMetric ? ` ${targetMetric}` : ""} node dossier`}
-                      onOpen={() => onNodeSelect(targetId)}
-                      headerClassName="border-b border-border/60"
-                    >
-                      <ScrollArea className="h-full max-h-full pr-1">
-                        <ItemGroup className="gap-1">
-                          {targetContributions.map((contribution) =>
-                            contribution.kind === "effect" ? (
-                              <EffectRow
-                                key={contribution.id}
-                                effect={effectBarView(contribution)}
-                                direction="incoming"
-                                onNodeSelect={onNodeSelect}
-                                showInertia={false}
-                                stopPropagation
-                              />
-                            ) : (
-                              <Item
-                                role="listitem"
-                                size="sm"
-                                variant="muted"
-                                className="gap-2 py-1.5"
-                                key={contribution.id}
-                                data-game-crisis-contribution-row
-                                data-game-effect-row
-                                aria-label={`${contribution.sourceTitle}: ${contribution.label}`}
-                              >
-                                <ArrowDownRight aria-hidden="true" />
-                                <ItemContent className="min-w-0 gap-1">
-                                  <div className="flex min-w-0 items-baseline justify-between gap-1">
-                                    <ItemTitle className="min-w-0 max-w-[55%] truncate">
-                                      {contribution.sourceTitle}
-                                    </ItemTitle>
-                                    <ItemDescription className="min-w-0 flex-1 truncate text-right">
-                                      {contribution.label}
-                                    </ItemDescription>
-                                  </div>
-                                  <div className="flex min-h-[1.35rem] items-center justify-end">
-                                    <Badge
-                                      className="font-mono text-[0.65rem]"
-                                      variant="outline"
-                                    >
-                                      {contribution.value}
-                                    </Badge>
-                                  </div>
-                                </ItemContent>
-                              </Item>
-                            ),
-                          )}
+                  }) => {
+                    const target = scenario.nodes.find(
+                      ({ id }) => id === targetId,
+                    );
+                    const targetState = state.nodes[targetId];
+                    const currentReading =
+                      target && targetState
+                        ? formatValue(targetState.value, target.domain)
+                        : undefined;
+                    return (
+                      <EffectTableCard
+                        key={`${targetId}:${targetMetric?.id ?? "value"}`}
+                        title={
+                          <FactionMetricName
+                            name={targetTitle}
+                            metric={targetMetric}
+                          />
+                        }
+                        legend={
+                          currentReading !== undefined ? (
+                            <Badge variant="outline">
+                              <span className="sr-only">Current reading: </span>
+                              {currentReading}
+                            </Badge>
+                          ) : undefined
+                        }
+                        ariaLabel={`Open ${targetTitle}${targetMetric ? ` ${targetMetric.label}` : ""} node dossier`}
+                        onOpen={() => onNodeSelect(targetId)}
+                        headerClassName="border-b border-border/60"
+                      >
+                        <ItemGroup className="min-w-0 gap-1">
+                          {targetContributions.map((contribution) => (
+                            <EffectRow
+                              key={contribution.id}
+                              effect={contributionRowView(contribution)}
+                              direction="incoming"
+                              onNodeSelect={onNodeSelect}
+                              showInertia={false}
+                              stopPropagation
+                            />
+                          ))}
                         </ItemGroup>
-                      </ScrollArea>
-                    </EffectTableCard>
-                  ),
+                      </EffectTableCard>
+                    );
+                  },
                 )}
               </div>
             </section>

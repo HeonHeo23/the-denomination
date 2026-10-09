@@ -48,6 +48,16 @@ Statuses used here are:
 The bundled Money Resource is unclamped and can carry debt below -100. The existing insolvency
 trajectory also qualifies at -30 Money, even without Financial Strain.
 
+Development builds include a deterministic UI Coverage Scenario with a
+dedicated Game Over Stance, turn-1 incidents, recovery and failure routes, and
+turn-5 conditional/fallback Endings. Every review surface exercises Membership
+and Satisfaction; faction Effects cover all four metric endpoint combinations.
+Incidents, warning/recovery consequences, and Crisis/Ending predicates reference
+both metrics. The walkthrough in
+`src/scenarios/uiCoverage/README.md` covers issue #18; engine tests verify its
+routes and UI projections. Rendered presentation and navigation require manual
+review. Production builds omit this Scenario from the launcher.
+
 Prerequisite titles, descriptions, status, and optional node links share
 `src/ui/game/projectPrerequisite.ts`.
 
@@ -59,11 +69,10 @@ Choice commands do not resolve endings. Saves with same-turn choice endings
 fail validation, as do older saves missing required fields. The Connectional Fellowship reaches Expansion in turn 1 (1981).
 
 Saves retain node history, incident state, and Resource balance and flow.
-Checkpoint creation rejects duplicate IDs and retains all earlier entries until
-explicit deletion. Failed saves keep the running game open, including when
-returning to the main menu. Starting-turn Stance actions and their costs update
-runtime history and remain saveable. Known gaps: initial `requires` checks,
-non-`0..1` Effect displays, negative change costs, and a stale product-preview test.
+Starting-turn history includes immediate Stance actions and their costs; save
+validation accepts these runtime readings while checking domains and consistency
+with current state. Known gaps: initial `requires` checks, non-`0..1` Effect displays,
+negative change costs, and a stale product-preview test.
 
 ## Deferred or incomplete areas
 

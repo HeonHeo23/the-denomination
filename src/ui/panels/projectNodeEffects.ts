@@ -1,8 +1,8 @@
 import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
+  FactionMetricDefinition,
   ScenarioDefinition,
   SimulationState,
-  FactionMetric,
 } from "../../simulation";
 import { previewStanceEffects } from "../../simulation";
 import { formatContributionPercent, formatSignedValue } from "../formatValue";
@@ -15,17 +15,17 @@ export interface NodeEffectView {
   readonly relatedNodeId?: string;
   readonly relatedName: string;
   readonly label?: string;
-  readonly sourceMetric?: FactionMetric;
-  readonly sourceMetricId?: string;
-  readonly targetMetric?: FactionMetric;
-  readonly targetMetricId?: string;
+  readonly sourceMetric?: FactionMetricDefinition;
+  readonly targetMetric?: FactionMetricDefinition;
   readonly contribution: number;
   readonly contributionLabel: string;
   readonly contributionTone: EffectContributionTone;
-  readonly previewContribution?: number;
-  readonly previewContributionLabel?: string;
-  readonly previewContributionTone?: EffectContributionTone;
-  readonly previewKind?: "settled" | "estimate";
+  readonly preview?: {
+    readonly contribution: number;
+    readonly label: string;
+    readonly tone: EffectContributionTone;
+    readonly kind: "settled" | "estimate";
+  };
   readonly inertiaTurns?: number;
 }
 
@@ -89,20 +89,18 @@ export function projectNodeEffects(
         label: effect.label,
         sourceMetric: sourceInfo?.metric,
         targetMetric: targetInfo.metric,
-        sourceMetricId: sourceInfo?.metricId,
-        targetMetricId: targetInfo.metricId,
         contribution,
         contributionLabel: formatContributionPercent(contribution),
         contributionTone: contributionTone(contribution),
         ...(preview === undefined
           ? {}
           : {
-              previewContribution: preview.contribution,
-              previewContributionLabel: formatContributionPercent(
-                preview.contribution,
-              ),
-              previewContributionTone: contributionTone(preview.contribution),
-              previewKind: preview.kind,
+              preview: {
+                contribution: preview.contribution,
+                label: formatContributionPercent(preview.contribution),
+                tone: contributionTone(preview.contribution),
+                kind: preview.kind,
+              },
             }),
         inertiaTurns: effect.inertiaTurns ?? 1,
       };
@@ -148,7 +146,6 @@ export function projectNodeEffects(
         relatedName: "Grudge",
         label: grudge.label,
         targetMetric: targetInfo.metric,
-        targetMetricId: targetInfo.metricId,
         contribution: grudge.magnitude,
         contributionLabel: formatSignedValue(grudge.magnitude, target.domain),
         contributionTone: contributionTone(grudge.magnitude),

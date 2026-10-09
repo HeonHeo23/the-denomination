@@ -34,10 +34,7 @@ function SearchResult({ entry }: { readonly entry: NodeSearchEntry }) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <strong className="flex min-w-0 items-center gap-1.5 font-medium">
           {entry.factionMetric && (
-            <FactionMetricIcon
-              metric={entry.factionMetric.label}
-              metricId={entry.factionMetric.id}
-            />
+            <FactionMetricIcon metric={entry.factionMetric} />
           )}
           <span className="truncate">{entry.name}</span>
         </strong>

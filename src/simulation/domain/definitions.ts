@@ -94,16 +94,16 @@ export interface IndicatorDefinition extends BaseNodeDefinition {
 export type FactionCategory =
   "theological" | "demographic" | "geographic" | "institutional";
 /** Scenario-defined metric identifier; numeric references use node IDs. */
-export type FactionMetric = string;
+export type FactionMetricId = string;
 export interface FactionMetricDefinition {
-  readonly id: FactionMetric;
+  readonly id: FactionMetricId;
   readonly label: string;
 }
 export interface FactionGroupDefinition {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly metrics: Readonly<Record<FactionMetric, NodeId>>;
+  readonly metrics: Readonly<Record<FactionMetricId, NodeId>>;
 }
 /** An ordinary calculated metric owned by a static Faction group. */
 export interface FactionDefinition extends BaseNodeDefinition {

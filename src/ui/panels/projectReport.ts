@@ -4,8 +4,8 @@ import {
 } from "../projections/projectFactionGroups";
 import { initializeScenario } from "../../simulation";
 import type {
+  FactionMetricDefinition,
   NodeDefinition,
-  FactionMetric,
   NodeType,
   NumericDomain,
   ScenarioDefinition,
@@ -60,8 +60,7 @@ export function projectEndingReport(
 }
 
 export interface ReportChange {
-  readonly metric?: FactionMetric;
-  readonly metricId?: string;
+  readonly metric?: FactionMetricDefinition;
   readonly node: NodeDefinition;
   readonly previousValue: number;
   readonly value: number;
@@ -80,8 +79,7 @@ export interface TurnReportGrudge {
   readonly id: string;
   readonly label: string;
   readonly targetId: string;
-  readonly targetMetric?: FactionMetric;
-  readonly targetMetricId?: string;
+  readonly targetMetric?: FactionMetricDefinition;
   readonly targetName: string;
   readonly targetDomain?: NumericDomain;
   readonly magnitude: number;
@@ -133,7 +131,6 @@ export function projectChanges(
     return [
       {
         node: projectNodeForDisplay(scenario, node),
-        metricId: display.metricId,
         ...(display.metric ? { metric: display.metric } : {}),
         previousValue: before.value,
         value: after.value,
@@ -225,10 +222,7 @@ export function projectTurnReport(
         label: grudge.label,
         targetId: grudge.target,
         targetName: getNodeDisplayInfo(scenario, grudge.target).name,
-        targetMetricId: getNodeDisplayInfo(scenario, grudge.target).metricId,
-        ...(getNodeDisplayInfo(scenario, grudge.target).metric
-          ? { targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric }
-          : {}),
+        targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric,
         targetDomain: target ? target.domain : undefined,
         magnitude: grudge.magnitude,
       };
@@ -297,7 +291,6 @@ export function restoreTurnReport(
   );
   const changes = saved.changes.map((change) => ({
     node: projectNodeForDisplay(scenario, nodes.get(change.nodeId)!),
-    metricId: getNodeDisplayInfo(scenario, change.nodeId).metricId,
     ...(getNodeDisplayInfo(scenario, change.nodeId).metric
       ? { metric: getNodeDisplayInfo(scenario, change.nodeId).metric }
       : {}),
@@ -325,11 +318,8 @@ export function restoreTurnReport(
       id: grudge.id,
       label: grudge.label,
       targetId: grudge.targetId,
-      ...(getNodeDisplayInfo(scenario, grudge.targetId).metric
-        ? { targetMetric: getNodeDisplayInfo(scenario, grudge.targetId).metric }
-        : {}),
+      targetMetric: getNodeDisplayInfo(scenario, grudge.targetId).metric,
       targetName: getNodeDisplayInfo(scenario, grudge.targetId).name,
-      targetMetricId: getNodeDisplayInfo(scenario, grudge.targetId).metricId,
       targetDomain: nodes.get(grudge.targetId)!.domain,
       magnitude: grudge.magnitude,
     })),

@@ -1,5 +1,6 @@
 import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
+  FactionMetricDefinition,
   PrerequisiteDefinition,
   ScenarioDefinition,
   SimulationState,
@@ -12,6 +13,7 @@ export interface PrerequisiteView {
   readonly description: string;
   readonly met: boolean;
   readonly nodeId?: string;
+  readonly metric?: FactionMetricDefinition;
 }
 
 /** Describe any runtime prerequisite using the shared engine evaluation. */
@@ -60,26 +62,27 @@ export function projectPrerequisite(
   )!;
   const runtime = state.nodes[prerequisite.nodeId];
   const nodedisplayinfo = getNodeDisplayInfo(scenario, definition.id);
-  const title = `${nodedisplayinfo.name}${nodedisplayinfo.metric ? ` — ${nodedisplayinfo.metric}` : ""}`;
+  const title = nodedisplayinfo.name;
   const base = {
     met,
     nodeId: definition.id,
     title,
+    ...(nodedisplayinfo.metric ? { metric: nodedisplayinfo.metric } : {}),
   };
   if (prerequisite.kind === "node-activation") {
     return {
       ...base,
-      description: `${title} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
+      description: `${runtime.isActive ? "Active" : "Inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
     };
   }
   if (prerequisite.kind === "situation-resolved") {
     return {
       ...base,
-      description: `${title} ${met ? "was active and is now resolved" : "has not resolved after being active"}.`,
+      description: `${met ? "Was active and is now resolved" : "Has not resolved after being active"}.`,
     };
   }
   return {
     ...base,
-    description: `${title} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
+    description: `Current value: ${formatValue(runtime.value, definition.domain)} ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
   };
 }

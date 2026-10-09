@@ -51,6 +51,10 @@ export function runNodeEffectProjectionTests() {
     "Inactive sources should not list dormant outgoing Effects",
   );
   assert(
+    tensionEffects.incoming.every((effect) => effect.preview === undefined),
+    "Effects should omit the preview object when no Stance draft is supplied",
+  );
+  assert(
     tensionEffects.incoming.some(
       (effect) => effect.relatedName === "Default pressure",
     ),
@@ -213,23 +217,27 @@ export function runNodeEffectProjectionTests() {
   }
 
   assert(
-    stancePreview?.previewContribution !== undefined,
+    stancePreview?.preview !== undefined,
     "A changed Stance should expose its projected outgoing contribution",
   );
   assert(
-    stancePreview?.previewKind === "settled",
+    stancePreview.preview.kind === "settled",
     "A legal Stance change should expose a settled target",
   );
   assert(
     Math.abs(
-      stancePreview.previewContribution -
+      stancePreview.preview.contribution -
         afterInertiaWindow.effects["formation-to-quality"].lastContribution,
     ) < 0.000001,
     "The displayed preview should match the contribution after the full inertia window",
   );
   assert(
-    stancePreview.previewContributionLabel === "+26.0%",
+    stancePreview.preview.label === "+26.0%",
     "The preview should show the final direct contribution after three-turn inertia",
+  );
+  assert(
+    stancePreview.preview.tone === "positive",
+    "The preview object should include the tone of its contribution",
   );
   assert(
     initial.nodes["clergy-formation"].value === 0.6,
@@ -279,7 +287,7 @@ export function runNodeEffectProjectionTests() {
   );
   assert(
     inactiveStanceEffects.outgoing.every(
-      (effect) => effect.previewContribution !== undefined,
+      (effect) => effect.preview !== undefined,
     ),
     "Every drafted Stance Effect should display a proposed contribution",
   );
@@ -413,11 +421,11 @@ export function runNodeEffectProjectionTests() {
     initial.nodes["clergy-formation"].value,
   ).outgoing.find((effect) => effect.id === "formation-to-quality");
   assert(
-    unchangedStancePreview?.previewContribution !== undefined,
+    unchangedStancePreview?.preview !== undefined,
     "The Stance page should project its current target before the slider changes",
   );
   assert(
-    unchangedStancePreview.previewContributionLabel === "+39.0%",
+    unchangedStancePreview.preview.label === "+39.0%",
     "An unchanged Stance target should still show its settled direct contribution",
   );
 

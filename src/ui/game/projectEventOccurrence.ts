@@ -3,8 +3,8 @@ import {
   projectNodeForDisplay,
 } from "../projections/projectFactionGroups";
 import type {
+  FactionMetricDefinition,
   EventDefinition,
-  FactionMetric,
   NodeDefinition,
   ScenarioDefinition,
   SimulationState,
@@ -16,8 +16,7 @@ export interface EventConsequenceView {
   readonly title: string;
   readonly detail: string;
   readonly target?: NodeDefinition;
-  readonly targetMetric?: FactionMetric;
-  readonly targetMetricId?: string;
+  readonly targetMetric?: FactionMetricDefinition;
   readonly endOfTurnValue?: number;
   readonly appliedAmount?: number;
 }
@@ -89,14 +88,7 @@ export function projectEventOccurrence(
             scenario,
             nodes.get(consequence.target)!,
           ),
-          targetMetricId: getNodeDisplayInfo(scenario, consequence.target)
-            .metricId,
-          ...(getNodeDisplayInfo(scenario, consequence.target).metric
-            ? {
-                targetMetric: getNodeDisplayInfo(scenario, consequence.target)
-                  .metric,
-              }
-            : {}),
+          targetMetric: getNodeDisplayInfo(scenario, consequence.target).metric,
           endOfTurnValue:
             readings && consequence.kind !== "activation"
               ? readings[consequence.target].value

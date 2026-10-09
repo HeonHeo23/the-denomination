@@ -1,7 +1,6 @@
 import type {
   FactionDefinition,
   FactionGroupDefinition,
-  FactionMetric,
   FactionMetricDefinition,
   NodeDefinition,
   ScenarioDefinition,
@@ -14,8 +13,7 @@ export interface FactionNodeContext {
 }
 export interface NodeDisplayInfo {
   readonly name: string;
-  readonly metric: FactionMetric | undefined;
-  readonly metricId: FactionMetric | undefined;
+  readonly metric: FactionMetricDefinition | undefined;
 }
 interface FactionGroupIndex {
   readonly definitions: ReadonlyMap<string, NodeDefinition>;
@@ -79,8 +77,7 @@ export function getNodeDisplayInfo(
       context?.group.name ??
       getFactionGroupIndex(scenario).definitions.get(nodeId)?.name ??
       nodeId,
-    metric: context?.metric.label,
-    metricId: context?.metric.id,
+    metric: context?.metric,
   };
 }
 
@@ -116,7 +113,7 @@ export function projectFactionConstraints(
             nodeId: node.id,
             groupName: nodedisplayinfo.name,
             ...(nodedisplayinfo.metric
-              ? { metricLabel: nodedisplayinfo.metric }
+              ? { metricLabel: nodedisplayinfo.metric.label }
               : {}),
             belongsToCurrentGroup: context?.group.id === groupId,
           };

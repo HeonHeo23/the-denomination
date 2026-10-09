@@ -52,7 +52,7 @@ export function runDilemmaConsequenceProjectionTests() {
   const before = structuredClone(consequences);
   const rows = projectDilemmaConsequences(exampleScenario, consequences);
   assert.deepEqual(
-    rows.map(({ metric }) => metric),
+    rows.map(({ metric }) => metric?.label),
     [
       firstMetric.label,
       undefined,
@@ -82,7 +82,8 @@ export function runDilemmaConsequenceProjectionTests() {
     "0.0",
   );
   assert.equal(rows[0].name, group.name);
-  assert.equal(rows[0].metricId, firstMetric.id);
+  assert.equal(rows[0].metric?.id, firstMetric.id);
+  assert.equal(rows[0].metric, firstMetric);
   assert.equal(rows[0].valueLabel, "+20.0%");
   assert.equal(rows[0].kindLabel, "Temporary pressure");
   assert.equal(rows[1].name, resource.name);
@@ -110,7 +111,7 @@ export function runDilemmaConsequenceProjectionTests() {
     factionMetrics: [...exampleScenario.factionMetrics].reverse(),
   };
   assert.equal(
-    projectDilemmaConsequences(reversed, consequences)[0].metric,
+    projectDilemmaConsequences(reversed, consequences)[0].metric?.label,
     secondMetric.label,
   );
 }
