@@ -1,9 +1,15 @@
+/**
+ * Projects turn and terminal outcomes into report views.
+ * Uses recorded outcome data without evaluating simulation mechanics.
+ */
 import {
   getNodeDisplayInfo,
   projectNodeForDisplay,
 } from "../projections/projectFactionGroups";
 import { initializeScenario } from "../../simulation";
 import type {
+  EndingNarrativeDefinition,
+  HistoricalActorDefinition,
   FactionMetricDefinition,
   NodeDefinition,
   NodeType,
@@ -18,6 +24,25 @@ import type {
   SavedTurnReport,
   SavedTurnReportChange,
 } from "../../app/persistence";
+import {
+  projectPrerequisiteGroups,
+  type PrerequisiteGroupView,
+} from "../game/projectPrerequisite";
+import {
+  projectContributions,
+  getBiggestContribution,
+  type Contribution,
+} from "../game/projectContributions";
+
+export interface EndingView {
+  readonly ending: EndingNarrativeDefinition;
+  readonly turn: number;
+  readonly year?: number;
+  readonly usedFallback: boolean;
+  readonly triggers: ScenarioDefinition["completion"]["prerequisiteGroups"];
+  readonly actors: readonly HistoricalActorDefinition[];
+  readonly changes: readonly ReportChange[];
+}
 
 const CHANGE_EPSILON = 1e-9;
 const startingSnapshots = new WeakMap<ScenarioDefinition, SimulationState>();
@@ -39,7 +64,7 @@ export function projectEndingChanges(
 export function projectEndingReport(
   scenario: ScenarioDefinition,
   state: SimulationState,
-) {
+): EndingView | undefined {
   const outcome = state.outcome;
   if (outcome?.kind !== "ending") return undefined;
   const ending = outcome.usedFallback
@@ -57,6 +82,53 @@ export function projectEndingReport(
     actors: scenario.historicalActors,
     changes: projectEndingChanges(scenario, state),
   };
+}
+
+export interface GameOverCauseView {
+  readonly definition: GameOverDefinition;
+  readonly consecutiveTurns: number;
+  readonly matchedGroups: readonly PrerequisiteGroupView[];
+  readonly contributions: readonly Contribution[];
+  readonly biggestContribution?: Contribution;
+}
+
+export function projectGameOverCauses(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+): readonly GameOverCauseView[] {
+  if (state.outcome?.kind !== "game-over") return [];
+  return state.outcome.causes.flatMap((cause) => {
+    const definition = scenario.gameOvers?.find(
+      ({ id }) => id === cause.gameOverId,
+    );
+    if (!definition) return [];
+    const matchedGroups = projectPrerequisiteGroups(
+      definition.prerequisiteGroups,
+      cause.matchedPrerequisiteGroupIds,
+      scenario,
+      state,
+    ).filter(({ matched }) => matched);
+    const affectedNodeIds = new Set(
+      matchedGroups.flatMap(({ prerequisites }) =>
+        prerequisites.flatMap(({ nodeId }) => (nodeId ? [nodeId] : [])),
+      ),
+    );
+    const contributions = projectContributions(scenario, state, [
+      ...affectedNodeIds,
+    ]);
+    return [
+      {
+        definition,
+        consecutiveTurns:
+          state.gameOverProgress[definition.id]?.consecutiveTurns > 0
+            ? state.gameOverProgress[definition.id].consecutiveTurns
+            : definition.terminalAfterTurns,
+        matchedGroups,
+        contributions,
+        biggestContribution: getBiggestContribution(contributions),
+      },
+    ];
+  });
 }
 
 export interface ReportChange {

@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/sheet";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
-import { projectCrises } from "./projectGameOvers";
+import { projectCrisis } from "./projectCrisis";
 import { DossierItemButton } from "@/ui/panels/DossierItemButton";
 import { projectDilemmaDecisions } from "./projectDilemma";
 
@@ -118,7 +118,7 @@ export function DashboardSheets({
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
-  const crises = projectCrises(scenario, state);
+  const crises = projectCrisis(scenario, state);
   const decisions = projectDilemmaDecisions(scenario, state);
 
   return (
@@ -177,7 +177,6 @@ export function DashboardSheets({
             {crises.map((crisis) => (
               <CrisisSummaryCard
                 key={crisis.definition.id}
-                variant="compact"
                 crisis={crisis}
                 onOpen={() => {
                   onClose();

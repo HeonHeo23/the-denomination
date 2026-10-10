@@ -1,7 +1,12 @@
+/**
+ * Projects runtime prerequisite checks into readable views for the UI.
+ * Recorded group matches remain separate from current prerequisite readings.
+ */
 import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
 import type {
   FactionMetricDefinition,
   PrerequisiteDefinition,
+  PrerequisiteGroupDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
@@ -85,4 +90,27 @@ export function projectPrerequisite(
     ...base,
     description: `Current value: ${formatValue(runtime.value, definition.domain)} ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
   };
+}
+
+export interface PrerequisiteGroupView {
+  readonly group: PrerequisiteGroupDefinition;
+  readonly matched: boolean;
+  readonly prerequisites: readonly PrerequisiteView[];
+}
+
+/** Recorded group matches remain independent of current readings. */
+export function projectPrerequisiteGroups(
+  groups: readonly PrerequisiteGroupDefinition[],
+  matchedGroupIds: readonly string[],
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+): readonly PrerequisiteGroupView[] {
+  const matchedIds = new Set(matchedGroupIds);
+  return groups.map((group) => ({
+    group,
+    matched: matchedIds.has(group.id),
+    prerequisites: group.allOf.map((prerequisite) =>
+      projectPrerequisite(prerequisite, scenario, state),
+    ),
+  }));
 }

@@ -35,7 +35,7 @@ import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
 import { EndingReportDialog } from "./EndingReportDialog";
 import { GameOverReportDialog } from "./GameOverReportDialog";
-import { projectCrises, projectGameOverWarnings } from "./projectGameOvers";
+import { projectCrisis } from "./projectCrisis";
 import { useDossierNavigation } from "./useDossierNavigation";
 import "./game-shell.css";
 
@@ -246,16 +246,12 @@ export function GameView({
   const selectedRuntime = selectedDefinition
     ? session.state.nodes[selectedDefinition.id]
     : undefined;
-  const crisisItems = projectCrises(
+  const crisisItems = projectCrisis(
     scenario,
     session.state,
-    turnReport?.crisisTransitions.map((transition) => ({
-      kind: transition.kind,
-      gameOverId: transition.definition.id,
-      stageAtTurn: transition.stage?.atTurn,
-      consecutiveTurns: transition.consecutiveTurns,
-      turnsRemaining: transition.turnsRemaining,
-    })),
+    turnReport?.crisisTransitions
+      .filter(({ kind }) => kind === "recovered")
+      .map(({ definition }) => definition.id),
   );
   const selectedCrisis = crisisItems.find(
     ({ definition }) => definition.id === navigation.selectedCrisisId,
@@ -264,10 +260,12 @@ export function GameView({
   const selectCrisis = navigation.openCrisis;
   const visibleToast =
     toastMessage ?? (notice !== dismissedNotice ? notice : undefined);
-  const gameOverWarnings = projectGameOverWarnings(scenario, session.state);
-  const urgentGameOverWarning = session.state.outcome
+  const activeCrises = crisisItems.filter(
+    ({ status }) => status !== "recovered",
+  );
+  const urgentCrisis = session.state.outcome
     ? undefined
-    : gameOverWarnings[0];
+    : crisisItems.filter(({ status }) => status === "warning")[0];
   const savedTurnReport = turnReport
     ? serializeTurnReport(turnReport)
     : undefined;
@@ -284,12 +282,12 @@ export function GameView({
         resources={resources}
         onResourceHover={setSheetHoveredNodeId}
         onResourceSelect={selectNode}
-        activeCrisisCount={gameOverWarnings.length}
-        urgentGameOverWarning={
-          urgentGameOverWarning
+        activeCrisisCount={activeCrises.length}
+        urgentCrisis={
+          urgentCrisis
             ? {
-                title: urgentGameOverWarning.definition.title,
-                turnsRemaining: urgentGameOverWarning.turnsRemaining,
+                title: urgentCrisis.definition.title,
+                turnsRemaining: urgentCrisis.turnsRemaining,
               }
             : undefined
         }

@@ -25,7 +25,7 @@ import { ItemGroup } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSignedValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
-import { crisisTurnsLabel } from "@/ui/game/crisisPresentation";
+import { formatCrisisTurns } from "@/ui/game/projectCrisis";
 import { DossierDialogFrame } from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 import type { TurnReport } from "./projectReport";
@@ -157,7 +157,7 @@ export function TurnReportDialog({
                       trailing={
                         <Badge variant="outline">
                           {transition.kind === "stage"
-                            ? `${crisisTurnsLabel(transition.turnsRemaining)} to Game Over`
+                            ? `${formatCrisisTurns(transition.turnsRemaining)} to Game Over`
                             : "Recovered"}
                         </Badge>
                       }

@@ -47,8 +47,7 @@ flowchart TB
   classDef component fill:#f8fafc,stroke:#334155,color:#0f172a,stroke-width:2px
 ```
 
-The project is a client-side application with a deterministic, framework-free
-simulation core.
+The project is a client-side application with a deterministic, framework-free simulation core.
 
 ## Modules
 
@@ -279,6 +278,10 @@ contracts, including loading, Stance assessment, and Effect preview helpers.
 
 React renders the current application snapshot and dispatches commands. Hooks
 may memoize projections but must not become an alternate simulation store.
+
+Crisis lifecycle views and recorded Game Over reports are separate projections
+that share prerequisite and contribution data. Neither owns simulation state
+or evaluates terminal outcomes.
 
 local dossier-navigation state controls overlapping dialogs and is never persisted.
 

@@ -26,7 +26,7 @@ import type {
 } from "@/simulation";
 import { formatSignedValue, formatValue, meterPercent } from "@/ui/formatValue";
 import { institutionEra, type InstitutionEra } from "@/ui/institutionEra";
-import { projectCrises, type CrisisView } from "./projectGameOvers";
+import { projectCrisis, type CrisisView } from "./projectCrisis";
 import { CrisisSummaryCard } from "./CrisisSummaryCard";
 
 const eraImages: Record<InstitutionEra, string> = {
@@ -64,7 +64,6 @@ function ActiveCrisisItems({ crises, onCrisisSelect }: ActiveCrisisItemsProps) {
       {crises.map((crisis) => (
         <CrisisSummaryCard
           key={crisis.definition.id}
-          variant="compact"
           crisis={crisis}
           onOpen={() => onCrisisSelect(crisis.definition.id)}
         />
@@ -85,7 +84,7 @@ export function InstitutionOverview({
   onResourceSelect,
 }: InstitutionOverviewProps) {
   const era = institutionEra(state.turn);
-  const activeCrises = projectCrises(scenario, state);
+  const activeCrises = projectCrisis(scenario, state);
 
   return (
     <aside

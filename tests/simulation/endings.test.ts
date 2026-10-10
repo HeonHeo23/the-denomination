@@ -14,7 +14,7 @@ import {
 } from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
-import { projectGameOverWarnings } from "../../src/ui/game/projectGameOvers";
+import { projectCrisis } from "../../src/ui/game/projectCrisis";
 import { projectPrerequisite } from "../../src/ui/game/projectPrerequisite";
 import { projectEndingReport } from "../../src/ui/panels/projectReport";
 import {
@@ -678,7 +678,7 @@ export function runEndingTests() {
   ).state;
   assert.equal(beforeCrisis.gameOverProgress.suppression.consecutiveTurns, 0);
   const sharedWarning = advanceTurn(sharedCrisis, beforeCrisis).state;
-  const crisis = projectGameOverWarnings(sharedCrisis, sharedWarning)[0];
+  const crisis = projectCrisis(sharedCrisis, sharedWarning)[0];
   assert.equal(crisis.consecutiveTurns, 1);
   assert.deepEqual(crisis.matchedPrerequisiteNodeIds, ["reserve"]);
   assert.ok(crisis.matchedGroups[0].prerequisites.every(({ met }) => met));

@@ -1,29 +1,28 @@
+import type { GameOverDefinition, SimulationState } from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
   initializeScenario,
   type GrudgeRuntimeState,
 } from "../../src/simulation";
-import { projectTurnReport } from "../../src/ui/panels/projectReport";
+import {
+  projectTurnReport,
+  projectGameOverCauses,
+} from "../../src/ui/panels/projectReport";
 import { institutionEra, isEtherealTurn } from "../../src/ui/institutionEra";
 import {
   getBiggestContribution,
-  getCrisisProgress,
-  getGroups,
   groupContributions,
-  projectCrises,
-  projectGameOverReport,
-  projectGameOverWarnings,
+  projectContributions,
   type Contribution,
-} from "../../src/ui/game/projectGameOvers";
+} from "../../src/ui/game/projectContributions";
+import { projectPrerequisiteGroups } from "../../src/ui/game/projectPrerequisite";
 import {
-  crisisCountdown,
-  crisisElapsedLabel,
-  crisisProgressLabel,
-  crisisStageLabel,
-  crisisStatusLabel,
-  crisisStatusVariant,
-  crisisTurnsLabel,
-} from "../../src/ui/game/crisisPresentation";
+  projectCrisis,
+  formatCrisisElapsedLabel,
+  formatCrisisProgressLabel,
+  formatCrisisTurns,
+  projectCrisisDetail,
+} from "../../src/ui/game/projectCrisis";
 import {
   moveDossierNavigation,
   type DossierNavigationState,
@@ -154,7 +153,7 @@ export function runReportProjectionTests() {
       },
     },
   };
-  const warnings = projectGameOverWarnings(exampleScenario, warningState);
+  const warnings = projectCrisis(exampleScenario, warningState);
   assert(
     warnings[0]?.turnsRemaining === 3 &&
       warnings[0].matchedGroups[0]?.prerequisites.length === 2 &&
@@ -164,7 +163,7 @@ export function runReportProjectionTests() {
     "Game Over warnings should project countdowns and mechanical prerequisites",
   );
   assert(
-    projectCrises(exampleScenario, warningState)[0]?.status === "warning",
+    projectCrisis(exampleScenario, warningState)[0]?.status === "warning",
     "Qualifying Game Overs should project warning Crisis records",
   );
   const crisisReport = projectTurnReport(
@@ -195,14 +194,8 @@ export function runReportProjectionTests() {
     "A cleared crisis should appear as a recovery in the turn report",
   );
   assert(
-    projectCrises(exampleScenario, recoveredState, [
-      {
-        kind: "recovered",
-        gameOverId: gameOverDefinition.id,
-        consecutiveTurns: 0,
-        turnsRemaining: gameOverDefinition.terminalAfterTurns,
-      },
-    ])[0]?.status === "recovered",
+    projectCrisis(exampleScenario, recoveredState, [gameOverDefinition.id])[0]
+      ?.status === "recovered",
     "A recovery transition should retain a Crisis record during reveal",
   );
 
@@ -228,7 +221,7 @@ export function runReportProjectionTests() {
       ],
     },
   };
-  const gameOverReport = projectGameOverReport(exampleScenario, terminalState);
+  const gameOverReport = projectGameOverCauses(exampleScenario, terminalState);
   assert(
     gameOverReport[0]?.definition.id === gameOverDefinition.id &&
       gameOverReport[0].matchedGroups[0]?.group.id ===
@@ -237,46 +230,144 @@ export function runReportProjectionTests() {
   );
 
   const warning = warnings[0];
+  assert(warning !== undefined, "The example crisis should project a warning");
+  const warningDetail = projectCrisisDetail({ ...warning, status: "warning" });
+  const warningAtTwo = projectCrisisDetail({
+    ...warning,
+    consecutiveTurns: 2,
+    turnsRemaining: 2,
+    progressPercent: 50,
+    status: "warning",
+  });
+  const warningAtLastTurn = projectCrisisDetail({
+    ...warning,
+    consecutiveTurns: gameOverDefinition.terminalAfterTurns - 1,
+    status: "warning",
+  });
+  const { milestones } = warningDetail;
   assert(
-    warning !== undefined &&
-      crisisStageLabel(warning) === gameOverDefinition.stages[0].title &&
-      crisisTurnsLabel(warning.turnsRemaining) === "3 turns" &&
-      crisisElapsedLabel(warning) === "1/4 qualifying turns" &&
-      crisisProgressLabel(warning).includes("1 of 4 qualifying turns") &&
-      crisisStatusLabel("warning") === "Warning" &&
-      crisisStatusVariant("recovered") === "outline",
-    "Crisis surfaces should share stage, status, and progress wording",
+    warningDetail.stageLabel === gameOverDefinition.stages[0].title &&
+      warningDetail.terminalTurn === gameOverDefinition.terminalAfterTurns &&
+      warningDetail.progressLabel === formatCrisisProgressLabel(warning) &&
+      formatCrisisTurns(warning.turnsRemaining) === "3 turns" &&
+      formatCrisisElapsedLabel(warning) === "1/4 qualifying turns" &&
+      warningDetail.progressLabel.includes("1 of 4 qualifying turns"),
+    "Crisis details should combine stage, scale, and accessible progress wording",
   );
-  const recovered = projectCrises(exampleScenario, recoveredState, [
+  assert(
+    milestones.filter(({ kind }) => kind === "stage").length ===
+      gameOverDefinition.stages.length &&
+      gameOverDefinition.stages.every(
+        (stage, index) =>
+          milestones[index]?.id === stage.id &&
+          milestones[index]?.turn === stage.atTurn &&
+          milestones[index]?.title === stage.title &&
+          milestones[index]?.positionPercent ===
+            (stage.atTurn / gameOverDefinition.terminalAfterTurns) * 100,
+      ) &&
+      milestones.at(-1)?.kind === "terminal" &&
+      milestones.at(-1)?.turn === gameOverDefinition.terminalAfterTurns &&
+      milestones.at(-1)?.title === "Game Over" &&
+      milestones.at(-1)?.positionPercent === 100,
+    "Crisis details should project stage and terminal ticks at authored positions",
+  );
+  assert(
+    warningAtTwo.progressCopy.primary === "Turn: 2 / 4" &&
+      warningAtTwo.progressCopy.secondary === "Next threshold: turn 3",
+    "Warning crises should identify the current turn and next authored threshold",
+  );
+  assert(
+    warningAtLastTurn.progressCopy.secondary ===
+      `Next threshold: turn ${gameOverDefinition.terminalAfterTurns}`,
+    "Warning crises should fall back to the terminal turn when no authored stage remains",
+  );
+  const initialDetail = projectCrisisDetail({
+    ...warning,
+    consecutiveTurns: 0,
+    stage: undefined,
+    status: "warning",
+  });
+  assert(
+    initialDetail.stageLabel === "Under inquiry",
+    "Crisis details should show the inquiry fallback before the first stage",
+  );
+  const longStageTitle =
+    "A deliberately long authored stage name that must remain complete";
+  const unsortedStages = Object.freeze([
+    { ...gameOverDefinition.stages[0], id: "late", atTurn: 3 },
     {
-      kind: "recovered",
-      gameOverId: gameOverDefinition.id,
-      consecutiveTurns: 0,
-      turnsRemaining: gameOverDefinition.terminalAfterTurns,
+      ...gameOverDefinition.stages[0],
+      id: "early",
+      atTurn: 1,
+      title: longStageTitle,
     },
+    { ...gameOverDefinition.stages[0], id: "middle", atTurn: 2 },
+  ]);
+  const unsortedDetail = projectCrisisDetail({
+    ...warning,
+    definition: { ...gameOverDefinition, stages: unsortedStages },
+    consecutiveTurns: 1,
+    status: "warning",
+  });
+  assert(
+    unsortedDetail.milestones.map(({ turn }) => turn).join(",") === "1,2,3,4" &&
+      unsortedDetail.progressCopy.secondary === "Next threshold: turn 2" &&
+      unsortedDetail.milestones[0]?.title === longStageTitle &&
+      unsortedStages.map(({ atTurn }) => atTurn).join(",") === "3,1,2",
+    "Crisis details should sort thresholds without mutating authored order",
+  );
+  const recovered = projectCrisis(exampleScenario, recoveredState, [
+    gameOverDefinition.id,
   ])[0];
   assert(
-    recovered !== undefined &&
-      crisisStageLabel(recovered) === "Prerequisites cleared" &&
-      crisisCountdown(recovered) === "Cleared this turn" &&
-      projectCrises(exampleScenario, recoveredState).length === 0,
-    "Recovered crises should only remain in the reveal projection",
+    recovered !== undefined,
+    "The recovered crisis should appear in the reveal projection",
   );
-  const terminal = projectCrises(exampleScenario, terminalState)[0];
+  const recoveredDetail = projectCrisisDetail(recovered);
   assert(
-    terminal?.status === "terminal" &&
-      crisisCountdown(terminal) === "Game Over" &&
+    recoveredDetail.stageLabel === "Prerequisites cleared" &&
+      recoveredDetail.progressCopy.primary === "Recovered" &&
+      recoveredDetail.progressCopy.secondary === "Conditions cleared" &&
+      recoveredDetail.progressLabel.includes("Recovered, conditions cleared") &&
+      projectCrisis(exampleScenario, recoveredState).length === 0,
+    "Recovered crisis details should describe cleared conditions in the reveal projection",
+  );
+  const terminal = projectCrisis(exampleScenario, terminalState)[0];
+  assert(terminal !== undefined, "The terminal crisis should project details");
+  const terminalDetail = projectCrisisDetail(terminal);
+  assert(
+    terminal.status === "terminal" &&
+      terminalDetail.progressCopy.primary === "Game Over" &&
+      terminalDetail.progressCopy.secondary === "Turn: 4 / 4" &&
+      terminalDetail.progressLabel.includes("Game Over, turn 4 of 4") &&
       terminal.turnsRemaining === 0 &&
       terminal.progressPercent === 100,
     "Terminal crisis presentation should remain complete and identify Game Over",
   );
+  const projectProgress = (
+    definition: GameOverDefinition,
+    consecutiveTurns: number,
+  ) =>
+    projectCrisis(
+      { ...exampleScenario, gameOvers: [definition] },
+      {
+        ...warningState,
+        gameOverProgress: {
+          [definition.id]: {
+            episode: 1,
+            consecutiveTurns,
+            matchedPrerequisiteGroupIds: [],
+          },
+        },
+      },
+    )[0];
   assert(
-    getCrisisProgress(gameOverDefinition, 2).turnsRemaining === 2 &&
-      getCrisisProgress(gameOverDefinition, 0).stage === undefined,
-    "Crisis progress should select stages and countdowns from elapsed turns",
+    projectProgress(gameOverDefinition, 2).turnsRemaining === 2 &&
+      projectProgress(gameOverDefinition, 0) === undefined,
+    "Only positive progress should be visible",
   );
   for (const definition of exampleScenario.gameOvers ?? []) {
-    const progress = getCrisisProgress(definition, 1);
+    const progress = projectProgress(definition, 1);
     assert(
       progress.turnsRemaining === definition.terminalAfterTurns - 1 &&
         Math.abs(
@@ -286,6 +377,27 @@ export function runReportProjectionTests() {
       `Crisis progress should respect ${definition.id}'s authored duration`,
     );
   }
+  const beyondTerminal = projectProgress(
+    { ...gameOverDefinition, stages: unsortedStages },
+    6,
+  );
+  assert(
+    beyondTerminal.turnsRemaining === 0 &&
+      beyondTerminal.progressPercent === 100 &&
+      beyondTerminal.stage?.id === "late" &&
+      beyondTerminal.status === "warning",
+    "Progress clamps and selects the latest reached stage without inventing terminal status",
+  );
+  assert(
+    projectCrisis(exampleScenario, recoveredState, [
+      gameOverDefinition.id,
+      gameOverDefinition.id,
+      "unknown",
+    ]).length === 1 &&
+      projectCrisis(exampleScenario, warningState, [gameOverDefinition.id])[0]
+        ?.status === "warning",
+    "Recovery ignores duplicates, unknown IDs, and active crises",
+  );
 
   const alternateGroup = {
     id: "alternate-review",
@@ -314,13 +426,13 @@ export function runReportProjectionTests() {
     },
   };
   assert(
-    getGroups(
-      definitionWithAlternatives,
+    projectPrerequisiteGroups(
+      definitionWithAlternatives.prerequisiteGroups,
       [alternateGroup.id],
       scenarioWithAlternatives,
       alternateState,
     ).filter(({ matched }) => matched)[0]?.group.id === alternateGroup.id &&
-      projectGameOverWarnings(scenarioWithAlternatives, alternateState)[0]
+      projectCrisis(scenarioWithAlternatives, alternateState)[0]
         ?.matchedGroups[0]?.group.id === alternateGroup.id,
     "Warnings should project whichever alternative group the runtime recorded",
   );
@@ -340,10 +452,115 @@ export function runReportProjectionTests() {
     },
   };
   assert(
-    projectGameOverReport(scenarioWithAlternatives, recordedOutcome)[0]
+    projectGameOverCauses(scenarioWithAlternatives, recordedOutcome)[0]
       ?.matchedGroups[0]?.group.id ===
       gameOverDefinition.prerequisiteGroups[0].id,
     "Terminal reports must use recorded outcome groups rather than live warning groups",
+  );
+
+  const multipleDefinitions = [
+    { ...definitionWithAlternatives, id: "z", title: "Zulu" },
+    { ...definitionWithAlternatives, id: "a", title: "Alpha" },
+    { ...definitionWithAlternatives, id: "b", title: "Alpha" },
+    { ...definitionWithAlternatives, id: "urgent", title: "Urgent" },
+  ];
+  const multipleScenario = {
+    ...scenarioWithAlternatives,
+    gameOvers: multipleDefinitions,
+  };
+  const multipleState = {
+    ...recordedOutcome,
+    gameOverProgress: Object.fromEntries(
+      multipleDefinitions.map(({ id }) => [
+        id,
+        {
+          episode: 1,
+          consecutiveTurns: id === "urgent" ? 3 : 2,
+          matchedPrerequisiteGroupIds: [alternateGroup.id],
+        },
+      ]),
+    ),
+    outcome: {
+      kind: "game-over" as const,
+      turn: recordedOutcome.turn,
+      causes: [
+        {
+          gameOverId: "b",
+          matchedPrerequisiteGroupIds: [
+            gameOverDefinition.prerequisiteGroups[0].id,
+          ],
+        },
+        { gameOverId: "z", matchedPrerequisiteGroupIds: [alternateGroup.id] },
+      ],
+    },
+  };
+  const beforeProjection = JSON.stringify({ multipleScenario, multipleState });
+  const multipleCrises = projectCrisis(multipleScenario, multipleState);
+  const multipleReport = projectGameOverCauses(multipleScenario, multipleState);
+  assert(
+    multipleCrises.map(({ definition }) => definition.id).join(",") ===
+      "urgent,a,b,z" &&
+      multipleCrises
+        .filter(({ status }) => status === "terminal")
+        .map(({ definition }) => definition.id)
+        .join(",") === "b,z",
+    "Crises sort by countdown, title, and stable title ties; only recorded causes are terminal",
+  );
+  assert(
+    multipleReport.map(({ definition }) => definition.id).join(",") === "b,z" &&
+      multipleReport[0].matchedGroups[0].group.id ===
+        gameOverDefinition.prerequisiteGroups[0].id &&
+      multipleReport[0].matchedGroups[0].prerequisites.some(
+        ({ met }) => !met,
+      ) &&
+      multipleReport[0].consecutiveTurns === 2,
+    "Reports preserve cause order and recorded groups despite different runtime groups and current readings",
+  );
+  for (const gameOverProgress of [
+    {},
+    { b: { episode: 1, consecutiveTurns: 0, matchedPrerequisiteGroupIds: [] } },
+  ] as readonly SimulationState["gameOverProgress"][]) {
+    assert(
+      projectGameOverCauses(multipleScenario, {
+        ...multipleState,
+        gameOverProgress,
+      })[0].consecutiveTurns === gameOverDefinition.terminalAfterTurns,
+      "Missing or zero runtime duration falls back to authored terminal duration",
+    );
+  }
+  assert(
+    JSON.stringify({ multipleScenario, multipleState }) === beforeProjection,
+    "Lifecycle and report projection must leave inputs unchanged",
+  );
+  const contributionState = {
+    ...completedTurn,
+    effects: {
+      ...completedTurn.effects,
+      "centralization-to-reach": {
+        ...completedTurn.effects["centralization-to-reach"],
+        lastContribution: -0.2,
+      },
+    },
+    grudges: [
+      grudge,
+      { ...grudge, id: "new", createdTurn: completedTurn.turn },
+    ],
+  };
+  const contributionsBefore = JSON.stringify(contributionState);
+  const contributions = projectContributions(
+    exampleScenario,
+    contributionState,
+    ["leadership-trust", "governance-reach"],
+  );
+  assert(
+    contributions.some(({ id }) => id === "centralization-to-reach") &&
+      contributions.some(({ id }) => id === grudge.id) &&
+      !contributions.some(({ id }) => id === "new") &&
+      contributions.at(-1)?.kind === "grudge" &&
+      projectContributions(exampleScenario, contributionState, []).length ===
+        0 &&
+      JSON.stringify(contributionState) === contributionsBefore,
+    "Shared contributions filter targets and new Grudges, preserve Effect-before-Grudge order, and leave state unchanged",
   );
 
   const sampleContributions: Contribution[] = [

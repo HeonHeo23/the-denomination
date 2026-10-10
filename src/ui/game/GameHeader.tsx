@@ -33,7 +33,7 @@ import {
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
-import { crisisTurnsLabel } from "./crisisPresentation";
+import { formatCrisisTurns } from "./projectCrisis";
 
 interface GameHeaderProps {
   readonly denominationName: string;
@@ -43,7 +43,7 @@ interface GameHeaderProps {
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
   readonly activeCrisisCount: number;
-  readonly urgentGameOverWarning?: {
+  readonly urgentCrisis?: {
     readonly title: string;
     readonly turnsRemaining: number;
   };
@@ -175,7 +175,7 @@ function ResourceStrip({
 
 function PanelActions({
   activeCrisisCount,
-  urgentGameOverWarning,
+  urgentCrisis,
   terminal,
   resolvingTurn,
   onOpenCrises,
@@ -187,7 +187,7 @@ function PanelActions({
 }: Pick<
   GameHeaderProps,
   | "activeCrisisCount"
-  | "urgentGameOverWarning"
+  | "urgentCrisis"
   | "terminal"
   | "resolvingTurn"
   | "onOpenCrises"
@@ -210,16 +210,16 @@ function PanelActions({
         data-game-header-button
         onClick={onOpenCrises}
         aria-label={
-          urgentGameOverWarning
-            ? `Open crises, ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining`
+          urgentCrisis
+            ? `Open crises, ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining`
             : `Open crises, ${activeCrisisCount} active`
         }
       >
         <ShieldAlert data-icon="inline-start" />
         <span>Crises</span>
-        {urgentGameOverWarning ? (
+        {urgentCrisis ? (
           <Badge variant="destructive">
-            {crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)}
+            {formatCrisisTurns(urgentCrisis.turnsRemaining)}
           </Badge>
         ) : activeCrisisCount > 0 ? (
           <Badge variant="destructive">{activeCrisisCount}</Badge>
@@ -434,7 +434,7 @@ export function GameHeader(props: GameHeaderProps) {
     onResourceHover,
     onResourceSelect,
     activeCrisisCount,
-    urgentGameOverWarning,
+    urgentCrisis,
     terminal,
     normalEnding,
     canLoad,
@@ -505,7 +505,7 @@ export function GameHeader(props: GameHeaderProps) {
         />
         <PanelActions
           activeCrisisCount={activeCrisisCount}
-          urgentGameOverWarning={urgentGameOverWarning}
+          urgentCrisis={urgentCrisis}
           terminal={terminal}
           resolvingTurn={resolvingTurn}
           onOpenCrises={onOpenCrises}
@@ -515,7 +515,7 @@ export function GameHeader(props: GameHeaderProps) {
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />
-        {urgentGameOverWarning && !terminal && (
+        {urgentCrisis && !terminal && (
           <Button
             type="button"
             variant="outline"
@@ -523,12 +523,10 @@ export function GameHeader(props: GameHeaderProps) {
             className="h-full rounded-none md:hidden"
             data-game-header-button
             onClick={onOpenCrises}
-            aria-label={`Open crises: ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining before Game Over`}
+            aria-label={`Open crises: ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining before Game Over`}
           >
             <ShieldAlert data-icon="inline-start" />
-            <Badge variant="destructive">
-              {urgentGameOverWarning.turnsRemaining}
-            </Badge>
+            <Badge variant="destructive">{urgentCrisis.turnsRemaining}</Badge>
           </Button>
         )}
         <div className="ml-auto flex h-full items-stretch">

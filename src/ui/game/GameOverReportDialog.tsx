@@ -1,13 +1,19 @@
-import { Home, RotateCcw, Search, ShieldOff } from "lucide-react";
+import { FactionMetricName } from "@/ui/FactionMetric";
+import { ArrowRight, Home, RotateCcw, Search, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChangesSection } from "@/ui/panels/ChangesSection";
-import { projectEndingChanges } from "../panels/projectReport";
+import {
+  projectEndingChanges,
+  projectGameOverCauses,
+  type GameOverCauseView,
+} from "../panels/projectReport";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ScenarioDefinition, SimulationState } from "@/simulation";
 import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
-import { CrisisSummaryCard } from "./CrisisSummaryCard";
-import { projectCrises, projectGameOverReport } from "./projectGameOvers";
+import { getDossierTriggerProps } from "@/ui/dossierActivation";
+import { formatCrisisTurns } from "./projectCrisis";
 
 interface GameOverReportDialogProps {
   readonly scenario: ScenarioDefinition;
@@ -18,6 +24,86 @@ interface GameOverReportDialogProps {
   readonly onReview: () => void;
   readonly onRestart: () => void;
   readonly onMainMenu: () => void;
+}
+
+function GameOverCauseCard({
+  cause,
+  onOpen,
+}: {
+  readonly cause: GameOverCauseView;
+  readonly onOpen: () => void;
+}) {
+  const definition = cause.definition;
+  return (
+    <Card
+      size="sm"
+      className="cursor-pointer border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      {...getDossierTriggerProps(
+        `Open ${definition.title} crisis dossier`,
+        onOpen,
+      )}
+    >
+      <CardHeader className="border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <CardTitle className="min-w-0 text-base">
+            {definition.report.title}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex h-full min-w-0 flex-col gap-2">
+          <p className="line-clamp-3 leading-relaxed text-muted-foreground">
+            {definition.report.narrative}
+          </p>
+          <span className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
+            Open crisis dossier <ArrowRight aria-hidden="true" />
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:min-w-48 sm:grid-cols-1">
+          <div>
+            <span className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+              Duration
+            </span>
+            <strong className="mt-1 block text-sm">
+              {formatCrisisTurns(cause.consecutiveTurns)}
+            </strong>
+          </div>
+          <div>
+            <span className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+              Biggest cause
+            </span>
+            <strong
+              className="mt-1 block truncate text-sm"
+              title={
+                cause.biggestContribution?.sourceTitle ??
+                "Activated prerequisite trajectory"
+              }
+            >
+              <FactionMetricName
+                name={
+                  cause.biggestContribution?.sourceTitle ??
+                  "Activated prerequisites"
+                }
+                metric={cause.biggestContribution?.sourceMetric}
+              />
+            </strong>
+            <small className="mt-1 block truncate text-muted-foreground">
+              {cause.biggestContribution ? (
+                <span className="flex flex-wrap gap-2">
+                  <span className="font-mono">
+                    {cause.biggestContribution.value}
+                  </span>
+                  <span>{cause.biggestContribution.label}</span>
+                </span>
+              ) : (
+                `${cause.matchedGroups.length} activated group${cause.matchedGroups.length === 1 ? "" : "s"}`
+              )}
+            </small>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function GameOverReportDialog({
@@ -31,13 +117,7 @@ export function GameOverReportDialog({
   onMainMenu,
 }: GameOverReportDialogProps) {
   const changes = projectEndingChanges(scenario, state);
-  const causes = projectGameOverReport(scenario, state);
-  const crisisById = new Map(
-    projectCrises(scenario, state).map((crisis) => [
-      crisis.definition.id,
-      crisis,
-    ]),
-  );
+  const causes = projectGameOverCauses(scenario, state);
 
   return (
     <DossierDialogFrame
@@ -102,14 +182,9 @@ export function GameOverReportDialog({
           </p>
           <h2 className="font-heading text-xl">Closure crises</h2>
           {causes.map((cause) => (
-            <CrisisSummaryCard
+            <GameOverCauseCard
               key={cause.definition.id}
-              variant="terminal"
               cause={cause}
-              duration={
-                crisisById.get(cause.definition.id)?.consecutiveTurns ??
-                cause.definition.terminalAfterTurns
-              }
               onOpen={() => onCrisisSelect(cause.definition.id)}
             />
           ))}

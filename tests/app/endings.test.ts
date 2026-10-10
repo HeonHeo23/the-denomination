@@ -13,8 +13,10 @@ import {
 } from "../../src/simulation";
 import { assemblyScenario, endingScenario } from "../simulation/endings.test";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
-import { projectEndingReport } from "../../src/ui/panels/projectReport";
-import { projectGameOverReport } from "../../src/ui/game/projectGameOvers";
+import {
+  projectEndingReport,
+  projectGameOverCauses,
+} from "../../src/ui/panels/projectReport";
 import { moveDossierNavigation } from "../../src/ui/game/useDossierNavigation";
 
 export function runEndingPersistenceTests() {
@@ -48,7 +50,7 @@ export function runEndingPersistenceTests() {
     "revival",
   );
   assert.deepEqual(
-    projectGameOverReport(restored.scenario, restored.state),
+    projectGameOverCauses(restored.scenario, restored.state),
     [],
   );
   const rejected = reduceGameSession(restored, {
