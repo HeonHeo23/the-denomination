@@ -23,9 +23,9 @@ import { GameHeader } from "./GameHeader";
 import { DilemmaDialog } from "./DilemmaDialog";
 import { EventDetailDialog } from "./EventDetailDialog";
 import {
-  eventOccurrenceIdsForTurn,
-  projectEventOccurrence,
-} from "./projectEventOccurrence";
+  getTurnEventIds,
+  projectEvent,
+} from "./projectEvent";
 import {
   beginAutomaticEvents,
   closeEventPresentation,
@@ -110,7 +110,7 @@ export function GameView({
             changes: revealingTurn.changes.map((change) => ({
               nodeId: change.node.id,
               delta: change.delta,
-              previousActive: change.previousActive,
+              wasActive: change.wasActive,
               isActive: change.isActive,
             })),
             changedEffectIds: revealingTurn.changedEffectIds,
@@ -160,7 +160,7 @@ export function GameView({
           return;
         }
         setTurnReport(report);
-        const ids = eventOccurrenceIdsForTurn(
+        const ids = getTurnEventIds(
           session.scenario,
           session.state,
           report.turn,
@@ -237,7 +237,7 @@ export function GameView({
       ? eventPresentation.ids[eventPresentation.index]
       : eventPresentation?.id;
   const activeEvent = activeEventId
-    ? projectEventOccurrence(scenario, session.state, activeEventId)
+    ? projectEvent(scenario, session.state, activeEventId)
     : undefined;
   const resources = scenario.nodes.filter((node) => node.type === "resource");
   const selectedDefinition = scenario.nodes.find(
@@ -418,7 +418,7 @@ export function GameView({
           onNodeSelect={selectNode}
           onCrisisSelect={selectCrisis}
           onEventSelect={(eventId) => {
-            const occurrenceId = eventOccurrenceIdsForTurn(
+            const occurrenceId = getTurnEventIds(
               scenario,
               session.state,
               turnReport.turn,

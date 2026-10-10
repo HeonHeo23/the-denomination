@@ -1,6 +1,6 @@
 import type { ScenarioDefinition } from "../domain/definitions";
 import type { EndingOutcome, SimulationState } from "../domain/runtime";
-import { matchingPrerequisiteGroups } from "./prerequisites";
+import { findSatisfiedPrerequisiteGroups } from "./prerequisites";
 
 /** Select a normal outcome from a completed snapshot without changing simulation. */
 export function evaluateEnding(
@@ -13,7 +13,7 @@ export function evaluateEnding(
     state.turn <= scenario.start.turn
   )
     return null;
-  const matchedTriggerIds = matchingPrerequisiteGroups(
+  const matchedTriggerIds = findSatisfiedPrerequisiteGroups(
     scenario.completion.prerequisiteGroups,
     state,
   )
@@ -27,7 +27,10 @@ export function evaluateEnding(
     )
     .map((definition) => ({
       definition,
-      groups: matchingPrerequisiteGroups(definition.prerequisiteGroups, state),
+      groups: findSatisfiedPrerequisiteGroups(
+        definition.prerequisiteGroups,
+        state,
+      ),
     }))
     .find(({ groups }) => groups.length > 0);
   return {

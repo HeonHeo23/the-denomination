@@ -62,7 +62,7 @@ export interface GraphTurnFeedback {
     readonly nodeId: string;
     readonly delta: number;
     readonly metricLabel?: string;
-    readonly previousActive: boolean;
+    readonly wasActive: boolean;
     readonly isActive: boolean;
   }[];
   readonly changedEffectIds: readonly string[];
@@ -88,7 +88,7 @@ export function isNodeOnGraph(
   return Boolean(
     turnFeedback?.changes.some(
       (change) =>
-        change.nodeId === nodeId && change.previousActive && !change.isActive,
+        change.nodeId === nodeId && change.wasActive && !change.isActive,
     ) || recentlyEndedNodeIds.includes(nodeId),
   );
 }
@@ -457,7 +457,7 @@ function rawProjectToReactFlow(
             turnDelta:
               definition.type === "faction" ? undefined : turnChange?.delta,
             activationTransition:
-              turnChange && turnChange.previousActive !== turnChange.isActive
+              turnChange && turnChange.wasActive !== turnChange.isActive
                 ? turnChange.isActive
                   ? "began"
                   : "ended"

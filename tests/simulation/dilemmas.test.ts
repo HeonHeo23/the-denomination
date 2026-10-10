@@ -21,7 +21,6 @@ const makeDilemma = (id: string, amount: number): DilemmaDefinition => ({
   influences: [{ source: "centralization", coefficient: 1 }],
   threshold: 0.5,
   cooldownTurns: 2,
-  requires: ["has-general-assembly"],
   choices: [
     {
       id: "accept",
@@ -43,7 +42,6 @@ export function runDilemmaTests() {
   assert.equal(
     exampleScenario.dilemmas.filter(
       (definition) =>
-        !("requires" in definition && definition.requires?.length) &&
         definition.influences.length === 1 &&
         definition.influences[0].source === "_random_",
     ).length,
@@ -53,7 +51,6 @@ export function runDilemmaTests() {
   const ungatedRandom = {
     ...exampleScenario,
     completion: ongoingCompletion,
-    conditions: [],
     gameOvers: [],
     dilemmas: [
       exampleScenario.dilemmas.find(
@@ -212,12 +209,6 @@ export function runDilemmaTests() {
   assert.throws(() => advanceTurnRaw(scenario, initial), /random value/);
   assert.throws(() => advanceTurnRaw(scenario, initial, 1), RangeError);
 
-  const missingTag = { ...scenario, conditions: [] };
-  assert.deepEqual(
-    advanceTurn(missingTag, initializeScenario(missingTag)).state
-      .pendingDilemmaIds,
-    [],
-  );
   const lowScore = {
     ...scenario,
     dilemmas: [{ ...makeDilemma("low-score", 1), threshold: 0.9 }],

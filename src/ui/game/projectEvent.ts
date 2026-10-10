@@ -30,7 +30,7 @@ export interface EventOccurrenceView {
   readonly consequences: readonly EventConsequenceView[];
 }
 
-function eventForOccurrence(
+function parseEventId(
   scenario: ScenarioDefinition,
   occurrenceId: string,
 ): { definition: EventDefinition; number: number } | undefined {
@@ -49,7 +49,7 @@ function eventForOccurrence(
 }
 
 /** Derive one player-facing Event record from canonical occurrence history. */
-export function projectEventOccurrence(
+export function projectEvent(
   scenario: ScenarioDefinition,
   state: SimulationState,
   occurrenceId: string,
@@ -57,7 +57,7 @@ export function projectEventOccurrence(
   const occurrence = state.history.find(
     (entry) => entry.kind === "event" && entry.id === occurrenceId,
   );
-  const match = eventForOccurrence(scenario, occurrenceId);
+  const match = parseEventId(scenario, occurrenceId);
   if (!occurrence || !match) return undefined;
 
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
@@ -118,18 +118,18 @@ export function projectEventOccurrence(
 }
 
 /** The fired Events for one turn, in the engine's Event ID order. */
-export function eventOccurrenceIdsForTurn(
+export function getTurnEventIds(
   scenario: ScenarioDefinition,
   state: SimulationState,
   turn: number,
 ): readonly string[] {
   const ids = state.history
     .filter((entry) => entry.kind === "event" && entry.turn === turn)
-    .filter((entry) => eventForOccurrence(scenario, entry.id) !== undefined)
+    .filter((entry) => parseEventId(scenario, entry.id) !== undefined)
     .map((entry) => entry.id);
   return ids.sort((left, right) => {
-    const leftId = eventForOccurrence(scenario, left)!.definition.id;
-    const rightId = eventForOccurrence(scenario, right)!.definition.id;
+    const leftId = parseEventId(scenario, left)!.definition.id;
+    const rightId = parseEventId(scenario, right)!.definition.id;
     return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 }

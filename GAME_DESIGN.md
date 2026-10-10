@@ -106,7 +106,7 @@ share and satisfaction within a group. Groups may overlap freely.
 
 These nodes are always active, forced, and graph-visible. Each has its own
 numeric domain, initial value, and optional baseline. They use the ordinary
-non-Resource calculation; Effects, Grudges, and numeric conditions reference
+non-Resource calculation; Effects, Grudges, and runtime prerequisites reference
 individual node IDs. Groups have no mutable simulation state.
 
 Explicit sum-limit constraints connect two or more Faction nodes through
@@ -236,7 +236,6 @@ A prerequisite controls eligibility without changing state.
 
 | Form                  | Input                             | Semantics                                                                                                                        |
 | --------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Static `requires` tag | Immutable Scenario conditions     | Every required tag MUST be present on supported Stances, Situations, Events, and Dilemmas. Runtime or mutable tags are deferred. |
 | Runtime predicate     | Current state or retained history | Checks node value/activation, reached turn, fired Event, latest Dilemma choice, or resolved Situation.                           |
 | Group                 | Predicate set                     | All predicates must hold; groups are alternatives.                                                                               |
 

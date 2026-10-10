@@ -4,7 +4,6 @@ import type {
 } from "../domain/definitions";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { conditionsMet } from "./shared";
 
 /** Select Events from one completed-turn snapshot before applying consequences. */
 export function selectEvents(
@@ -23,8 +22,7 @@ export function selectEvents(
     .filter((definition) => {
       const progress = state.events[definition.id];
       if (
-        !conditionsMet(scenario, definition.requires) ||
-        (progress.lastTriggerTurn !== null &&
+        progress.lastTriggerTurn !== null &&
           state.turn - progress.lastTriggerTurn <= definition.cooldownTurns)
       )
         return false;

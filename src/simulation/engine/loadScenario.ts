@@ -10,15 +10,8 @@ export function loadScenario(input: unknown): ScenarioLoadResult {
   const content = structuredClone(input) as ScenarioDefinition;
   const scenario: ScenarioDefinition = {
     ...content,
-    conditions: content.conditions ?? [],
-    events: (content.events ?? []).map((definition) => ({
-      ...definition,
-      requires: definition.requires ?? [],
-    })),
-    dilemmas: (content.dilemmas ?? []).map((definition) => ({
-      ...definition,
-      requires: definition.requires ?? [],
-    })),
+    events: content.events ?? [],
+    dilemmas: content.dilemmas ?? [],
     gameOvers: (content.gameOvers ?? []).map((definition) => ({
       ...definition,
       stages: [...definition.stages]

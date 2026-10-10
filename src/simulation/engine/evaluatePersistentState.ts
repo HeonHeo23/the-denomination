@@ -1,7 +1,6 @@
 import type {
   EffectDefinition,
   ScenarioDefinition,
-  StanceDefinition,
 } from "../domain/definitions";
 import type { CalculationTrace, StanceEffectPreview } from "../domain/results";
 import type {
@@ -10,8 +9,8 @@ import type {
   SimulationState,
 } from "../domain/runtime";
 import { responseValue } from "./responseValue";
-import { conditionsMet, clampValue, indexNodes } from "./shared";
-import { executeCommand } from "./playerActions";
+import { clampValue } from "./shared";
+import { createStancePreviewState, executeCommand } from "./playerActions";
 
 interface EvaluationResult {
   readonly state: SimulationState;
@@ -136,16 +135,12 @@ export function evaluatePersistentState(
           );
 
     // Carry forward the current activation.
-    let activation = runtime.isActive;
+    let isActive = runtime.isActive;
 
     if (definition.type === "situation") {
       // Update Situation activation.
-      if (
-        !activation &&
-        value >= definition.startThreshold &&
-        conditionsMet(scenario, definition.requires)
-      ) {
-        activation = true;
+      if (!isActive && value >= definition.startThreshold) {
+        isActive = true;
         history.push({
           id: `${definition.id}:start:${state.turn}`,
           turn: state.turn,
@@ -154,11 +149,11 @@ export function evaluatePersistentState(
           detail: `Pressure reached ${value}.`,
         });
       } else if (
-        activation &&
+        isActive &&
         !runtime.isForced &&
         value <= definition.stopThreshold
       ) {
-        activation = false;
+        isActive = false;
         history.push({
           id: `${definition.id}:stop:${state.turn}`,
           turn: state.turn,
@@ -173,7 +168,7 @@ export function evaluatePersistentState(
     nodes[definition.id] = {
       ...runtime,
       value,
-      isActive: activation,
+      isActive,
       ...(definition.type === "resource" ? { netFlow } : {}),
     };
 
@@ -225,38 +220,37 @@ export function previewStanceEffects(
   stanceId: string,
   value: number,
 ): readonly StanceEffectPreview[] {
-  const stance = scenario.nodes.find((node) => node.id === stanceId);
-  const currentRuntime = state.nodes[stanceId];
+  const stanceDef = scenario.nodes.find((node) => node.id === stanceId);
+  const stanceState = state.nodes[stanceId];
 
   // Validation
   if (
-    state.scenarioId !== scenario.id ||
-    stance?.type !== "stance" ||
-    !currentRuntime ||
+    stanceDef?.type !== "stance" ||
+    !stanceState ||
     !Number.isFinite(value) ||
-    value < stance.domain.min ||
-    value > stance.domain.max ||
-    (stance.control.kind === "discrete" &&
-      !stance.control.states.some((option) => option.value === value))
+    value < stanceDef.domain.min ||
+    value > stanceDef.domain.max ||
+    (stanceDef.control.kind === "discrete" &&
+      !stanceDef.control.states.some((option) => option.value === value))
   ) {
     return [];
   }
 
-  let candidateState = state;
+  let previewState = state;
   let kind: StanceEffectPreview["kind"] = "settled";
-  if (!currentRuntime.isActive || value !== currentRuntime.value) {
+  if (!stanceState.isActive || value !== stanceState.value) {
     const command = executeCommand(scenario, state, {
-      type: currentRuntime.isActive ? "set-stance" : "enact-stance",
+      type: stanceState.isActive ? "set-stance" : "enact-stance",
       stanceId,
       value,
     });
-    if (command.accepted) {
-      candidateState = command.state;
+    if (command.isAccepted) {
+      previewState = command.state;
     } else {
-      candidateState = hypotheticalStanceCandidate(
+      previewState = createStancePreviewState(
         scenario,
         state,
-        stance,
+        stanceDef,
         value,
       );
       kind = "estimate";
@@ -265,62 +259,15 @@ export function previewStanceEffects(
 
   // A full window of the same source value averages to that value, so evaluate
   // only this Stance's outgoing Effects without simulating a temporary turn.
-  const candidateRuntime = candidateState.nodes[stanceId];
+  const previewRuntime = previewState.nodes[stanceId];
 
   return scenario.effects
     .filter((effect) => effect.source === stanceId)
     .map((effect) => ({
       effectId: effect.id,
-      contribution: candidateRuntime.isActive
-        ? responseValue(effect.response, candidateRuntime.value, candidateState)
+      contribution: previewRuntime.isActive
+        ? responseValue(effect.response, previewRuntime.value, previewState)
         : 0,
       kind,
     }));
-}
-
-/**
- * Creates the value-only candidate used to estimate a blocked Stance action.
- * It mirrors command writes without checking legality or retaining any history.
- */
-function hypotheticalStanceCandidate(
-  scenario: ScenarioDefinition,
-  state: SimulationState,
-  stance: StanceDefinition,
-  value: number,
-): SimulationState {
-  const isEnactment = !state.nodes[stance.id].isActive;
-  const cost = isEnactment
-    ? (stance.enactmentCost?.amount ?? 0)
-    : stance.cost
-      ? stance.cost.base +
-        stance.cost.perPoint * Math.abs(value - state.nodes[stance.id].value)
-      : 0;
-  const resourceId = isEnactment
-    ? stance.enactmentCost?.resourceId
-    : stance.cost?.resourceId;
-  const nodes = { ...state.nodes };
-  const definitions = indexNodes(scenario);
-  const resource = resourceId ? definitions[resourceId] : undefined;
-
-  if (resource?.type === "resource" && cost !== 0) {
-    const runtime = nodes[resource.id];
-    if (runtime.value === undefined)
-      throw new Error("Resource requires node runtime state.");
-    nodes[resource.id] = {
-      ...runtime,
-      value: runtime.value - cost,
-    };
-  }
-
-  const stanceRuntime = nodes[stance.id];
-  if (stanceRuntime.value === undefined)
-    throw new Error("Stance requires node runtime state.");
-  nodes[stance.id] = {
-    ...stanceRuntime,
-    value,
-    baseValue: value,
-    isActive: true,
-  };
-
-  return { ...state, nodes };
 }

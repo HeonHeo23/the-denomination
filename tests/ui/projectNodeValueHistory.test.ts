@@ -1,22 +1,22 @@
 import { exampleScenario } from "../../src/scenarios/example";
 import { initializeScenario } from "../../src/simulation";
 import {
-  historyYearMarkLabels,
-  nearestHistoryPointIndex,
-  nextHistoryPointIndex,
+  labelYearMarks,
+  findNearestPoint,
+  getNextPoint,
   projectNodeValueHistory,
 } from "../../src/ui/panels/projectNodeValueHistory";
 
 export function runNodeValueHistoryProjectionTests() {
   if (
-    historyYearMarkLabels(1).get(0) !== "last" ||
-    historyYearMarkLabels(2).size !== 1 ||
-    historyYearMarkLabels(6).size !== 1 ||
-    historyYearMarkLabels(7).get(0) !== "first" ||
-    historyYearMarkLabels(9).size !== 2 ||
-    historyYearMarkLabels(10).size !== 2 ||
-    historyYearMarkLabels(11).get(5) !== "middle" ||
-    historyYearMarkLabels(12).size !== 3
+    labelYearMarks(1).get(0) !== "last" ||
+    labelYearMarks(2).size !== 1 ||
+    labelYearMarks(6).size !== 1 ||
+    labelYearMarks(7).get(0) !== "first" ||
+    labelYearMarks(9).size !== 2 ||
+    labelYearMarks(10).size !== 2 ||
+    labelYearMarks(11).get(5) !== "middle" ||
+    labelYearMarks(12).size !== 3
   )
     throw new Error(
       "Year labels should appear only when marks are far enough apart",
@@ -129,13 +129,13 @@ export function runNodeValueHistoryProjectionTests() {
   )
     throw new Error("Full history windows should discard the oldest turn");
   if (
-    nearestHistoryPointIndex(chart.points, chart.points[4].x + 1) !== 4 ||
-    nextHistoryPointIndex(5, "ArrowLeft", chart.points.length) !== 4 ||
-    nextHistoryPointIndex(5, "ArrowRight", chart.points.length) !== 6 ||
-    nextHistoryPointIndex(5, "Home", chart.points.length) !== 0 ||
-    nextHistoryPointIndex(5, "End", chart.points.length) !== 11 ||
-    nextHistoryPointIndex(0, "ArrowLeft", chart.points.length) !== 0 ||
-    nextHistoryPointIndex(11, "ArrowRight", chart.points.length) !== 11
+    findNearestPoint(chart.points, chart.points[4].x + 1) !== 4 ||
+    getNextPoint(5, "ArrowLeft", chart.points.length) !== 4 ||
+    getNextPoint(5, "ArrowRight", chart.points.length) !== 6 ||
+    getNextPoint(5, "Home", chart.points.length) !== 0 ||
+    getNextPoint(5, "End", chart.points.length) !== 11 ||
+    getNextPoint(0, "ArrowLeft", chart.points.length) !== 0 ||
+    getNextPoint(11, "ArrowRight", chart.points.length) !== 11
   )
     throw new Error(
       "Pointer and keyboard navigation should select exact turns",

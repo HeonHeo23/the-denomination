@@ -18,7 +18,7 @@ import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runReportProjectionTests } from "../ui/projectReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
-import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+import { runEventDetailTests } from "../ui/projectEvent.test";
 import {
   runDilemmaDecisionProjectionTests,
   runDilemmaConsequenceProjectionTests,

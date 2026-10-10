@@ -138,7 +138,7 @@ export interface ReportChange {
   readonly value: number;
   readonly delta: number;
   readonly relativeMagnitude: number;
-  readonly previousActive: boolean;
+  readonly wasActive: boolean;
   readonly isActive: boolean;
 }
 
@@ -208,7 +208,7 @@ export function projectChanges(
         value: after.value,
         delta,
         relativeMagnitude: relativeMagnitude(delta, node),
-        previousActive: before.isActive,
+        wasActive: before.isActive,
         isActive: after.isActive,
       },
     ];
@@ -323,7 +323,7 @@ export function serializeTurnReport(report: TurnReport): SavedTurnReport {
       value: change.value,
       delta: change.delta,
       relativeMagnitude: change.relativeMagnitude,
-      previousActive: change.previousActive,
+      wasActive: change.wasActive,
       isActive: change.isActive,
     })),
     changedEffectIds: [...report.changedEffectIds],
@@ -370,7 +370,7 @@ export function restoreTurnReport(
     value: change.value,
     delta: change.delta,
     relativeMagnitude: change.relativeMagnitude,
-    previousActive: change.previousActive,
+    wasActive: change.wasActive,
     isActive: change.isActive,
   }));
 

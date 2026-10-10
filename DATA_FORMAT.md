@@ -35,7 +35,6 @@ interface ScenarioDefinition {
     turn: number;
     year?: number;
   };
-  conditions?: string[];
   factionMetrics?: FactionMetricDefinition[];
   factionGroups?: FactionGroupDefinition[];
   constraints?: SumConstraintDefinition[];
@@ -51,10 +50,6 @@ interface ScenarioDefinition {
 
 `gameOvers` is optional and normalizes to an empty array. A Scenario without
 Game Overs has no terminal-loss trajectory.
-
-`conditions` is the set of static categorical facts true for this Scenario.
-Required conditions on content use `requires`. This naming replaces the MVP's
-ambiguous use of `prerequisites` for both provided and required tags.
 
 `schemaVersion` versions the representation, not game balance or saved
 runtime state.
@@ -118,7 +113,6 @@ interface BaseNodeDefinition {
   initial: InitialNodeState;
   baseline?: number;
   graphVisible?: boolean;
-  requires?: string[];
 }
 ```
 
@@ -131,9 +125,6 @@ their `initial.value` is the starting balance, clamped when the domain enables i
 
 `graphVisible` defaults to `true` and affects only presentation. A hidden node
 remains a normal simulation participant.
-
-`requires` contains static Scenario conditions. Dynamic expressions are not
-supported.
 
 ### Categories
 
@@ -302,8 +293,7 @@ Legacy metric selectors and nested Faction values are rejected.
 
 ## Runtime prerequisites
 
-Runtime prerequisites are reusable predicates over canonical runtime state. They
-are distinct from static `requires` tags.
+Runtime prerequisites are reusable predicates over canonical runtime state.
 
 ```ts
 type PrerequisiteDefinition =
@@ -386,7 +376,6 @@ interface BaseIncidentDefinition {
   influences: IncidentInfluence[];
   threshold: number;
   cooldownTurns: number;
-  requires?: string[];
 }
 ```
 
@@ -508,7 +497,6 @@ A Scenario is accepted only if:
 - separate activation and forced-state requirements are respected;
 - Situation thresholds and discrete Stance states are valid;
 - Inertia and cooldown values are positive integers;
-- condition and `requires` tags are valid identifiers;
 - incident, choice, and consequence constraints above hold.
 
 Validation produces content-path diagnostics and completes before runtime
@@ -531,7 +519,6 @@ does not replace runtime validation for parsed content.
     endings: [], fallbackEnding: { id: 'preservation', title: 'Preservation',
       narrative: 'The fellowship passes its commitments to a new period of leadership.' },
     reportNodeIds: ['clergy-quality'] },
-  conditions: ['has-seminary'],
   nodes: [
     {
       id: 'clergy-formation',
@@ -541,7 +528,6 @@ does not replace runtime validation for parsed content.
       domain: { min: 0, max: 1, clamp: true },
       initial: { value: 0.6, isActive: true, isForced: true },
       control: { kind: 'continuous', step: 0.05 },
-      requires: ['has-seminary']
     },
     {
       id: 'clergy-quality',
@@ -576,10 +562,7 @@ required:
 | `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
 | `initialValue`, activation state        | `initial.value`, `initial.isActive`, `initial.isForced`        |
 | `baselineValue`                         | `baseline`                                                     |
-| Scenario `prerequisites`                | Scenario `conditions`                                          |
-| content `prerequisites`                 | content `requires`                                             |
 | required empty event/dilemma arrays     | optional arrays normalized to empty                            |
-| prerequisites only on Stances/incidents | `requires` available to eligible content, including Situations |
 
 The MVP's node, Effect, response, incident, and consequence discriminators are
 otherwise useful and should be retained. Migration should be performed at the

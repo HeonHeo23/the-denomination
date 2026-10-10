@@ -41,7 +41,6 @@ interface BaseNodeDefinition {
   readonly initial: InitialNodeState;
   readonly baseline?: number;
   readonly graphVisible?: boolean;
-  readonly requires?: readonly string[];
 }
 
 /** Configuration for a continuously adjustable Stance. */
@@ -275,7 +274,6 @@ export interface EventDefinition {
   readonly influences: readonly IncidentInfluence[];
   readonly threshold: number;
   readonly cooldownTurns: number;
-  readonly requires?: readonly string[];
   readonly consequences: readonly ConsequenceDefinition[];
 }
 
@@ -287,7 +285,6 @@ export interface DilemmaDefinition {
   readonly influences: readonly IncidentInfluence[];
   readonly threshold: number;
   readonly cooldownTurns: number;
-  readonly requires?: readonly string[];
   readonly choices: readonly {
     readonly id: string;
     readonly label: string;
@@ -336,7 +333,6 @@ export interface ScenarioDefinition {
   readonly historicalActors: readonly HistoricalActorDefinition[];
   readonly completion: CompletionDefinition;
   readonly start: { readonly turn: number; readonly year?: number };
-  readonly conditions?: readonly string[];
   readonly events?: readonly EventDefinition[];
   readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];

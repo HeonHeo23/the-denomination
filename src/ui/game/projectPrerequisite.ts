@@ -10,13 +10,13 @@ import type {
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
-import { prerequisiteMet } from "../../simulation";
+import { isPrerequisiteMet } from "../../simulation";
 import { formatValue } from "../formatValue";
 
 export interface PrerequisiteView {
   readonly title: string;
   readonly description: string;
-  readonly met: boolean;
+  readonly isMet: boolean;
   readonly nodeId?: string;
   readonly metric?: FactionMetricDefinition;
 }
@@ -27,10 +27,10 @@ export function projectPrerequisite(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): PrerequisiteView {
-  const met = prerequisiteMet(prerequisite, state);
+  const isMet = isPrerequisiteMet(prerequisite, state);
   if (prerequisite.kind === "turn") {
     return {
-      met,
+      isMet,
       title: "Scenario date",
       description: `Turn ${state.turn}; required turn ${prerequisite.atTurn} or later.`,
     };
@@ -40,9 +40,9 @@ export function projectPrerequisite(
       ({ id }) => id === prerequisite.eventId,
     )!;
     return {
-      met,
+      isMet,
       title: event.title,
-      description: `${event.title} has ${met ? "fired" : "not fired"}.`,
+      description: `${event.title} has ${isMet ? "fired" : "not fired"}.`,
     };
   }
   if (prerequisite.kind === "dilemma-choice") {
@@ -57,7 +57,7 @@ export function projectPrerequisite(
       ({ id }) => id === prerequisite.choiceId,
     );
     return {
-      met,
+      isMet,
       title: dilemma.title,
       description: `${choice ? `Last resolved with ${choice.label}.` : "Not yet resolved."}${required ? ` Required choice: ${required.label}.` : ""}`,
     };
@@ -69,7 +69,7 @@ export function projectPrerequisite(
   const nodedisplayinfo = getNodeDisplayInfo(scenario, definition.id);
   const title = nodedisplayinfo.name;
   const base = {
-    met,
+    isMet,
     nodeId: definition.id,
     title,
     ...(nodedisplayinfo.metric ? { metric: nodedisplayinfo.metric } : {}),
@@ -83,7 +83,7 @@ export function projectPrerequisite(
   if (prerequisite.kind === "situation-resolved") {
     return {
       ...base,
-      description: `${met ? "Was active and is now resolved" : "Has not resolved after being active"}.`,
+      description: `${isMet ? "Was active and is now resolved" : "Has not resolved after being active"}.`,
     };
   }
   return {

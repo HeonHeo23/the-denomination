@@ -1,7 +1,7 @@
 import type { ScenarioDefinition } from "../domain/definitions";
 import type { GameOverOutcomeCause, SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { matchingPrerequisiteGroups } from "./prerequisites";
+import { findSatisfiedPrerequisiteGroups } from "./prerequisites";
 
 /** Advance every recoverable terminal trajectory from the same evaluated state. */
 export function evaluateGameOvers(
@@ -13,7 +13,7 @@ export function evaluateGameOvers(
   const matches = new Map(
     scenario.gameOvers.map((definition) => [
       definition.id,
-      matchingPrerequisiteGroups(definition.prerequisiteGroups, state).map(
+      findSatisfiedPrerequisiteGroups(definition.prerequisiteGroups, state).map(
         ({ id }) => id,
       ),
     ]),

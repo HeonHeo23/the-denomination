@@ -14,7 +14,7 @@ export interface SavedTurnReportChange {
   readonly value: number;
   readonly delta: number;
   readonly relativeMagnitude: number;
-  readonly previousActive: boolean;
+  readonly wasActive: boolean;
   readonly isActive: boolean;
 }
 
@@ -91,7 +91,7 @@ function uniqueReferences(
 }
 
 /** Constraints have no runtime state; validate their derived numeric totals. */
-function constraintTotalsValid(
+function isValidConstraintTotals(
   nodes: ObjectValue,
   scenario: ScenarioDefinition,
 ): boolean {
@@ -109,7 +109,7 @@ function constraintTotalsValid(
   });
 }
 
-function validNodeState(
+function isValidNodeState(
   value: unknown,
   definition: ScenarioDefinition["nodes"][number],
 ): boolean {
@@ -143,7 +143,7 @@ function validNodeState(
   );
 }
 
-function validEffectState(
+function isValidEffectState(
   value: unknown,
   expectedHistoryLength: number,
 ): boolean {
@@ -156,7 +156,7 @@ function validEffectState(
   );
 }
 
-function validRuntimeState(
+function isValidRuntimeState(
   value: unknown,
   scenario: ScenarioDefinition,
 ): value is SimulationState {
@@ -286,14 +286,14 @@ function validRuntimeState(
   }
 
   if (
-    !scenario.nodes.every((node) => validNodeState(nodes[node.id], node)) ||
+    !scenario.nodes.every((node) => isValidNodeState(nodes[node.id], node)) ||
     !scenario.effects.every((effect) =>
-      validEffectState(effects[effect.id], effect.inertiaTurns ?? 1),
+      isValidEffectState(effects[effect.id], effect.inertiaTurns ?? 1),
     )
   )
     return false;
 
-  if (!constraintTotalsValid(nodes, scenario)) return false;
+  if (!isValidConstraintTotals(nodes, scenario)) return false;
   const trackedNodes = scenario.nodes;
   const historyLength = value.turn - scenario.start.turn + 1;
   const nodeValueHistory = value.nodeValueHistory;
@@ -335,7 +335,7 @@ function validRuntimeState(
       )
         return false;
     }
-    if (!constraintTotalsValid(readings, scenario)) return false;
+    if (!isValidConstraintTotals(readings, scenario)) return false;
   }
 
   const gameOvers = new Map(
@@ -527,7 +527,7 @@ function validRuntimeState(
   return true;
 }
 
-function validSavedTurnReport(
+function isValidTurnReport(
   value: unknown,
   scenario: ScenarioDefinition,
   state: SimulationState,
@@ -575,6 +575,8 @@ function validSavedTurnReport(
 
   const changeIds = new Set<string>();
   for (const change of value.changes) {
+    if (!change || typeof change !== "object" || Array.isArray(change))
+      return false;
     if (
       !exactObject(change, [
         "nodeId",
@@ -582,7 +584,7 @@ function validSavedTurnReport(
         "value",
         "delta",
         "relativeMagnitude",
-        "previousActive",
+        "wasActive",
         "isActive",
       ]) ||
       typeof change.nodeId !== "string" ||
@@ -592,7 +594,7 @@ function validSavedTurnReport(
       !finite(change.value) ||
       !finite(change.delta) ||
       !finite(change.relativeMagnitude) ||
-      typeof change.previousActive !== "boolean" ||
+      typeof change.wasActive !== "boolean" ||
       typeof change.isActive !== "boolean"
     )
       return false;
@@ -607,7 +609,7 @@ function validSavedTurnReport(
       return false;
     if (
       nodes.get(change.nodeId)!.type === "faction" &&
-      (!change.previousActive || !change.isActive)
+      (!change.wasActive || !change.isActive)
     )
       return false;
     changeIds.add(change.nodeId);
@@ -705,10 +707,10 @@ export function validateSavedGame(
       contentVersion === value.scenarioContentVersion,
   );
   if (!entry) return undefined;
-  if (!validRuntimeState(value.state, entry.scenario)) return undefined;
+  if (!isValidRuntimeState(value.state, entry.scenario)) return undefined;
   if (
     value.turnReport !== undefined &&
-    !validSavedTurnReport(value.turnReport, entry.scenario, value.state)
+    !isValidTurnReport(value.turnReport, entry.scenario, value.state)
   )
     return undefined;
   return value as unknown as SavedGame;

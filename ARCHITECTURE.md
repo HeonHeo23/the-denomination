@@ -246,10 +246,9 @@ specified.
 `selectEvents` and `queueDilemmas` evaluate candidates from the same post-Game-Over snapshot. `queueDilemmas` records at most one selected Dilemma.
 Captured Event consequences are then applied in ID order. `resolveEnding` runs after Event resolution and skips terminal or pending-Dilemma states. Resolving a Dilemma applies its choice but does not recalculate persistent values or resolve an Ending.
 
-`conditionsMet` checks static Scenario tags; `matchingPrerequisiteGroups`
-evaluates runtime groups against a snapshot. These helpers do not choose
-timing: `evaluateGameOvers` checks before incident selection, and
-`resolveEnding` checks completion after Event handling.
+`matchingPrerequisiteGroups` evaluates runtime groups against a snapshot.
+These helpers do not choose timing: `evaluateGameOvers` checks before incident
+selection, and `resolveEnding` checks completion after Event handling.
 
 ### Engine functions
 

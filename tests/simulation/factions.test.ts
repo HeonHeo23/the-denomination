@@ -4,7 +4,7 @@ import {
   initializeScenario,
   loadScenario,
   validateScenario,
-  prerequisiteMet,
+  isPrerequisiteMet,
   type FactionDefinition,
   type ScenarioDefinition,
 } from "../../src/simulation";
@@ -31,7 +31,7 @@ import {
 } from "../../src/ui/panels/projectReport";
 import { projectNodeValueHistory } from "../../src/ui/panels/projectNodeValueHistory";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
-import { projectEventOccurrence } from "../../src/ui/game/projectEventOccurrence";
+import { projectEvent } from "../../src/ui/game/projectEvent";
 import { validateSavedGame, type SavedGame } from "../../src/app/persistence";
 
 function fixture(): ScenarioDefinition {
@@ -237,7 +237,7 @@ export function runFactionTests() {
   close(grudged.nodes["a-satisfaction"].value, 1);
   assert.equal(grudged.grudges[0].magnitude, -0.5);
   assert.ok(
-    prerequisiteMet(
+    isPrerequisiteMet(
       {
         kind: "node-value",
         nodeId: "a-satisfaction",
@@ -569,7 +569,7 @@ export function runFactionTests() {
   ).state;
   assert.equal(eventState.grudges[0].target, "a-confidence");
   assert.ok(
-    projectEventOccurrence(eventScenario, eventState, "discontent:event:1"),
+    projectEvent(eventScenario, eventState, "discontent:event:1"),
   );
 
   const invalid: unknown[] = [

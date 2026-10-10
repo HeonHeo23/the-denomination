@@ -137,7 +137,6 @@ export function runComplianceTests() {
   };
   const minimalLoad = loadScenario(minimal);
   assert.ok(minimalLoad.ok);
-  assert.deepEqual(minimalLoad.scenario.conditions, []);
 
   const invalid: [unknown, string][] = [
     [null, "$"],
@@ -214,7 +213,6 @@ export function runComplianceTests() {
       },
       "$.nodes[0].initial.isActive",
     ],
-    [{ ...exampleScenario, conditions: ["_has_seminary"] }, "$.conditions[0]"],
     [{ ...exampleScenario, events: [{}] }, "$.events"],
     [{ ...exampleScenario, nodes: undefined }, "$.nodes"],
     [
@@ -535,33 +533,29 @@ export function runComplianceTests() {
   assert.equal(forcedTurn.nodes["governance-tension"].isActive, true);
   assert.equal(forcedTurn.nodes["governance-tension"].isForced, true);
 
-  const gated = editNode(
+  const thresholdSituation = editNode(
     "governance-tension",
     (n) =>
       ({
         ...n,
         startThreshold: 0.4,
         stopThreshold: 0.3,
-        requires: ["permission"],
       }) as NodeDefinition,
   );
-  const blockedTurn = advanceTurn(gated, initializeScenario(gated)).state;
-  assert.ok(blockedTurn.nodes["governance-tension"].value >= 0.4);
-  assert.equal(blockedTurn.nodes["governance-tension"].isActive, false);
-  const permitted = {
-    ...gated,
-    conditions: [...(gated.conditions ?? []), "permission"],
-  };
-  const started = advanceTurn(permitted, initializeScenario(permitted)).state;
+  const started = advanceTurn(
+    thresholdSituation,
+    initializeScenario(thresholdSituation),
+  ).state;
+  assert.ok(started.nodes["governance-tension"].value >= 0.4);
   assert.equal(started.nodes["governance-tension"].isActive, true);
   assert.equal(started.effects["tension-to-trust"].lastContribution, 0);
   assert.ok(
-    advanceTurn(permitted, started).state.effects["tension-to-trust"]
+    advanceTurn(thresholdSituation, started).state.effects["tension-to-trust"]
       .lastContribution < 0,
   );
   const initiallyActive = {
-    ...gated,
-    nodes: gated.nodes.map((n) =>
+    ...thresholdSituation,
+    nodes: thresholdSituation.nodes.map((n) =>
       n.type === "situation" && n.id === "governance-tension"
         ? { ...n, initial: { ...n.initial, isActive: true, isForced: false } }
         : n,
@@ -632,14 +626,6 @@ export function runComplianceTests() {
   assert.equal(
     executeCommand(capped, cappedInitial, { ...command, value: 0.55 }).accepted,
     true,
-  );
-  assert.equal(
-    executeCommand({ ...exampleScenario, conditions: [] }, initial, {
-      type: "set-stance",
-      stanceId: "clergy-formation",
-      value: 0.4,
-    }).accepted,
-    false,
   );
   const poor = {
     ...cappedInitial,

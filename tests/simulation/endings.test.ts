@@ -5,7 +5,7 @@ import {
   executeCommand,
   initializeScenario,
   loadScenario,
-  prerequisiteMet,
+  isPrerequisiteMet,
   validateScenario,
   type CompletionDefinition,
   type EndingDefinition,
@@ -518,9 +518,9 @@ export function runEndingTests() {
     null,
   );
   const succession = dilemmaScenario.completion.prerequisiteGroups[0].allOf[0];
-  assert.equal(prerequisiteMet(succession, accepted), true);
+  assert.equal(isPrerequisiteMet(succession, accepted), true);
   assert.equal(
-    prerequisiteMet(succession, {
+    isPrerequisiteMet(succession, {
       ...accepted,
       dilemmas: {
         ...accepted.dilemmas,

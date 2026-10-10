@@ -22,7 +22,7 @@ import {
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { EffectBar } from "@/ui/panels/NodeEffectCard";
 import { cn } from "@/lib/utils";
-import type { EventOccurrenceView } from "./projectEventOccurrence";
+import type { EventOccurrenceView } from "./projectEvent";
 import "@/ui/panels/panels.css";
 
 interface EventDetailDialogProps {

@@ -56,10 +56,6 @@ export function validateScenario(input: unknown): readonly string[] {
     }
     return true;
   }
-  function tags(value: unknown, path: string) {
-    if (value !== undefined)
-      array(value, path).forEach((v, i) => id(v, `${path}[${i}]`));
-  }
   function bounded(value: unknown, path: string, domain: ObjectValue) {
     if (
       number(value, path) &&
@@ -130,7 +126,6 @@ export function validateScenario(input: unknown): readonly string[] {
       "title",
       "description",
       "start",
-      "conditions",
       "nodes",
       "effects",
       "events",
@@ -158,7 +153,6 @@ export function validateScenario(input: unknown): readonly string[] {
     if (input.start.year !== undefined)
       number(input.start.year, "$.start.year");
   }
-  tags(input.conditions, "$.conditions");
   const base = [
     "id",
     "type",
@@ -169,7 +163,6 @@ export function validateScenario(input: unknown): readonly string[] {
     "initial",
     "baseline",
     "graphVisible",
-    "requires",
   ];
   const extras: Record<string, string[]> = {
     stance: ["control", "cost", "enactmentCost", "repealCost"],
@@ -226,7 +219,6 @@ export function validateScenario(input: unknown): readonly string[] {
       typeof value.graphVisible !== "boolean"
     )
       error(`${path}.graphVisible`, "expected a boolean");
-    tags(value.requires, `${path}.requires`);
     const domain = object(value.domain, `${path}.domain`, [
       "min",
       "max",
@@ -633,7 +625,6 @@ export function validateScenario(input: unknown): readonly string[] {
           "influences",
           "threshold",
           "cooldownTurns",
-          "requires",
           isEvent ? "consequences" : "choices",
         ])
       )
@@ -655,7 +646,6 @@ export function validateScenario(input: unknown): readonly string[] {
           definition.cooldownTurns < 1)
       )
         error(`${p}.cooldownTurns`, "expected a positive integer");
-      tags(definition.requires, `${p}.requires`);
       influences(definition.influences, `${p}.influences`);
       if (isEvent) {
         if (definition.consequences === undefined)
