@@ -208,7 +208,7 @@ export function runNodeEffectProjectionTests() {
     value: 0.4,
   });
   assert(
-    stanceChange.accepted,
+    stanceChange.isAccepted,
     "The preview candidate should be a legal Stance change",
   );
   let afterInertiaWindow = stanceChange.state;
@@ -312,7 +312,7 @@ export function runNodeEffectProjectionTests() {
     },
   );
   assert(
-    !blockedEnactment.accepted,
+    !blockedEnactment.isAccepted,
     "The low-authority enactment should remain unavailable",
   );
   const blockedProductScenario: ScenarioDefinition = {
@@ -398,7 +398,7 @@ export function runNodeEffectProjectionTests() {
       value: 0.4,
     });
     assert(
-      change.accepted,
+      change.isAccepted,
       "The alternate-inertia Stance change should succeed",
     );
     let settled = change.state;

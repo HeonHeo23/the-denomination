@@ -4,7 +4,6 @@ import type {
 } from "../domain/definitions";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { conditionsMet } from "./shared";
 
 /** Select Events from one completed-turn snapshot before applying consequences. */
 export function selectEvents(
@@ -23,9 +22,8 @@ export function selectEvents(
     .filter((definition) => {
       const progress = state.events[definition.id];
       if (
-        !conditionsMet(scenario, definition.requires) ||
-        (progress.lastTriggerTurn !== null &&
-          state.turn - progress.lastTriggerTurn <= definition.cooldownTurns)
+        progress.lastTriggerTurn !== null &&
+        state.turn - progress.lastTriggerTurn <= definition.cooldownTurns
       )
         return false;
       if (
@@ -62,12 +60,12 @@ export function resolveEvents(
   for (const definition of selected) {
     const progress = next.events[definition.id];
     const triggerCount = progress.triggerCount + 1;
-    const occurrenceId = `${definition.id}:event:${triggerCount}`;
+    const eventId = `${definition.id}:event:${triggerCount}`;
     next = applyConsequences(
       scenario,
       next,
       definition.consequences,
-      occurrenceId,
+      eventId,
     );
     next = {
       ...next,
@@ -78,7 +76,7 @@ export function resolveEvents(
       history: [
         ...next.history,
         {
-          id: occurrenceId,
+          id: eventId,
           turn: state.turn,
           kind: "event",
           title: definition.title,

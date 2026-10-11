@@ -27,7 +27,7 @@ function ChangeItem({
   const signedDelta = formatSignedValue(change.delta, change.node.domain, true);
   const displayedDelta = Number.parseFloat(signedDelta);
   const status =
-    change.previousActive === change.isActive
+    change.wasActive === change.isActive
       ? undefined
       : change.isActive
         ? "Became active"

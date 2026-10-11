@@ -14,7 +14,7 @@ export interface CalculationTrace {
 
 /** Outcome of applying a player command to a runtime snapshot. */
 export interface CommandResult {
-  readonly accepted: boolean;
+  readonly isAccepted: boolean;
   readonly state: SimulationState;
   readonly message: string;
 }
@@ -31,15 +31,8 @@ export type ScenarioLoadResult =
   | { readonly ok: true; readonly scenario: ScenarioDefinition }
   | { readonly ok: false; readonly diagnostics: readonly string[] };
 
-/** Read-only preview of a Stance command against a particular snapshot. */
-export interface StanceChangeAssessment {
-  readonly legal: boolean;
-  readonly cost: number;
-  readonly message: string;
-}
-
-/** Read-only preview of an enactment or repeal command. */
-export interface StanceTransitionAssessment {
+/** Shared read-only result of assessing a Stance action. */
+export interface StanceAssessment {
   readonly legal: boolean;
   readonly cost: number;
   readonly message: string;

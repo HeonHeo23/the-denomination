@@ -139,7 +139,7 @@ export function runDilemmaDecisionProjectionTests() {
     dilemmaId: definition.id,
     choiceId: firstChoice.id,
   });
-  assert.equal(firstResolved.accepted, true);
+  assert.equal(firstResolved.isAccepted, true);
   const secondTurn = advanceTurn(scenario, firstResolved.state, 0).state;
   const thirdTurn = advanceTurn(scenario, secondTurn, 0).state;
   const secondChoice = definition.choices[1];
@@ -148,7 +148,7 @@ export function runDilemmaDecisionProjectionTests() {
     dilemmaId: definition.id,
     choiceId: secondChoice.id,
   });
-  assert.equal(secondResolved.accepted, true);
+  assert.equal(secondResolved.isAccepted, true);
 
   const restored = JSON.parse(
     JSON.stringify({

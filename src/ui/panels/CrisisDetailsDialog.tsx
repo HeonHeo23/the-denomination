@@ -188,7 +188,7 @@ export function CrisisDetailsDialog({
                       <ItemGroup className="gap-1 md:grid md:grid-cols-2">
                         {prerequisites.map(
                           (
-                            { nodeId, title, description, met, metric },
+                            { nodeId, title, description, isMet, metric },
                             index,
                           ) => (
                             <DossierItemButton
@@ -204,7 +204,7 @@ export function CrisisDetailsDialog({
                               }
                               leading={
                                 nodeId &&
-                                (met ? (
+                                (isMet ? (
                                   <CircleAlert aria-hidden="true" />
                                 ) : (
                                   <CircleDashed aria-hidden="true" />
@@ -223,9 +223,9 @@ export function CrisisDetailsDialog({
                               description={description}
                               trailing={
                                 <Badge
-                                  variant={met ? "destructive" : "outline"}
+                                  variant={isMet ? "destructive" : "outline"}
                                 >
-                                  {met ? "Breached" : "Clear"}
+                                  {isMet ? "Breached" : "Clear"}
                                 </Badge>
                               }
                             />

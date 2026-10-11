@@ -5,7 +5,7 @@ import {
   executeCommand,
   initializeScenario,
   loadScenario,
-  prerequisiteMet,
+  isPrerequisiteMet,
   validateScenario,
   type CompletionDefinition,
   type EndingDefinition,
@@ -180,7 +180,7 @@ export function runEndingTests() {
     { type: "resolve-dilemma", dilemmaId: "assembly", choiceId: "accept" },
   ] as const) {
     const result = executeCommand(scenario, first, command);
-    assert.equal(result.accepted, false);
+    assert.equal(result.isAccepted, false);
     assert.strictEqual(result.state, first);
   }
   const later = {
@@ -386,7 +386,7 @@ export function runEndingTests() {
     combined,
     reviewed,
   );
-  assert.equal(dateStatus.met, true);
+  assert.equal(dateStatus.isMet, true);
   assert.equal(dateStatus.nodeId, undefined);
   assert.equal(eventStatus.title, "Council");
   assert.equal(eventStatus.nodeId, undefined);
@@ -518,9 +518,9 @@ export function runEndingTests() {
     null,
   );
   const succession = dilemmaScenario.completion.prerequisiteGroups[0].allOf[0];
-  assert.equal(prerequisiteMet(succession, accepted), true);
+  assert.equal(isPrerequisiteMet(succession, accepted), true);
   assert.equal(
-    prerequisiteMet(succession, {
+    isPrerequisiteMet(succession, {
       ...accepted,
       dilemmas: {
         ...accepted.dilemmas,
@@ -681,7 +681,7 @@ export function runEndingTests() {
   const crisis = projectCrisis(sharedCrisis, sharedWarning)[0];
   assert.equal(crisis.consecutiveTurns, 1);
   assert.deepEqual(crisis.matchedPrerequisiteNodeIds, ["reserve"]);
-  assert.ok(crisis.matchedGroups[0].prerequisites.every(({ met }) => met));
+  assert.ok(crisis.matchedGroups[0].prerequisites.every(({ isMet }) => isMet));
   assert.equal(
     advanceTurn(sharedCrisis, sharedWarning).state.outcome?.kind,
     "game-over",

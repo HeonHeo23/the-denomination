@@ -1,7 +1,7 @@
 import type { ScenarioDefinition } from "../domain/definitions";
 import type { GameOverOutcomeCause, SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { matchingPrerequisiteGroups } from "./prerequisites";
+import { findPrerequisiteGroupsMet } from "./prerequisites";
 
 /** Advance every recoverable terminal trajectory from the same evaluated state. */
 export function evaluateGameOvers(
@@ -13,7 +13,7 @@ export function evaluateGameOvers(
   const matches = new Map(
     scenario.gameOvers.map((definition) => [
       definition.id,
-      matchingPrerequisiteGroups(definition.prerequisiteGroups, state).map(
+      findPrerequisiteGroupsMet(definition.prerequisiteGroups, state).map(
         ({ id }) => id,
       ),
     ]),
@@ -138,19 +138,19 @@ export function evaluateGameOvers(
       ({ atTurn }) => atTurn === consecutiveTurns,
     );
     if (!stage) continue;
-    const occurrenceId = `${definition.id}:${stage.id}:${episode}:${state.turn}`;
+    const historyEntryId = `${definition.id}:${stage.id}:${episode}:${state.turn}`;
     next = applyConsequences(
       scenario,
       next,
       stage.consequences ?? [],
-      occurrenceId,
+      historyEntryId,
     );
     next = {
       ...next,
       history: [
         ...next.history,
         {
-          id: occurrenceId,
+          id: historyEntryId,
           turn: state.turn,
           kind: "crisis",
           title: stage.title,

@@ -5,7 +5,7 @@ import type {
 import type { CommandResult } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { conditionsMet, createNodeHistoryState } from "./shared";
+import { createNodeHistoryState } from "./shared";
 
 /** Capture every qualifying Dilemma from one shared completed-turn snapshot. */
 export function queueDilemmas(
@@ -23,9 +23,8 @@ export function queueDilemmas(
   for (const definition of scenario.dilemmas) {
     const progress = state.dilemmas[definition.id];
     if (
-      !conditionsMet(scenario, definition.requires) ||
-      (progress.lastTriggerTurn !== null &&
-        state.turn - progress.lastTriggerTurn <= definition.cooldownTurns)
+      progress.lastTriggerTurn !== null &&
+      state.turn - progress.lastTriggerTurn <= definition.cooldownTurns
     )
       continue;
     if (
@@ -82,28 +81,32 @@ export function resolveDilemma(
 ): CommandResult {
   if (state.scenarioId !== scenario.id)
     return {
-      accepted: false,
+      isAccepted: false,
       state,
       message: "The runtime state belongs to another Scenario.",
     };
   if (state.outcome)
-    return { accepted: false, state, message: "The game is over." };
+    return { isAccepted: false, state, message: "The game is over." };
   if (!state.pendingDilemmaIds.includes(dilemmaId))
-    return { accepted: false, state, message: "That Dilemma is not pending." };
+    return {
+      isAccepted: false,
+      state,
+      message: "That Dilemma is not pending.",
+    };
   const definition = scenario.dilemmas?.find(({ id }) => id === dilemmaId);
   const choice = definition?.choices.find(({ id }) => id === choiceId);
   if (!definition || !choice)
     return {
-      accepted: false,
+      isAccepted: false,
       state,
       message: "That Dilemma choice is unavailable.",
     };
-  const occurrenceId = `${dilemmaId}:choice:${state.dilemmas[dilemmaId].triggerCount}`;
+  const historyEntryId = `${dilemmaId}:choice:${state.dilemmas[dilemmaId].triggerCount}`;
   const applied = applyConsequences(
     scenario,
     state,
     choice.consequences,
-    occurrenceId,
+    historyEntryId,
   );
   const nodes = applied.nodes;
   const nodeValueHistory = {
@@ -116,7 +119,7 @@ export function resolveDilemma(
     ),
   };
   return {
-    accepted: true,
+    isAccepted: true,
     message: `${definition.title}: ${choice.label}.`,
     state: {
       ...applied,
@@ -135,7 +138,7 @@ export function resolveDilemma(
       history: [
         ...applied.history,
         {
-          id: occurrenceId,
+          id: historyEntryId,
           turn: state.turn,
           kind: "dilemma",
           title: definition.title,

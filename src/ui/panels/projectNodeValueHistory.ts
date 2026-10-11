@@ -14,7 +14,7 @@ const PLOT_LEFT = 16;
 const PLOT_RIGHT = 584;
 const POINT_SPACING = (PLOT_RIGHT - PLOT_LEFT) / (VALUE_HISTORY_WINDOW - 1);
 
-export function historyYearMarkLabels(
+export function labelYearMarks(
   pointCount: number,
 ): ReadonlyMap<number, "first" | "middle" | "last"> {
   const labels = new Map<number, "first" | "middle" | "last">();
@@ -50,7 +50,7 @@ export interface NodeValueChart {
   }[];
 }
 
-export function nearestHistoryPointIndex(
+export function findNearestPoint(
   points: readonly NodeValueChartPoint[],
   x: number,
 ): number {
@@ -62,7 +62,7 @@ export function nearestHistoryPointIndex(
   );
 }
 
-export function nextHistoryPointIndex(
+export function getNextPoint(
   currentIndex: number,
   key: string,
   pointCount: number,
@@ -105,7 +105,7 @@ export function projectNodeValueHistory(
     ? definition.domain.max
     : Math.max(definition.domain.max, ...readings.map(({ value }) => value));
   const span = maximum - minimum || 1;
-  const yForValue = (value: number) => 100 - ((value - minimum) / span) * 100;
+  const valueToY = (value: number) => 100 - ((value - minimum) / span) * 100;
   return {
     minimum,
     maximum,
@@ -114,7 +114,7 @@ export function projectNodeValueHistory(
       label: marker.kind === "stop-threshold" ? "Ends at" : marker.label,
       value: marker.value,
       formattedValue: formatValue(marker.value, definition.domain),
-      y: yForValue(marker.value),
+      y: valueToY(marker.value),
       side: marker.kind === "stop-threshold" ? "right" : "left",
     })),
     points: readings.map((reading, index) => ({
@@ -125,7 +125,7 @@ export function projectNodeValueHistory(
           : `Year ${scenario.start.year + reading.turn - scenario.start.turn}`,
       label: formatValue(reading.value, definition.domain),
       x: PLOT_RIGHT - (readings.length - 1 - index) * POINT_SPACING,
-      y: yForValue(reading.value),
+      y: valueToY(reading.value),
     })),
   };
 }

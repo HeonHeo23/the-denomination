@@ -156,7 +156,6 @@ export const exampleScenario = {
     ],
   },
   start: { turn: 0, year: 1980 },
-  conditions: ["has-seminary", "has-general-assembly"],
   events: [
     {
       kind: "event",
@@ -167,7 +166,6 @@ export const exampleScenario = {
       influences: [{ source: "centralization", coefficient: 1 }],
       threshold: 0.5,
       cooldownTurns: 3,
-      requires: ["has-general-assembly"],
       consequences: [
         { kind: "resource", target: "authority", amount: -2 },
         {
@@ -201,7 +199,6 @@ export const exampleScenario = {
       influences: [{ source: "governance-tension", coefficient: 1 }],
       threshold: 0.58,
       cooldownTurns: 3,
-      requires: ["has-general-assembly"],
       choices: [
         {
           id: "convene-mediation",
@@ -1102,7 +1099,6 @@ export const exampleScenario = {
       domain: percentDomain,
       initial: { value: 0.6, isActive: true, isForced: true },
       control: { kind: "continuous", step: 0.05 },
-      requires: ["has-seminary"],
       cost: {
         resourceId: "authority",
         base: 0.5,

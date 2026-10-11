@@ -32,11 +32,8 @@ The primary flow is:
 
 - Make **Advance Year** the clearest primary action.
 - Use graph nodes as readable interactive pieces with clear focus and hover states.
-- Keep the primary graph focused on active, graph-visible nodes. Preserve a
-  just-ended node through the following playable turn, then remove it when
-  the next turn begins resolving.
-- Provide a searchable institutional index for every Scenario node, including
-  inactive and graph-hidden nodes, with dossiers as the shared detail surface.
+- Keep the primary graph focused on active, graph-visible nodes. Preserve a just-ended node through the following playable turn, then remove it when the next turn begins resolving.
+- Provide a searchable institutional index for every Scenario node, including inactive and graph-hidden nodes, with dossiers as the shared detail surface.
 - Provide a separate inactive-Stance index for reviewing potential enactments.
 - Use dossiers for analysis and Stance editing.
 - Present one always-visible card per Faction group.
@@ -47,10 +44,7 @@ The primary flow is:
 - Use Sheets for overview, Crises, and Chronicle review, and more. Situations
   remain available as canonical graph nodes and dossiers.
 - Keep a report, Sheet, or detail dialog open beneath a linked detail dialog so closing the linked detail returns the player to the same context.
-- Keep game dialogs consistent in width, header hierarchy, body scrolling,
-  separators, spacing, and footer actions. Reuse the shared dialog frame for
-  Dilemmas, dossiers, reports, and similar full-detail surfaces; vary the
-  content within that frame to suit each decision or record.
+- Keep game dialogs consistent in width, header hierarchy, body scrolling, separators, spacing, and footer actions. Reuse the shared dialog frame for Dilemmas, dossiers, reports, and similar full-detail surfaces; vary the content within that frame to suit each decision or record.
 - Keep feedback timely and purposeful.
 
 ## Visual Hierarchy

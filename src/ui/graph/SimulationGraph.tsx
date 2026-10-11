@@ -110,7 +110,7 @@ export function SimulationGraph({
   const endedNodeIdsThisTurn = useMemo(
     () =>
       turnFeedback?.changes
-        .filter(({ previousActive, isActive }) => previousActive && !isActive)
+        .filter(({ wasActive, isActive }) => wasActive && !isActive)
         .map(({ nodeId }) => nodeId),
     [turnFeedback],
   );

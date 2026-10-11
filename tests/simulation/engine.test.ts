@@ -18,7 +18,7 @@ import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runReportProjectionTests } from "../ui/projectReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
-import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+import { runEventDetailTests } from "../ui/projectEvent.test";
 import {
   runDilemmaDecisionProjectionTests,
   runDilemmaConsequenceProjectionTests,
@@ -201,7 +201,7 @@ const formationChange = executeCommand(exampleScenario, initial, {
   stanceId: "clergy-formation",
   value: 0.4,
 });
-assert(formationChange.accepted, "A permitted Stance change should succeed");
+assert(formationChange.isAccepted, "A permitted Stance change should succeed");
 const afterFormationChange = advanceTurn(
   exampleScenario,
   formationChange.state,
@@ -223,7 +223,7 @@ for (const value of [0.75, 0.95, 1]) {
     stanceId: "centralization",
     value,
   });
-  assert(change.accepted, `Centralization change to ${value} should succeed`);
+  assert(change.isAccepted, `Centralization change to ${value} should succeed`);
   crisisState = change.state;
 }
 for (let index = 0; index < 5; index += 1) {
@@ -409,7 +409,7 @@ const safeRisk = executeCommand(terminalScenario, terminalState, {
   stanceId: "risk",
   value: 0.8,
 });
-assert(safeRisk.accepted, "The player should be able to answer a crisis");
+assert(safeRisk.isAccepted, "The player should be able to answer a crisis");
 terminalState = advanceTurn(terminalScenario, safeRisk.state).state;
 assert(
   terminalState.gameOverProgress.collapse.consecutiveTurns === 2 &&
@@ -432,7 +432,7 @@ assert(
     type: "set-stance",
     stanceId: "risk",
     value: 0.1,
-  }).accepted,
+  }).isAccepted,
   "Terminal snapshots must reject player commands",
 );
 

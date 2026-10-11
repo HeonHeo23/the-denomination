@@ -47,14 +47,14 @@ export function runEndingChangesTests() {
     changes.map((c) => formatSignedValue(c.delta, c.node.domain, true)),
     ["+30.0%p", "-15.0%p", "+3.0", "+10.0%p"],
   );
-  assert.equal(changes[3].previousActive, false);
+  assert.equal(changes[3].wasActive, false);
   assert.equal(changes[3].isActive, true);
   const combined = projectChanges(scenario, initial, changed).find(
     (change) => change.node.id === "crisis",
   )!;
   assert.equal(combined.previousValue, 0.2);
   assert.equal(combined.value, 0.3);
-  assert.equal(combined.previousActive, false);
+  assert.equal(combined.wasActive, false);
   assert.equal(combined.isActive, true);
   assert.ok(Math.abs(combined.delta - 0.1) < 1e-9);
   for (const delta of [0, -0.000001, 0.000001]) {
@@ -78,7 +78,7 @@ export function runEndingChangesTests() {
     stanceId: "policy",
     value: 0.8,
   });
-  assert.equal(action.accepted, true);
+  assert.equal(action.isAccepted, true);
   assert.equal(action.state.nodeValueHistory[0].policy.value, 0.8);
   assert.equal(
     projectEndingChanges(scenario, action.state)[0].previousValue,
@@ -89,7 +89,7 @@ export function runEndingChangesTests() {
     stanceId: "policy",
     value: 0.5,
   });
-  assert.equal(reversed.accepted, true);
+  assert.equal(reversed.isAccepted, true);
   assert.deepEqual(
     projectEndingChanges(scenario, reversed.state),
     [],

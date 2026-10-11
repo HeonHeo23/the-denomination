@@ -13,9 +13,9 @@ import type {
 } from "@/simulation";
 import { formatValue } from "@/ui/formatValue";
 import {
-  historyYearMarkLabels,
-  nearestHistoryPointIndex,
-  nextHistoryPointIndex,
+  labelYearMarks,
+  findNearestPoint,
+  getNextPoint,
   projectNodeValueHistory,
 } from "./projectNodeValueHistory";
 
@@ -53,13 +53,13 @@ export function NodeValueHistoryChart({
   const selectedIndex = selection?.index;
   const selected =
     selectedIndex === undefined ? undefined : chart.points[selectedIndex];
-  const yearMarkLabels = historyYearMarkLabels(chart.points.length);
+  const yearMarkLabels = labelYearMarks(chart.points.length);
   const selectAtPointer = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (bounds.width === 0) return;
     const viewBoxX =
       ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
-    const index = nearestHistoryPointIndex(chart.points, viewBoxX);
+    const index = findNearestPoint(chart.points, viewBoxX);
     if (index < 0) return;
     const source = event.pointerType === "touch" ? "touch" : "pointer";
     setSelection((previous) =>
@@ -70,7 +70,7 @@ export function NodeValueHistoryChart({
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const current = selectedIndex ?? latestIndex;
-    const index = nextHistoryPointIndex(
+    const index = getNextPoint(
       current,
       event.key,
       chart.points.length,

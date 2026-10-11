@@ -22,24 +22,22 @@ import {
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { EffectBar } from "@/ui/panels/NodeEffectCard";
 import { cn } from "@/lib/utils";
-import type { EventOccurrenceView } from "./projectEventOccurrence";
+import type { EventView } from "./projectEvent";
 import "@/ui/panels/panels.css";
 
 interface EventDetailDialogProps {
-  readonly occurrence: EventOccurrenceView;
+  readonly event: EventView;
   readonly onOpenChange: (open: boolean) => void;
   readonly onNodeSelect: (nodeId: string) => void;
 }
 
 export function EventDetailDialog({
-  occurrence,
+  event,
   onOpenChange,
   onNodeSelect,
 }: EventDetailDialogProps) {
   const date =
-    occurrence.year === undefined
-      ? `Turn ${occurrence.turn}`
-      : `Year ${occurrence.year}`;
+    event.year === undefined ? `Turn ${event.turn}` : `Year ${event.year}`;
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -57,11 +55,11 @@ export function EventDetailDialog({
           <div className="flex min-h-0 flex-col gap-5 overflow-y-auto p-5 sm:p-6">
             <DialogHeader className="gap-2 pr-6">
               <Badge variant="outline" className="w-fit">
-                Event · {date} · Occurrence {occurrence.occurrenceNumber}
+                Event · {date} · {event.triggerCount}
               </Badge>
-              <DialogTitle>{occurrence.definition.title}</DialogTitle>
+              <DialogTitle>{event.definition.title}</DialogTitle>
               <DialogDescription className="leading-relaxed">
-                {occurrence.definition.description}
+                {event.definition.description}
               </DialogDescription>
             </DialogHeader>
 
@@ -69,13 +67,13 @@ export function EventDetailDialog({
               className="flex flex-col gap-3"
               aria-labelledby="event-consequences-title"
             >
-              {occurrence.consequences.length === 0 ? (
+              {event.consequences.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No direct consequence was recorded.
                 </p>
               ) : (
                 <ItemGroup className="gap-2">
-                  {occurrence.consequences.map((consequence) => {
+                  {event.consequences.map((consequence) => {
                     const target = consequence.target;
                     const value = consequence.endOfTurnValue;
                     const amount = consequence.appliedAmount;

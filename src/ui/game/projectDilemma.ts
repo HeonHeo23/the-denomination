@@ -113,7 +113,7 @@ export interface DilemmaDecisionView {
   readonly choiceDescription: string;
 }
 
-/** Read resolved choices from the canonical, saved occurrence history. */
+/** Read resolved choices from the canonical, saved event decision history. */
 export function projectDilemmaDecisions(
   scenario: ScenarioDefinition,
   state: SimulationState,

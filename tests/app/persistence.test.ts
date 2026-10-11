@@ -129,7 +129,7 @@ const adjustedWhilePending = executeCommand(queuedScenario, partiallyResolved, {
   stanceId: "centralization",
   value: 0.6,
 });
-assert.equal(adjustedWhilePending.accepted, true);
+assert.equal(adjustedWhilePending.isAccepted, true);
 assert.ok(
   validateSavedGame(
     { ...pendingSave, state: adjustedWhilePending.state },

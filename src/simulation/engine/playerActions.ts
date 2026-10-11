@@ -3,47 +3,49 @@ import type {
   StanceDefinition,
 } from "../domain/definitions";
 import type { SimulationCommand } from "../domain/commands";
-import type {
-  CommandResult,
-  StanceChangeAssessment,
-  StanceTransitionAssessment,
-} from "../domain/results";
+import type { CommandResult, StanceAssessment } from "../domain/results";
 import type { SimulationState } from "../domain/runtime";
-import { conditionsMet, createNodeHistoryState, indexNodes } from "./shared";
+import { createNodeHistoryState, indexNodes } from "./shared";
 import { resolveDilemma } from "./dilemmas";
 
-type Assessment = StanceChangeAssessment | StanceTransitionAssessment;
 const GAME_OVER_STANCE_MESSAGE = "The game is over. Stances are read-only.";
 
-function reject(message: string, cost = 0): Assessment {
+type StanceLookupResult =
+  | { readonly ok: true; readonly stance: StanceDefinition }
+  | { readonly ok: false; readonly assessment: StanceAssessment };
+
+function reject(message: string, cost = 0): StanceAssessment {
   return { legal: false, cost, message };
 }
 
-function stanceFor(
+function lookupStance(
   scenario: ScenarioDefinition,
   state: SimulationState,
   stanceId: string,
-): StanceDefinition | Assessment {
+): StanceLookupResult {
   if (state.scenarioId !== scenario.id)
-    return reject("The runtime state belongs to another Scenario.");
+    return {
+      ok: false,
+      assessment: reject("The runtime state belongs to another Scenario."),
+    };
   const stance = indexNodes(scenario)[stanceId];
   if (!stance || stance.type !== "stance")
-    return reject("That node is not a Stance.");
-  return stance;
+    return { ok: false, assessment: reject("That node is not a Stance.") };
+  return { ok: true, stance };
 }
 
-function validValue(
+function validStanceValue(
   stance: StanceDefinition,
   value: number,
-): Assessment | undefined {
-  if (!Number.isFinite(value)) return reject("Choose a valid value.");
+): string | undefined {
+  if (!Number.isFinite(value)) return "Choose a valid value.";
   if (value < stance.domain.min || value > stance.domain.max)
-    return reject(`${stance.name} is outside its permitted range.`);
+    return `${stance.name} is outside its permitted range.`;
   if (
     stance.control.kind === "discrete" &&
     !stance.control.states.some((option) => option.value === value)
   )
-    return reject(`${stance.name} does not permit that state.`);
+    return `${stance.name} does not permit that state.`;
   return undefined;
 }
 
@@ -53,7 +55,7 @@ function assessTransitionCost(
   cost: number,
   resourceId: string | undefined,
   action: "enact" | "repeal",
-): Assessment | { readonly resourceName: string } {
+): StanceAssessment | { readonly resourceName: string } {
   if (!Number.isFinite(cost))
     return reject("The configured Stance cost is not finite.");
   if (!resourceId) return { resourceName: "" };
@@ -74,13 +76,17 @@ export function assessStanceChange(
   state: SimulationState,
   stanceId: string,
   value: number,
-): StanceChangeAssessment {
+): StanceAssessment {
   const gameOver = state.outcome !== null;
-  const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance)
-    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
-  const invalid = validValue(stance, value);
-  if (invalid) return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : invalid;
+  const stanceResult = lookupStance(scenario, state, stanceId);
+  if (!stanceResult.ok)
+    return gameOver
+      ? reject(GAME_OVER_STANCE_MESSAGE)
+      : stanceResult.assessment;
+  const stance = stanceResult.stance;
+  const invalid = validStanceValue(stance, value);
+  if (invalid !== undefined)
+    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : reject(invalid);
   const runtime = state.nodes[stanceId];
   const amountChanged = Math.abs(value - runtime.value);
   const cost =
@@ -92,8 +98,6 @@ export function assessStanceChange(
   if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   if (!runtime.isActive)
     return reject(`Enact ${stance.name} before changing it.`);
-  if (!conditionsMet(scenario, stance.requires))
-    return reject(`The prerequisites for ${stance.name} are not met.`);
   if (amountChanged === 0) return reject("That Stance is already selected.");
   if (!Number.isFinite(cost))
     return reject("The configured Stance cost is not finite.");
@@ -132,19 +136,21 @@ export function assessStanceEnactment(
   state: SimulationState,
   stanceId: string,
   value: number,
-): StanceTransitionAssessment {
+): StanceAssessment {
   const gameOver = state.outcome !== null;
-  const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance)
-    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
-  const invalid = validValue(stance, value);
-  if (invalid) return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : invalid;
+  const stanceResult = lookupStance(scenario, state, stanceId);
+  if (!stanceResult.ok)
+    return gameOver
+      ? reject(GAME_OVER_STANCE_MESSAGE)
+      : stanceResult.assessment;
+  const stance = stanceResult.stance;
+  const invalid = validStanceValue(stance, value);
+  if (invalid !== undefined)
+    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : reject(invalid);
   const cost = stance.enactmentCost?.amount ?? 0;
   if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   if (state.nodes[stanceId].isActive)
     return reject(`${stance.name} is already enacted.`);
-  if (!conditionsMet(scenario, stance.requires))
-    return reject(`The prerequisites for ${stance.name} are not met.`);
   const affordability = assessTransitionCost(
     scenario,
     state,
@@ -165,11 +171,14 @@ export function assessStanceRepeal(
   scenario: ScenarioDefinition,
   state: SimulationState,
   stanceId: string,
-): StanceTransitionAssessment {
+): StanceAssessment {
   const gameOver = state.outcome !== null;
-  const stance = stanceFor(scenario, state, stanceId);
-  if ("legal" in stance)
-    return gameOver ? reject(GAME_OVER_STANCE_MESSAGE) : stance;
+  const stanceResult = lookupStance(scenario, state, stanceId);
+  if (!stanceResult.ok)
+    return gameOver
+      ? reject(GAME_OVER_STANCE_MESSAGE)
+      : stanceResult.assessment;
+  const stance = stanceResult.stance;
   const cost = stance.repealCost?.amount ?? 0;
   if (gameOver) return reject(GAME_OVER_STANCE_MESSAGE, cost);
   const runtime = state.nodes[stanceId];
@@ -206,6 +215,44 @@ function debitCost(
   };
 }
 
+function applyStanceValue(
+  nodes: Record<string, SimulationState["nodes"][string]>,
+  stance: StanceDefinition,
+  value: number,
+  resourceId: string | undefined,
+  cost: number,
+) {
+  debitCost(nodes, resourceId, cost);
+  const runtime = nodes[stance.id];
+  if (runtime.value === undefined)
+    throw new Error("Stance requires node runtime state.");
+  nodes[stance.id] = {
+    ...runtime,
+    value,
+    baseValue: value,
+    isActive: true,
+  };
+}
+
+/** Build temporary Stance values for an estimate, even when its command is blocked. */
+export function createStancePreviewState(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  stance: StanceDefinition,
+  value: number,
+): SimulationState {
+  const isEnactment = !state.nodes[stance.id].isActive;
+  const assessment = isEnactment
+    ? assessStanceEnactment(scenario, state, stance.id, value)
+    : assessStanceChange(scenario, state, stance.id, value);
+  const resourceId = isEnactment
+    ? stance.enactmentCost?.resourceId
+    : stance.cost?.resourceId;
+  const nodes = { ...state.nodes };
+  applyStanceValue(nodes, stance, value, resourceId, assessment.cost);
+  return { ...state, nodes };
+}
+
 /** Reassess against the current snapshot before applying an immutable transaction. */
 export function executeCommand(
   scenario: ScenarioDefinition,
@@ -226,32 +273,30 @@ export function executeCommand(
           )
         : assessStanceRepeal(scenario, state, command.stanceId);
   if (!assessment.legal)
-    return { accepted: false, state, message: assessment.message };
+    return { isAccepted: false, state, message: assessment.message };
   const stance = indexNodes(scenario)[command.stanceId];
   if (!stance || stance.type !== "stance")
-    return { accepted: false, state, message: "That node is not a Stance." };
+    return { isAccepted: false, state, message: "That node is not a Stance." };
   const nodes = { ...state.nodes };
   if (command.type === "set-stance") {
-    debitCost(nodes, stance.cost?.resourceId, assessment.cost);
+    applyStanceValue(
+      nodes,
+      stance,
+      command.value,
+      stance.cost?.resourceId,
+      assessment.cost,
+    );
+  } else if (command.type === "enact-stance") {
+    applyStanceValue(
+      nodes,
+      stance,
+      command.value,
+      stance.enactmentCost?.resourceId,
+      assessment.cost,
+    );
   } else {
-    const transitionCost =
-      command.type === "enact-stance"
-        ? stance.enactmentCost
-        : stance.repealCost;
-    debitCost(nodes, transitionCost?.resourceId, assessment.cost);
-  }
-  if (command.type === "repeal-stance") {
+    debitCost(nodes, stance.repealCost?.resourceId, assessment.cost);
     nodes[stance.id] = { ...nodes[stance.id], isActive: false };
-  } else {
-    const runtime = nodes[stance.id];
-    if (runtime.value === undefined)
-      throw new Error("Stance requires node runtime state.");
-    nodes[stance.id] = {
-      ...runtime,
-      value: command.value,
-      baseValue: command.value,
-      isActive: true,
-    };
   }
   const action =
     command.type === "set-stance"
@@ -260,7 +305,7 @@ export function executeCommand(
         ? "enact"
         : "repeal";
   return {
-    accepted: true,
+    isAccepted: true,
     message: assessment.message,
     state: {
       ...state,

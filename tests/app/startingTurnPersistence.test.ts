@@ -135,7 +135,7 @@ export function runStartingTurnPersistenceTests() {
       stanceId: "game-over-test",
       value: 1,
     });
-    assert.ok(changed.accepted, changed.message);
+    assert.ok(changed.isAccepted, changed.message);
     assert.equal(
       changed.state.nodeValueHistory[enabledTurn]["game-over-test"].value,
       1,
@@ -196,7 +196,7 @@ export function runStartingTurnPersistenceTests() {
   for (const command of commands) {
     const checkpointId = randomUUID();
     const result = executeCommand(transitions, state, command);
-    assert.ok(result.accepted, result.message);
+    assert.ok(result.isAccepted, result.message);
     state = result.state;
     const save = makeSave(state);
     assert.equal(

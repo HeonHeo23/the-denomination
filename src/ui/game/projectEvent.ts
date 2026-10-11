@@ -21,54 +21,54 @@ export interface EventConsequenceView {
   readonly appliedAmount?: number;
 }
 
-export interface EventOccurrenceView {
+export interface EventView {
   readonly id: string;
   readonly definition: EventDefinition;
   readonly turn: number;
   readonly year?: number;
-  readonly occurrenceNumber: number;
+  readonly triggerCount: number;
   readonly consequences: readonly EventConsequenceView[];
 }
 
-function eventForOccurrence(
+function parseEventId(
   scenario: ScenarioDefinition,
-  occurrenceId: string,
+  eventId: string,
 ): { definition: EventDefinition; number: number } | undefined {
   for (const definition of scenario.events ?? []) {
     const prefix = `${definition.id}:event:`;
-    if (!occurrenceId.startsWith(prefix)) continue;
-    const number = Number(occurrenceId.slice(prefix.length));
+    if (!eventId.startsWith(prefix)) continue;
+    const number = Number(eventId.slice(prefix.length));
     if (
       Number.isSafeInteger(number) &&
       number > 0 &&
-      occurrenceId === `${prefix}${number}`
+      eventId === `${prefix}${number}`
     )
       return { definition, number };
   }
   return undefined;
 }
 
-/** Derive one player-facing Event record from canonical occurrence history. */
-export function projectEventOccurrence(
+/** Derive one player-facing Event record from canonical event history. */
+export function projectEvent(
   scenario: ScenarioDefinition,
   state: SimulationState,
-  occurrenceId: string,
-): EventOccurrenceView | undefined {
-  const occurrence = state.history.find(
-    (entry) => entry.kind === "event" && entry.id === occurrenceId,
+  eventId: string,
+): EventView | undefined {
+  const event = state.history.find(
+    (entry) => entry.kind === "event" && entry.id === eventId,
   );
-  const match = eventForOccurrence(scenario, occurrenceId);
-  if (!occurrence || !match) return undefined;
+  const match = parseEventId(scenario, eventId);
+  if (!event || !match) return undefined;
 
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
-  const readings = state.nodeValueHistory[occurrence.turn];
+  const readings = state.nodeValueHistory[event.turn];
   const consequences = match.definition.consequences.flatMap(
     (consequence, index) => {
       const entry = state.history.find(
         (item) =>
           item.kind === "consequence" &&
-          item.id === `${occurrenceId}:consequence:${index}` &&
-          item.turn === occurrence.turn,
+          item.id === `${eventId}:consequence:${index}` &&
+          item.turn === event.turn,
       );
       if (!entry) return [];
       // Use the saved Resource change for historical detail displays.
@@ -105,31 +105,31 @@ export function projectEventOccurrence(
   );
 
   return {
-    id: occurrenceId,
+    id: eventId,
     definition: match.definition,
-    turn: occurrence.turn,
+    turn: event.turn,
     year:
       scenario.start.year === undefined
         ? undefined
-        : scenario.start.year + occurrence.turn - scenario.start.turn,
-    occurrenceNumber: match.number,
+        : scenario.start.year + event.turn - scenario.start.turn,
+    triggerCount: match.number,
     consequences,
   };
 }
 
 /** The fired Events for one turn, in the engine's Event ID order. */
-export function eventOccurrenceIdsForTurn(
+export function getTurnEventIds(
   scenario: ScenarioDefinition,
   state: SimulationState,
   turn: number,
 ): readonly string[] {
   const ids = state.history
     .filter((entry) => entry.kind === "event" && entry.turn === turn)
-    .filter((entry) => eventForOccurrence(scenario, entry.id) !== undefined)
+    .filter((entry) => parseEventId(scenario, entry.id) !== undefined)
     .map((entry) => entry.id);
   return ids.sort((left, right) => {
-    const leftId = eventForOccurrence(scenario, left)!.definition.id;
-    const rightId = eventForOccurrence(scenario, right)!.definition.id;
+    const leftId = parseEventId(scenario, left)!.definition.id;
+    const rightId = parseEventId(scenario, right)!.definition.id;
     return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
   });
 }

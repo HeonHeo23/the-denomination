@@ -19,4 +19,4 @@ export { validateScenario } from "./engine/validateScenario";
 export { loadScenario } from "./engine/loadScenario";
 export { previewStanceEffects } from "./engine/evaluatePersistentState";
 export { evaluateEnding } from "./engine/resolveEnding";
-export { prerequisiteMet } from "./engine/prerequisites";
+export { isPrerequisiteMet } from "./engine/prerequisites";

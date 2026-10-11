@@ -511,7 +511,7 @@ export function runReportProjectionTests() {
       multipleReport[0].matchedGroups[0].group.id ===
         gameOverDefinition.prerequisiteGroups[0].id &&
       multipleReport[0].matchedGroups[0].prerequisites.some(
-        ({ met }) => !met,
+        ({ isMet }) => !isMet,
       ) &&
       multipleReport[0].consecutiveTurns === 2,
     "Reports preserve cause order and recorded groups despite different runtime groups and current readings",

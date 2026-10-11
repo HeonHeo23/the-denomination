@@ -56,18 +56,14 @@ interface PendingExit {
   readonly turnReport?: SavedTurnReport;
 }
 
-function unavailableStorage(): SaveStorage {
+function browserStorage(): SaveStorage {
   const fail = () => {
     throw new Error("Browser storage is unavailable");
   };
-  return { getItem: fail, setItem: fail };
-}
-
-function browserStorage(): SaveStorage {
   try {
     return window.localStorage;
   } catch {
-    return unavailableStorage();
+    return { getItem: fail, setItem: fail };
   }
 }
 

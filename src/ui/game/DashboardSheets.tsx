@@ -51,7 +51,7 @@ interface DashboardSheetsProps {
   readonly resources: readonly NodeDefinition[];
   readonly onClose: () => void;
   readonly onCrisisSelect: (crisisId: string) => void;
-  readonly onEventSelect: (occurrenceId: string) => void;
+  readonly onEventSelect: (historyEntryId: string) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
