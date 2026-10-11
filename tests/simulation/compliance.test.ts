@@ -624,7 +624,8 @@ export function runComplianceTests() {
   assert.strictEqual(rejected.state, cappedInitial);
   assert.deepEqual(cappedInitial, snapshot);
   assert.equal(
-    executeCommand(capped, cappedInitial, { ...command, value: 0.55 }).isAccepted,
+    executeCommand(capped, cappedInitial, { ...command, value: 0.55 })
+      .isAccepted,
     true,
   );
   const poor = {
@@ -1197,13 +1198,10 @@ export function runComplianceTests() {
         {
           nodeId: "centralization",
           delta: 0.05,
-          wasActive: true,
-          isActive: true,
         },
         {
           nodeId: "governance-tension",
           delta: 0,
-          wasActive: false,
           isActive: true,
         },
       ],
@@ -1215,6 +1213,12 @@ export function runComplianceTests() {
       .turnDelta,
     0.05,
     "Turn feedback should project a node delta without changing runtime state",
+  );
+  assert.equal(
+    feedbackGraph.nodes.find((node) => node.id === "centralization")?.data
+      .activationTransition,
+    undefined,
+    "Omitted activation feedback should not render a transition",
   );
   assert.equal(
     feedbackGraph.nodes.find((node) => node.id === "governance-tension")?.data
@@ -1237,7 +1241,6 @@ export function runComplianceTests() {
       {
         nodeId: "centralization",
         delta: 0,
-        wasActive: true,
         isActive: false,
       },
     ],

@@ -5,6 +5,7 @@ import {
   executeCommand,
   advanceTurn,
   type ScenarioDefinition,
+  type SimulationState,
 } from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
 import { endingScenario } from "../simulation/endings.test";
@@ -12,6 +13,9 @@ import {
   projectEndingChanges,
   projectEndingReport,
   projectChanges,
+  projectTurnReport,
+  serializeTurnReport,
+  restoreTurnReport,
 } from "../../src/ui/panels/projectReport";
 import { formatSignedValue } from "../../src/ui/formatValue";
 
@@ -39,24 +43,68 @@ export function runEndingChangesTests() {
   };
   const changes = projectEndingChanges(scenario, changed);
   assert.deepEqual(
-    changes.map((c) => c.node.id),
+    changes.map((c) => c.nodeId),
     ["policy", "health", "reserve", "crisis"],
   );
-  assert.equal(changes[0].node.graphVisible, false);
+  assert.equal(changes[0].name, scenario.nodes[0].name);
   assert.deepEqual(
-    changes.map((c) => formatSignedValue(c.delta, c.node.domain, true)),
+    changes.map((c) => formatSignedValue(c.amount, c.domain, true)),
     ["+30.0%p", "-15.0%p", "+3.0", "+10.0%p"],
   );
-  assert.equal(changes[3].wasActive, false);
   assert.equal(changes[3].isActive, true);
+  assert.ok(
+    changes.slice(0, 3).every((change) => change.isActive === undefined),
+  );
   const combined = projectChanges(scenario, initial, changed).find(
-    (change) => change.node.id === "crisis",
+    (change) => change.nodeId === "crisis",
   )!;
   assert.equal(combined.previousValue, 0.2);
   assert.equal(combined.value, 0.3);
-  assert.equal(combined.wasActive, false);
   assert.equal(combined.isActive, true);
-  assert.ok(Math.abs(combined.delta - 0.1) < 1e-9);
+  assert.ok(Math.abs(combined.amount - 0.1) < 1e-9);
+  const deactivated = {
+    ...changed,
+    nodes: {
+      ...changed.nodes,
+      crisis: { ...changed.nodes.crisis, isActive: false },
+    },
+  };
+  assert.equal(
+    projectChanges(scenario, changed, deactivated)[0].isActive,
+    false,
+  );
+  const inactiveValueChange = {
+    ...deactivated,
+    nodes: {
+      ...deactivated.nodes,
+      crisis: { ...deactivated.nodes.crisis, value: 0.4 },
+    },
+  };
+  assert.equal(
+    projectChanges(scenario, deactivated, inactiveValueChange)[0].isActive,
+    undefined,
+  );
+  for (const [before, after] of [
+    [initial, changed],
+    [changed, deactivated],
+    [deactivated, inactiveValueChange],
+  ] as readonly [SimulationState, SimulationState][]) {
+    const report = projectTurnReport(scenario, before, after);
+    const saved = serializeTurnReport(report);
+    assert.deepEqual(
+      restoreTurnReport(scenario, saved).changes,
+      report.changes,
+    );
+    for (const change of report.changes.filter(
+      (c) => c.isActive === undefined,
+    )) {
+      const savedChange = saved.changes.find(
+        (c) => c.nodeId === change.nodeId,
+      )!;
+      assert.equal(Object.hasOwn(savedChange, "isActive"), false);
+      assert.equal(Object.hasOwn(savedChange, "wasActive"), false);
+    }
+  }
   for (const delta of [0, -0.000001, 0.000001]) {
     assert.equal(
       formatSignedValue(delta, scenario.nodes[0].domain, true),
@@ -147,7 +195,7 @@ export function runEndingChangesTests() {
     },
   };
   assert.equal(projectEndingChanges(clamped, spent)[0].previousValue, 10);
-  assert.equal(projectEndingChanges(clamped, spent)[0].delta, -3);
+  assert.equal(projectEndingChanges(clamped, spent)[0].amount, -3);
 
   const factionStart = initializeScenario(exampleScenario);
   const group = exampleScenario.factionGroups[0];
@@ -171,10 +219,10 @@ export function runEndingChangesTests() {
   };
   const factions = projectEndingChanges(exampleScenario, factionChanged);
   assert.deepEqual(
-    factions.map((c) => c.node.id),
+    factions.map((c) => c.nodeId),
     exampleScenario.nodes.filter((n) => ids.includes(n.id)).map((n) => n.id),
   );
-  assert.ok(factions.every((c) => c.node.name === group.name));
+  assert.ok(factions.every((c) => c.name === group.name));
   assert.deepEqual(
     new Set(factions.map((c) => c.metric?.id)),
     new Set(exampleScenario.factionMetrics.map((m) => m.id)),

@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toPercent } from "@/ui/formatValue";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
-import { FactionMetricIcon, FactionMetricName } from "@/ui/FactionMetric";
+import { FactionMetricIcon, NodeName } from "@/ui/FactionMetric";
 import type { NodeEffectView } from "./projectNodeEffects";
 
 interface NodeEffectCardProps {
@@ -214,7 +214,7 @@ export function EffectRow({
                 <span className="min-w-0 truncate">{effect.relatedName}</span>
               </span>
             ) : (
-              <FactionMetricName
+              <NodeName
                 name={effect.relatedName}
                 metric={relatedMetric}
                 context={metricContext}
@@ -320,8 +320,8 @@ export function NodeEffectCard({
           {`No ${direction} Effects.`}
         </p>
       ) : fitContent ? (
-        <div
-          className="pr-1 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain"
+        <ScrollArea
+          className="pr-1 md:min-h-0 md:flex-1"
           aria-label={`${title} effects`}
         >
           <ItemGroup className="gap-1">
@@ -335,7 +335,7 @@ export function NodeEffectCard({
               />
             ))}
           </ItemGroup>
-        </div>
+        </ScrollArea>
       ) : (
         <ScrollArea className="h-full max-h-full pr-1">
           <ItemGroup className="gap-1">

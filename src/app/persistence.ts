@@ -14,8 +14,7 @@ export interface SavedTurnReportChange {
   readonly value: number;
   readonly delta: number;
   readonly relativeMagnitude: number;
-  readonly wasActive: boolean;
-  readonly isActive: boolean;
+  readonly isActive?: boolean;
 }
 
 export interface SavedTurnReport {
@@ -578,15 +577,11 @@ function isValidTurnReport(
     if (!change || typeof change !== "object" || Array.isArray(change))
       return false;
     if (
-      !exactObject(change, [
-        "nodeId",
-        "previousValue",
-        "value",
-        "delta",
-        "relativeMagnitude",
-        "wasActive",
-        "isActive",
-      ]) ||
+      !exactObject(
+        change,
+        ["nodeId", "previousValue", "value", "delta", "relativeMagnitude"],
+        ["isActive"],
+      ) ||
       typeof change.nodeId !== "string" ||
       !nodes.has(change.nodeId) ||
       changeIds.has(change.nodeId) ||
@@ -594,8 +589,8 @@ function isValidTurnReport(
       !finite(change.value) ||
       !finite(change.delta) ||
       !finite(change.relativeMagnitude) ||
-      typeof change.wasActive !== "boolean" ||
-      typeof change.isActive !== "boolean"
+      (Object.hasOwn(change, "isActive") &&
+        typeof change.isActive !== "boolean")
     )
       return false;
     const domain = nodes.get(change.nodeId)!.domain;
@@ -609,7 +604,7 @@ function isValidTurnReport(
       return false;
     if (
       nodes.get(change.nodeId)!.type === "faction" &&
-      (!change.wasActive || !change.isActive)
+      change.isActive !== undefined
     )
       return false;
     changeIds.add(change.nodeId);

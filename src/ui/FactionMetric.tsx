@@ -29,7 +29,7 @@ export function FactionMetricIcon({
   return icon;
 }
 
-export function FactionMetricName({
+export function NodeName({
   name,
   metric,
   context,

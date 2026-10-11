@@ -1,11 +1,12 @@
 import { ongoingCompletion } from "../simulation/fixtures";
 import assert from "node:assert/strict";
 import { exampleScenario } from "../../src/scenarios/example";
-import { advanceTurn, initializeScenario } from "../../src/simulation";
 import {
-  getTurnEventIds,
-  projectEvent,
-} from "../../src/ui/game/projectEvent";
+  advanceTurn,
+  initializeScenario,
+  type ScenarioDefinition,
+} from "../../src/simulation";
+import { getTurnEventIds, projectEvent } from "../../src/ui/game/projectEvent";
 import {
   beginAutomaticEvents,
   closeEventPresentation,
@@ -41,37 +42,108 @@ export function runEventDetailTests() {
   assert.ok(gift);
   assert.equal(gift.definition.title, "An unexpected bequest arrives");
   assert.equal(gift.year, 1981);
-  assert.equal(gift.consequences.length, 1);
-  assert.equal(gift.consequences[0].target?.id, "money");
-  assert.equal(gift.consequences[0].endOfTurnValue, first.nodes.money.value);
-  assert.equal(gift.consequences[0].kind, "resource");
+  assert.equal(gift.changes.length, 1);
+  assert.equal(gift.changes[0].nodeId, "money");
+  assert.equal(gift.changes[0].name, "Money");
+  assert.deepEqual(
+    gift.changes[0].domain,
+    scenario.nodes.find((n) => n.id === "money")!.domain,
+  );
+  assert.equal(gift.changes[0].category, "resource");
   const applied = first.history.find(
     (entry) => entry.id === `${ids[1]}:consequence:0`,
   );
-  assert.equal(gift.consequences[0].detail, applied?.detail);
-  assert.equal(gift.consequences[0].detail, "Resource balance changed by 100.");
+  assert.equal(applied?.detail, "Resource balance changed by 100.");
   assert.equal(
-    gift.consequences[0].appliedAmount,
+    gift.changes[0].amount,
     Number(applied?.detail.match(/changed by (-?\d+(?:\.\d+)?)/)?.[1]),
   );
 
   const petition = projectEvent(scenario, first, ids[0]);
-  assert.equal(petition?.consequences[1].kind, "grudge");
-  assert.equal(petition?.consequences[1].appliedAmount, -0.02);
+  assert.equal(petition?.changes[1].category, "grudge");
+  assert.equal(petition?.changes[1].amount, -0.02);
+  assert.equal(petition?.changes[1].isActive, undefined);
 
   const second = advanceTurn(scenario, first, 0.2).state;
   const historical = projectEvent(scenario, second, ids[1]);
-  assert.equal(
-    historical?.consequences[0].endOfTurnValue,
-    first.nodes.money.value,
+  assert.equal(historical?.changes[0].amount, gift.changes[0].amount);
+  assert.deepEqual(getTurnEventIds(scenario, second, second.turn), []);
+  assert.equal(projectEvent(scenario, second, "missing:event:1"), undefined);
+
+  const activationScenario: ScenarioDefinition = {
+    ...scenario,
+    nodes: scenario.nodes.map((node) =>
+      node.id === "clergy-formation"
+        ? { ...node, initial: { ...node.initial, isForced: false } }
+        : node,
+    ),
+    events: [
+      {
+        ...exampleScenario.events[1],
+        id: "activate-dialogue",
+        threshold: 0.5,
+        cooldownTurns: 1,
+        consequences: [
+          { kind: "activation", target: "ecumenical-dialogue", active: true },
+        ],
+      },
+      {
+        ...exampleScenario.events[1],
+        id: "deactivate-dialogue",
+        cooldownTurns: 1,
+        influences: [{ source: "_random_", coefficient: -1, intercept: 1 }],
+        threshold: 0.5,
+        consequences: [
+          { kind: "activation", target: "ecumenical-dialogue", active: false },
+          { kind: "activation", target: "clergy-formation", active: false },
+        ],
+      },
+    ],
+  };
+  const activationInitial = initializeScenario(activationScenario);
+  // Force the node at runtime to exercise the guard on otherwise valid content.
+  const forcedInitial = {
+    ...activationInitial,
+    nodes: {
+      ...activationInitial.nodes,
+      "clergy-formation": {
+        ...activationInitial.nodes["clergy-formation"],
+        isForced: true,
+      },
+    },
+  };
+  const activated = advanceTurn(activationScenario, forcedInitial, 0.8).state;
+  const activation = projectEvent(
+    activationScenario,
+    activated,
+    "activate-dialogue:event:1",
   );
-  assert.deepEqual(
-    getTurnEventIds(scenario, second, second.turn),
-    [],
+  assert.equal(activated.nodes["ecumenical-dialogue"].isActive, true);
+  assert.equal(activation?.changes[0].isActive, true);
+  assert.equal(activation?.changes[0].amount, undefined);
+
+  const deactivated = advanceTurn(activationScenario, activated, 0.2).state;
+  const deactivation = projectEvent(
+    activationScenario,
+    deactivated,
+    "deactivate-dialogue:event:1",
   );
+  assert.equal(deactivated.nodes["ecumenical-dialogue"].isActive, false);
+  assert.equal(deactivation?.changes[0].isActive, false);
+  // Forced-active nodes produce no applied deactivation record or badge row.
+  assert.equal(deactivated.nodes["clergy-formation"].isActive, true);
+  assert.equal(deactivation?.changes.length, 1);
   assert.equal(
-    projectEvent(scenario, second, "missing:event:1"),
-    undefined,
+    projectEvent(activationScenario, deactivated, "activate-dialogue:event:1")
+      ?.changes[0].isActive,
+    true,
+  );
+  const reactivated = advanceTurn(activationScenario, deactivated, 0.8).state;
+  assert.equal(reactivated.nodes["ecumenical-dialogue"].isActive, true);
+  assert.equal(
+    projectEvent(activationScenario, reactivated, "deactivate-dialogue:event:1")
+      ?.changes[0].isActive,
+    false,
   );
 
   const firstPresentation = beginAutomaticEvents(ids);

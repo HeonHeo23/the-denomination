@@ -426,7 +426,7 @@ export function runFactionTests() {
   assert.ok(savedReport.changes.every((change) => !("metric" in change)));
   assert.equal(
     restoreTurnReport(scenario, savedReport).changes.find(
-      (change) => change.node.id === "a-membership",
+      (change) => change.nodeId === "a-membership",
     )!.metric?.label,
     "Membership",
   );
@@ -525,16 +525,16 @@ export function runFactionTests() {
     },
   )!;
   assert.ok(
-    ending.changes.some((change) => change.node.id === "a-satisfaction"),
+    ending.changes.some((change) => change.nodeId === "a-satisfaction"),
   );
   assert.ok(
     ending.changes
-      .filter((change) => change.node.type === "faction")
+      .filter((change) => change.category === "faction")
       .every((change) => change.metric?.label && change.metric.id),
   );
   assert.ok(
     ending.changes.some(
-      (change) => !completion.reportNodeIds.includes(change.node.id),
+      (change) => !completion.reportNodeIds.includes(change.nodeId),
     ),
     "Report-node selection does not restrict net changes",
   );
@@ -568,9 +568,7 @@ export function runFactionTests() {
     0,
   ).state;
   assert.equal(eventState.grudges[0].target, "a-confidence");
-  assert.ok(
-    projectEvent(eventScenario, eventState, "discontent:event:1"),
-  );
+  assert.ok(projectEvent(eventScenario, eventState, "discontent:event:1"));
 
   const invalid: unknown[] = [
     { ...scenario, factionMetrics: null },

@@ -2,7 +2,7 @@
  * Projects the recorded Effects and Grudges that contributed to affected nodes.
  * Shared by crisis details and terminal reports.
  */
-import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
 import type {
   FactionMetricDefinition,
   ScenarioDefinition,
@@ -78,7 +78,7 @@ export function projectContributions(
     const sourceTitle =
       effect.source === "_default_"
         ? "Default pressure"
-        : getNodeDisplayInfo(scenario, effect.source).name;
+        : getNodeDisplayName(scenario, effect.source).name;
     contributions.push({
       id: effect.id,
       kind: "effect",
@@ -88,12 +88,12 @@ export function projectContributions(
       sourceMetric:
         effect.source === "_default_"
           ? undefined
-          : getNodeDisplayInfo(scenario, effect.source).metric,
+          : getNodeDisplayName(scenario, effect.source).metric,
       label: effect.label ?? effect.id,
       value: formatSignedValue(value, target.domain),
       targetId: target.id,
-      targetMetric: getNodeDisplayInfo(scenario, effect.target).metric,
-      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetric: getNodeDisplayName(scenario, effect.target).metric,
+      targetTitle: getNodeDisplayName(scenario, target.id).name,
     });
   }
   for (const grudge of state.grudges) {
@@ -109,8 +109,8 @@ export function projectContributions(
       label: grudge.label,
       value: formatSignedValue(grudge.magnitude, target.domain),
       targetId: target.id,
-      targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric,
-      targetTitle: getNodeDisplayInfo(scenario, target.id).name,
+      targetMetric: getNodeDisplayName(scenario, grudge.target).metric,
+      targetTitle: getNodeDisplayName(scenario, target.id).name,
     });
   }
   return contributions;

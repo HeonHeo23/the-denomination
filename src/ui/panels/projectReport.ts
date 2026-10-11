@@ -2,17 +2,14 @@
  * Projects turn and terminal outcomes into report views.
  * Uses recorded outcome data without evaluating simulation mechanics.
  */
-import {
-  getNodeDisplayInfo,
-  projectNodeForDisplay,
-} from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
+import type { ReportChange } from "../changeView";
 import { initializeScenario } from "../../simulation";
 import type {
   EndingNarrativeDefinition,
   HistoricalActorDefinition,
   FactionMetricDefinition,
   NodeDefinition,
-  NodeType,
   NumericDomain,
   ScenarioDefinition,
   SimulationState,
@@ -131,17 +128,6 @@ export function projectGameOverCauses(
   });
 }
 
-export interface ReportChange {
-  readonly metric?: FactionMetricDefinition;
-  readonly node: NodeDefinition;
-  readonly previousValue: number;
-  readonly value: number;
-  readonly delta: number;
-  readonly relativeMagnitude: number;
-  readonly wasActive: boolean;
-  readonly isActive: boolean;
-}
-
 export interface TurnReportSituationTransition {
   readonly node: NodeDefinition;
   readonly kind: "began" | "ended";
@@ -199,17 +185,21 @@ export function projectChanges(
     const delta = after.value - before.value;
     if (Math.abs(delta) <= CHANGE_EPSILON && before.isActive === after.isActive)
       return [];
-    const display = getNodeDisplayInfo(scenario, node.id);
+    const display = getNodeDisplayName(scenario, node.id);
     return [
       {
-        node: projectNodeForDisplay(scenario, node),
+        id: node.id,
+        nodeId: node.id,
+        name: display.name,
+        domain: node.domain,
+        category: node.type,
         ...(display.metric ? { metric: display.metric } : {}),
         previousValue: before.value,
         value: after.value,
-        delta,
+        amount: delta,
         relativeMagnitude: relativeMagnitude(delta, node),
-        wasActive: before.isActive,
-        isActive: after.isActive,
+        isActive:
+          before.isActive === after.isActive ? undefined : after.isActive,
       },
     ];
   });
@@ -293,8 +283,8 @@ export function projectTurnReport(
         id: grudge.id,
         label: grudge.label,
         targetId: grudge.target,
-        targetName: getNodeDisplayInfo(scenario, grudge.target).name,
-        targetMetric: getNodeDisplayInfo(scenario, grudge.target).metric,
+        targetName: getNodeDisplayName(scenario, grudge.target).name,
+        targetMetric: getNodeDisplayName(scenario, grudge.target).metric,
         targetDomain: target ? target.domain : undefined,
         magnitude: grudge.magnitude,
       };
@@ -318,13 +308,12 @@ export function serializeTurnReport(report: TurnReport): SavedTurnReport {
     turn: report.turn,
     ...(report.year === undefined ? {} : { year: report.year }),
     changes: report.changes.map<SavedTurnReportChange>((change) => ({
-      nodeId: change.node.id,
+      nodeId: change.nodeId,
       previousValue: change.previousValue,
       value: change.value,
-      delta: change.delta,
+      delta: change.amount,
       relativeMagnitude: change.relativeMagnitude,
-      wasActive: change.wasActive,
-      isActive: change.isActive,
+      ...(change.isActive === undefined ? {} : { isActive: change.isActive }),
     })),
     changedEffectIds: [...report.changedEffectIds],
     situationTransitions: report.situationTransitions.map((transition) => ({
@@ -361,18 +350,23 @@ export function restoreTurnReport(
   const events = new Map(
     (scenario.events ?? []).map((definition) => [definition.id, definition]),
   );
-  const changes = saved.changes.map((change) => ({
-    node: projectNodeForDisplay(scenario, nodes.get(change.nodeId)!),
-    ...(getNodeDisplayInfo(scenario, change.nodeId).metric
-      ? { metric: getNodeDisplayInfo(scenario, change.nodeId).metric }
-      : {}),
-    previousValue: change.previousValue,
-    value: change.value,
-    delta: change.delta,
-    relativeMagnitude: change.relativeMagnitude,
-    wasActive: change.wasActive,
-    isActive: change.isActive,
-  }));
+  const changes = saved.changes.map<ReportChange>((change) => {
+    const node = nodes.get(change.nodeId)!;
+    const display = getNodeDisplayName(scenario, node.id);
+    return {
+      id: node.id,
+      nodeId: node.id,
+      name: display.name,
+      domain: node.domain,
+      category: node.type,
+      ...(display.metric ? { metric: display.metric } : {}),
+      previousValue: change.previousValue,
+      value: change.value,
+      amount: change.delta,
+      relativeMagnitude: change.relativeMagnitude,
+      isActive: change.isActive,
+    };
+  });
 
   return {
     turn: saved.turn,
@@ -390,8 +384,8 @@ export function restoreTurnReport(
       id: grudge.id,
       label: grudge.label,
       targetId: grudge.targetId,
-      targetMetric: getNodeDisplayInfo(scenario, grudge.targetId).metric,
-      targetName: getNodeDisplayInfo(scenario, grudge.targetId).name,
+      targetMetric: getNodeDisplayName(scenario, grudge.targetId).metric,
+      targetName: getNodeDisplayName(scenario, grudge.targetId).name,
       targetDomain: nodes.get(grudge.targetId)!.domain,
       magnitude: grudge.magnitude,
     })),
@@ -412,8 +406,4 @@ export function restoreTurnReport(
     }),
     events: saved.eventIds.map((id) => events.get(id)!),
   };
-}
-
-export function nodeTypeLabel(type: NodeType): string {
-  return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
 }

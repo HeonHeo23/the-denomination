@@ -20,7 +20,7 @@ interface DossierDialogFrameProps {
   readonly showCloseButton?: boolean;
 }
 
-export function DossierDialogFrame({
+export default function DossierDialogFrame({
   open,
   onOpenChange,
   surface,
@@ -43,7 +43,7 @@ export function DossierDialogFrame({
         data-game-dilemma={surface === "dilemma" ? true : undefined}
       >
         <DialogHeader
-          className={cn("shrink-0 gap-3 px-6 pt-6", showCloseButton && "pr-14")}
+          className={cn("shrink-0 gap-3 px-6 pt-6", showCloseButton && "pr-9")}
           data-game-chronicle-header={
             surface === "chronicle" ? true : undefined
           }

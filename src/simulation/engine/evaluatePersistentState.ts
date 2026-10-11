@@ -26,33 +26,30 @@ interface EvaluationResult {
  * 4. Applies the response function, or contributes 0 when inactive.
  * 5. Returns the updated history and calculation.
  */
-function evaluateEffect(
+const evaluateEffect = (
   effect: EffectDefinition,
   state: SimulationState,
-): { runtime: EffectRuntimeState; effectiveSource: number } {
-  const sourceParticipates =
+): EffectRuntimeState => {
+  const canParticipate =
     effect.source === "_default_" || state.nodes[effect.source].isActive;
   const sourceValue =
     effect.source === "_default_"
       ? 1
-      : sourceParticipates
+      : canParticipate
         ? state.nodes[effect.source].value
         : 0;
   const inertiaTurns = effect.inertiaTurns ?? 1;
   const previous = state.effects[effect.id]?.sourceHistory ?? [];
   // Inertia is a moving average owned by this Effect.
   const history = [...previous, sourceValue].slice(-inertiaTurns);
-  const effectiveSource =
-    history.reduce((total, value) => total + value, 0) / history.length;
-  const contribution = sourceParticipates
-    ? responseValue(effect.response, effectiveSource, state)
+  const average =
+    history.reduce((total, value) => total + value, 0) / history.length; // average
+  const contribution = canParticipate
+    ? responseValue(effect.response, average, state)
     : 0;
 
-  return {
-    runtime: { sourceHistory: history, lastContribution: contribution },
-    effectiveSource,
-  };
-}
+  return { sourceHistory: history, lastContribution: contribution };
+};
 
 /**
  * Normalizes turn-start Resource balances, then calculates persistent values
@@ -87,12 +84,11 @@ export function evaluatePersistentState(
   // Sample every Effect and total contributions for eligible targets
   for (const effect of scenario.effects) {
     const effectResult = evaluateEffect(effect, evaluationState);
-    effects[effect.id] = effectResult.runtime;
+    effects[effect.id] = effectResult;
 
     const targetKey = effect.target;
     effectTotalByTarget[targetKey] =
-      (effectTotalByTarget[targetKey] ?? 0) +
-      effectResult.runtime.lastContribution;
+      (effectTotalByTarget[targetKey] ?? 0) + effectResult.lastContribution;
   }
 
   // Defer writes until all Effect totals have been sampled from prior state.

@@ -170,15 +170,15 @@
   flex: none;
 }
 
-[data-game-change] {
+[data-game-change] [data-slot="item"] {
   border-inline-start: 2px solid var(--game-neutral-effect);
 }
 
-[data-game-change="increasing"] {
+[data-game-change="increasing"] [data-slot="item"] {
   border-inline-start-color: var(--game-increasing);
 }
 
-[data-game-change="decreasing"] {
+[data-game-change="decreasing"] [data-slot="item"] {
   border-inline-start-color: var(--game-decreasing);
 }
 

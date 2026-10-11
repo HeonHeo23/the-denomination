@@ -1,4 +1,4 @@
-import { FactionMetricName } from "@/ui/FactionMetric";
+import { NodeName } from "@/ui/FactionMetric";
 import { ArrowRight, Home, RotateCcw, Search, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import {
 } from "../panels/projectReport";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ScenarioDefinition, SimulationState } from "@/simulation";
-import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
+import DossierDialogFrame from "@/ui/panels/DossierDialogFrame";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { formatCrisisTurns } from "./projectCrisis";
 
@@ -79,7 +79,7 @@ function GameOverCauseCard({
                 "Activated prerequisite trajectory"
               }
             >
-              <FactionMetricName
+              <NodeName
                 name={
                   cause.biggestContribution?.sourceTitle ??
                   "Activated prerequisites"

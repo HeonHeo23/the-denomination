@@ -17,10 +17,11 @@ import type {
 } from "@/simulation";
 import { Badge } from "@/components/ui/badge";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { MoveHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NodeEffectCard } from "./NodeEffectCard";
 import { NodeValueHistoryChart } from "./NodeValueHistoryChart";
-import { DossierDialogFrame } from "./DossierDialogFrame";
+import DossierDialogFrame from "./DossierDialogFrame";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
@@ -43,12 +44,12 @@ interface NodeDetailsDialogProps {
   readonly onClose: () => void;
 }
 
-function activationLabel(runtime: NodeRuntimeState): string {
+const activationLabel = (runtime: NodeRuntimeState): string => {
   if (runtime.isForced) return "Forced active";
   return runtime.isActive ? "Active" : "Inactive";
-}
+};
 
-export function NodeDetailsDialog(props: NodeDetailsDialogProps) {
+export default function NodeDetailsDialog(props: NodeDetailsDialogProps) {
   const factionContext = findFactionContext(
     props.scenario,
     props.definition.id,
@@ -159,58 +160,53 @@ function FactionSummary({
   readonly state: SimulationState;
   readonly onNodeSelect: (nodeId: string) => void;
 }) {
+  const opposingGroups = constraints
+    .flatMap(({ participants }) =>
+      participants.filter(
+        ({ belongsToCurrentGroup }) => !belongsToCurrentGroup,
+      ),
+    )
+    .filter(
+      (participant, index, participants) =>
+        participants.findIndex(
+          ({ nodeId }) => nodeId === participant.nodeId,
+        ) === index,
+    );
+
   return (
-    <div className="mt-3 flex flex-col gap-2 md:mt-auto">
-      <FactionMetricReadings
-        readings={groupNodeContexts.map((member) => ({
-          metric: member.metric,
-          value: formatValue(
-            state.nodes[member.node.id].value,
-            member.node.domain,
-          ),
-        }))}
-      />
-      {constraints.map((constraint) => (
-        <div
-          key={constraint.id}
-          className="flex flex-col gap-1 rounded-sm border border-border/60 px-3 py-2"
-        >
-          {/* Keep this*/}
-          {/* <p className="text-sm font-medium">
-            {constraint.name ?? "Shared limit"}
-          </p> */}
-          {/* <p className="text-sm text-muted-foreground">
-            Combined value for{" "}
-            {constraint.participants
-              .map(({ groupName }) => groupName)
-              .join(", ")}{" "}
-            cannot exceed {constraint.maxTotal}.
-          </p> */}
-          {constraint.participants.some(
-            ({ belongsToCurrentGroup }) => !belongsToCurrentGroup,
-          ) && (
-            <div className="flex flex-wrap items-center gap-x-1">
-              <span className="text-sm text-muted-foreground">
-                Other participating group(s):
-              </span>
-              {constraint.participants
-                .filter(({ belongsToCurrentGroup }) => !belongsToCurrentGroup)
-                .map(({ nodeId, groupName, metricLabel }) => (
-                  <Button
-                    key={nodeId}
-                    variant="link"
-                    aria-label={
-                      "Open " + groupName + " " + metricLabel + " dossier"
-                    }
-                    onClick={() => onNodeSelect(nodeId)}
-                  >
-                    {groupName}
-                  </Button>
-                ))}
-            </div>
-          )}
-        </div>
-      ))}
+    <div className="mt-3 flex flex-col md:mt-0 md:flex-1">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 md:flex-1 md:content-end">
+        <FactionMetricReadings
+          readings={groupNodeContexts.map((member) => ({
+            metric: member.metric,
+            value: formatValue(
+              state.nodes[member.node.id].value,
+              member.node.domain,
+            ),
+          }))}
+        />
+        {opposingGroups.length > 0 && (
+          <div className="ml-auto flex flex-wrap items-center gap-x-1">
+            <span className="text-muted-foreground">
+              <MoveHorizontal aria-hidden="true" className="size-4" />
+              <span className="sr-only">Opposing group(s):</span>
+            </span>
+            {opposingGroups.map(({ nodeId, groupName, metricLabel }) => (
+              <Button
+                key={nodeId}
+                variant="link"
+                className="h-auto p-0"
+                aria-label={
+                  "Open " + groupName + " " + metricLabel + " dossier"
+                }
+                onClick={() => onNodeSelect(nodeId)}
+              >
+                {groupName}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

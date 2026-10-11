@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ScenarioDefinition, SimulationState } from "@/simulation";
-import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
+import DossierDialogFrame from "@/ui/panels/DossierDialogFrame";
 import { ChangesSection } from "@/ui/panels/ChangesSection";
 import { projectEndingReport } from "../panels/projectReport";
 
@@ -18,7 +18,7 @@ interface EndingReportDialogProps {
   readonly onMainMenu: () => void;
 }
 
-export function EndingReportDialog({
+export default function EndingReportDialog({
   scenario,
   state,
   denominationName,

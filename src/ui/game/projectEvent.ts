@@ -1,25 +1,10 @@
-import {
-  getNodeDisplayInfo,
-  projectNodeForDisplay,
-} from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
+import type { ChangeView } from "../changeView";
 import type {
-  FactionMetricDefinition,
   EventDefinition,
-  NodeDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
-
-export interface EventConsequenceView {
-  readonly id: string;
-  readonly kind: "resource" | "grudge" | "activation";
-  readonly title: string;
-  readonly detail: string;
-  readonly target?: NodeDefinition;
-  readonly targetMetric?: FactionMetricDefinition;
-  readonly endOfTurnValue?: number;
-  readonly appliedAmount?: number;
-}
 
 export interface EventView {
   readonly id: string;
@@ -27,7 +12,7 @@ export interface EventView {
   readonly turn: number;
   readonly year?: number;
   readonly triggerCount: number;
-  readonly consequences: readonly EventConsequenceView[];
+  readonly changes: readonly ChangeView[];
 }
 
 function parseEventId(
@@ -61,8 +46,7 @@ export function projectEvent(
   if (!event || !match) return undefined;
 
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
-  const readings = state.nodeValueHistory[event.turn];
-  const consequences = match.definition.consequences.flatMap(
+  const changes = match.definition.consequences.flatMap<ChangeView>(
     (consequence, index) => {
       const entry = state.history.find(
         (item) =>
@@ -71,6 +55,8 @@ export function projectEvent(
           item.turn === event.turn,
       );
       if (!entry) return [];
+      const node = nodes.get(consequence.target);
+      const display = getNodeDisplayName(scenario, consequence.target);
       // Use the saved Resource change for historical detail displays.
       const resourceChange =
         consequence.kind === "resource"
@@ -81,24 +67,19 @@ export function projectEvent(
       return [
         {
           id: entry.id,
-          kind: consequence.kind,
-          title: entry.title,
-          detail: entry.detail,
-          target: projectNodeForDisplay(
-            scenario,
-            nodes.get(consequence.target)!,
-          ),
-          targetMetric: getNodeDisplayInfo(scenario, consequence.target).metric,
-          endOfTurnValue:
-            readings && consequence.kind !== "activation"
-              ? readings[consequence.target].value
-              : undefined,
-          appliedAmount:
+          category: consequence.kind,
+          nodeId: node?.id,
+          name: node ? display.name : entry.title,
+          domain: node?.domain,
+          metric: display.metric,
+          amount:
             consequence.kind === "grudge"
               ? consequence.magnitude
               : resourceChange
                 ? Number(resourceChange[1])
                 : undefined,
+          isActive:
+            consequence.kind === "activation" ? consequence.active : undefined,
         },
       ];
     },
@@ -113,7 +94,7 @@ export function projectEvent(
         ? undefined
         : scenario.start.year + event.turn - scenario.start.turn,
     triggerCount: match.number,
-    consequences,
+    changes,
   };
 }
 

@@ -86,7 +86,7 @@ export function runReportProjectionTests() {
     "Report should exclude insignificant numeric changes",
   );
   assert(
-    report.highlights.map((change) => change.node.id).join(",") ===
+    report.highlights.map((change) => change.nodeId).join(",") ===
       "leadership-trust,centralization,clergy-formation,governance-tension",
     "Highlights should show up to four normalized changes and preserve Scenario order for ties",
   );

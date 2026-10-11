@@ -1,4 +1,4 @@
-import { FactionMetricName } from "@/ui/FactionMetric";
+import { NodeName } from "@/ui/FactionMetric";
 import {
   BookOpenText,
   CircleCheck,
@@ -26,7 +26,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSignedValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
 import { formatCrisisTurns } from "@/ui/game/projectCrisis";
-import { DossierDialogFrame } from "./DossierDialogFrame";
+import DossierDialogFrame from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 import type { TurnReport } from "./projectReport";
 import { ChangesSection } from "./ChangesSection";
@@ -41,7 +41,7 @@ interface TurnReportDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
-export function TurnReportDialog({
+export default function TurnReportDialog({
   report,
   open,
   onNodeSelect,
@@ -177,7 +177,7 @@ export function TurnReportDialog({
                       description={
                         <span className="inline-flex items-center gap-1.5">
                           <span>Affecting</span>
-                          <FactionMetricName
+                          <NodeName
                             name={grudge.targetName}
                             metric={grudge.targetMetric}
                           />

@@ -25,6 +25,7 @@ export function DossierItemButton({
   variant = "muted",
   size = "sm",
   className,
+  role = "listitem",
   ...buttonProps
 }: DossierItemButtonProps) {
   const content = (
@@ -44,7 +45,7 @@ export function DossierItemButton({
     </>
   );
   return (
-    <div role="listitem" className="min-w-0">
+    <div role={role} className="min-w-0">
       <Item
         asChild={!!onSelect}
         variant={variant}

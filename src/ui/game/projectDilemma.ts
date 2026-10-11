@@ -8,8 +8,8 @@ import type {
 import {
   findFactionContext,
   getFactionGroupIndex,
-  getNodeDisplayInfo,
-  type NodeDisplayInfo,
+  getNodeDisplayName,
+  type NodeDisplayName,
 } from "../projections/projectFactionGroups";
 import { formatSignedValue } from "../formatValue";
 
@@ -27,7 +27,7 @@ export function projectPendingDilemmas(
   });
 }
 
-export interface DilemmaConsequenceView extends NodeDisplayInfo {
+export interface DilemmaConsequenceView extends NodeDisplayName {
   readonly consequence: ConsequenceDefinition;
   readonly domain?: NumericDomain;
   readonly kindLabel: string;
@@ -75,7 +75,7 @@ export function projectDilemmaConsequences(
     const context = findFactionContext(scenario, consequence.target);
     return {
       view: {
-        ...getNodeDisplayInfo(scenario, consequence.target),
+        ...getNodeDisplayName(scenario, consequence.target),
         consequence,
         domain: target?.domain,
         ...consequenceLabels(consequence, target?.domain),

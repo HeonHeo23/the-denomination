@@ -29,7 +29,7 @@ import { Toaster } from "@/components/ui/sonner";
 import type { SimulationState } from "@/simulation";
 import { SavedGameLoadDialog } from "@/ui/SavedGameLoadDialog";
 import { ConfirmationDialog } from "@/ui/ConfirmationDialog";
-import { GameView } from "@/ui/game/GameView";
+import GameView from "@/ui/game/GameView";
 import { LandingPage, type LandingErrors } from "@/ui/landing/LandingPage";
 import { InterfaceSoundProvider } from "@/ui/sound/InterfaceSoundProvider";
 

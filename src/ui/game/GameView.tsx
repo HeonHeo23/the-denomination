@@ -9,9 +9,9 @@ import type { SimulationState } from "@/simulation";
 import { SimulationGraph } from "@/ui/graph/SimulationGraph";
 import type { GraphTurnFeedback } from "@/ui/graph/projectToReactFlow";
 import { ToastNotification } from "@/components/ToastNotification";
-import { NodeDetailsDialog } from "@/ui/panels/NodeDetailsDialog";
-import { CrisisDetailsDialog } from "@/ui/panels/CrisisDetailsDialog";
-import { TurnReportDialog } from "@/ui/panels/TurnReportDialog";
+import NodeDetailsDialog from "@/ui/panels/NodeDetailsDialog";
+import CrisisDetailsDialog from "@/ui/panels/CrisisDetailsDialog";
+import TurnReportDialog from "@/ui/panels/TurnReportDialog";
 import {
   projectTurnReport,
   restoreTurnReport,
@@ -20,8 +20,8 @@ import {
 } from "@/ui/panels/projectReport";
 import { DashboardSheets, type DashboardPanel } from "./DashboardSheets";
 import { GameHeader } from "./GameHeader";
-import { DilemmaDialog } from "./DilemmaDialog";
-import { EventDetailDialog } from "./EventDetailDialog";
+import DilemmaDialog from "./DilemmaDialog";
+import EventDetailDialog from "./EventDetailDialog";
 import { getTurnEventIds, projectEvent } from "./projectEvent";
 import {
   beginAutomaticEvents,
@@ -30,7 +30,7 @@ import {
 } from "./eventDialogFlow";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
-import { EndingReportDialog } from "./EndingReportDialog";
+import EndingReportDialog from "./EndingReportDialog";
 import { GameOverReportDialog } from "./GameOverReportDialog";
 import { projectCrisis } from "./projectCrisis";
 import { useDossierNavigation } from "./useDossierNavigation";
@@ -56,7 +56,7 @@ interface GameViewProps {
   readonly onToggleMusic: () => void;
 }
 
-export function GameView({
+function GameView({
   entry,
   playerName,
   denominationName,
@@ -105,9 +105,8 @@ export function GameView({
       revealingTurn
         ? {
             changes: revealingTurn.changes.map((change) => ({
-              nodeId: change.node.id,
-              delta: change.delta,
-              wasActive: change.wasActive,
+              nodeId: change.nodeId,
+              delta: change.amount,
               isActive: change.isActive,
             })),
             changedEffectIds: revealingTurn.changedEffectIds,
@@ -543,3 +542,5 @@ export function GameView({
     </div>
   );
 }
+
+export default GameView;

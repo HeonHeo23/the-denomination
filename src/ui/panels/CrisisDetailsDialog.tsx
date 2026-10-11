@@ -1,4 +1,4 @@
-import { FactionMetricName } from "@/ui/FactionMetric";
+import { NodeName } from "@/ui/FactionMetric";
 import {
   ArrowRight,
   CircleAlert,
@@ -25,8 +25,9 @@ import {
 import { projectCrisisDetail, type CrisisView } from "@/ui/game/projectCrisis";
 import { formatContributionPercent, formatValue } from "@/ui/formatValue";
 import { EffectRow, EffectTableCard } from "./NodeEffectCard";
+import { contributionTone } from "./projectNodeEffects";
 import type { NodeEffectView } from "./projectNodeEffects";
-import { DossierDialogFrame } from "./DossierDialogFrame";
+import DossierDialogFrame from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 
 interface CrisisDetailsDialogProps {
@@ -37,13 +38,7 @@ interface CrisisDetailsDialogProps {
   readonly onClose: () => void;
 }
 
-function contributionTone(amount: number): "positive" | "negative" | "neutral" {
-  if (amount > 0) return "positive";
-  if (amount < 0) return "negative";
-  return "neutral";
-}
-
-function contributionRowView(contribution: Contribution): NodeEffectView {
+const contributionRowView = (contribution: Contribution): NodeEffectView => {
   return {
     id: contribution.id,
     kind: contribution.kind,
@@ -56,9 +51,9 @@ function contributionRowView(contribution: Contribution): NodeEffectView {
     contributionLabel: formatContributionPercent(contribution.amount),
     contributionTone: contributionTone(contribution.amount),
   };
-}
+};
 
-export function CrisisDetailsDialog({
+export default function CrisisDetailsDialog({
   crisis,
   scenario,
   state,
@@ -212,10 +207,7 @@ export function CrisisDetailsDialog({
                               }
                               title={
                                 metric ? (
-                                  <FactionMetricName
-                                    name={title}
-                                    metric={metric}
-                                  />
+                                  <NodeName name={title} metric={metric} />
                                 ) : (
                                   title
                                 )
@@ -269,7 +261,7 @@ export function CrisisDetailsDialog({
                         <EffectTableCard
                           key={`${targetId}:${targetMetric?.id ?? "value"}`}
                           title={
-                            <FactionMetricName
+                            <NodeName
                               name={targetTitle}
                               metric={targetMetric}
                             />

@@ -1,5 +1,5 @@
 import { Image } from "lucide-react";
-import { FactionMetricName } from "@/ui/FactionMetric";
+import { NodeName } from "@/ui/FactionMetric";
 import {
   projectDilemmaConsequences,
   projectPendingDilemmas,
@@ -16,7 +16,7 @@ import type {
 } from "@/simulation";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { DossierDialogFrame } from "@/ui/panels/DossierDialogFrame";
+import DossierDialogFrame from "@/ui/panels/DossierDialogFrame";
 
 const consequenceStyles: Record<
   ConsequenceDefinition["kind"],
@@ -72,7 +72,7 @@ function OptionImage({
   );
 }
 
-export function DilemmaDialog({
+export default function DilemmaDialog({
   scenario,
   state,
   open,
@@ -92,7 +92,7 @@ export function DilemmaDialog({
       onOpenChange={onOpenChange}
       surface="dilemma"
       header={
-        <div className="flex min-w-0 flex-col gap-2 [overflow-wrap:anywhere]">
+        <div className="flex min-w-0 flex-col gap-2 wrap-anywhere">
           <DialogTitle>{selected?.title}</DialogTitle>
           <DialogDescription className="max-h-32 overflow-y-auto" tabIndex={0}>
             {selected?.description}
@@ -212,7 +212,7 @@ export function DilemmaDialog({
                                   >
                                     <span>
                                       <span className="flex min-w-0 flex-1 items-center">
-                                        <FactionMetricName
+                                        <NodeName
                                           name={row.name}
                                           metric={row.metric}
                                         />

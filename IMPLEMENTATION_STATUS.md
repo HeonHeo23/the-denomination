@@ -61,7 +61,7 @@ Prerequisite titles, descriptions, status, and optional node links share
 `src/ui/game/projectPrerequisite.ts`.
 
 Crisis lifecycle/detail views and formatters belong to `projectCrisis.ts`; terminal causes are projected by `projectGameOverCauses` in `src/ui/panels/projectReport.ts`, alongside the typed `EndingView` projection. Both use shared prerequisite groups and contributions from `projectPrerequisite.ts` and `projectContributions.ts`. Separate progress and terminal cause cards share dossier navigation. Reports retain recorded cause/group order and duration fallback; header urgency uses warnings only and stops after an outcome.
-All three reports share `ChangesSection` and its internal `ChangeItem`; the turn report previews four changes, while end reports show all. `projectReport.ts` owns snapshot comparisons, ending reports, turn-report assembly, and save adapters.
+All three reports share `ChangesSection`; reports and Event consequences use the standalone `ChangeItem`. The turn report previews four changes, while end reports show all. `projectReport.ts` owns snapshot comparisons, ending reports, turn-report assembly, and save adapters. Event and Report rows share flat `ChangeView` display fields; `ReportChange` adds required readings and sorting data. Report changes store optional `isActive` only for activation transitions; saved reports with the old activation pair are rejected without migration.
 Normal endings retain completion details and historical actors; Game Over retains linked terminal causes.
 Known navigation gap: the Crises sheet closes before opening a dossier, so
 closing that dossier returns to the game rather than the sheet.

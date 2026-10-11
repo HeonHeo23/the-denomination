@@ -2,7 +2,7 @@
  * Projects runtime prerequisite checks into readable views for the UI.
  * Recorded group matches remain separate from current prerequisite readings.
  */
-import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
 import type {
   FactionMetricDefinition,
   PrerequisiteDefinition,
@@ -66,7 +66,7 @@ export function projectPrerequisite(
     ({ id }) => id === prerequisite.nodeId,
   )!;
   const runtime = state.nodes[prerequisite.nodeId];
-  const nodedisplayinfo = getNodeDisplayInfo(scenario, definition.id);
+  const nodedisplayinfo = getNodeDisplayName(scenario, definition.id);
   const title = nodedisplayinfo.name;
   const base = {
     isMet,

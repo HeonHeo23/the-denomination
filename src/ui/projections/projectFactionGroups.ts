@@ -11,7 +11,7 @@ export interface FactionNodeContext {
   readonly metric: FactionMetricDefinition;
   readonly node: FactionDefinition;
 }
-export interface NodeDisplayInfo {
+export interface NodeDisplayName {
   readonly name: string;
   readonly metric: FactionMetricDefinition | undefined;
 }
@@ -67,10 +67,10 @@ export function findFactionContext(
 ) {
   return getFactionGroupIndex(scenario).byNode.get(nodeId);
 }
-export function getNodeDisplayInfo(
+export function getNodeDisplayName(
   scenario: ScenarioDefinition,
   nodeId: string,
-): NodeDisplayInfo {
+): NodeDisplayName {
   const context = findFactionContext(scenario, nodeId);
   return {
     name:
@@ -108,7 +108,7 @@ export function projectFactionConstraints(
         )
         .map((node) => {
           const context = findFactionContext(scenario, node.id);
-          const nodedisplayinfo = getNodeDisplayInfo(scenario, node.id);
+          const nodedisplayinfo = getNodeDisplayName(scenario, node.id);
           return {
             nodeId: node.id,
             groupName: nodedisplayinfo.name,
@@ -121,20 +121,6 @@ export function projectFactionConstraints(
     }));
 }
 
-/** Adapt names for display while retaining the metric ID used for navigation. */
-export function projectNodeForDisplay(
-  scenario: ScenarioDefinition,
-  node: NodeDefinition,
-): NodeDefinition {
-  const context = findFactionContext(scenario, node.id);
-  return context
-    ? {
-        ...node,
-        name: context.group.name,
-        description: context.group.description,
-      }
-    : node;
-}
 export function createFactionGraphId(groupId: string) {
   return `faction-group:${groupId}`;
 }

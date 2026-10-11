@@ -1,4 +1,4 @@
-import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
 import type {
   FactionMetricDefinition,
   ScenarioDefinition,
@@ -34,10 +34,8 @@ export interface NodeEffectsView {
   readonly outgoing: readonly NodeEffectView[];
 }
 
-function contributionTone(value: number): EffectContributionTone {
-  if (value > 0) return "positive";
-  if (value < 0) return "negative";
-  return "neutral";
+export function contributionTone(value: number): EffectContributionTone {
+  return value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
 }
 
 /**
@@ -69,8 +67,8 @@ export function projectNodeEffects(
     const sourceInfo =
       effect.source === "_default_"
         ? undefined
-        : getNodeDisplayInfo(scenario, effect.source);
-    const targetInfo = getNodeDisplayInfo(scenario, effect.target);
+        : getNodeDisplayName(scenario, effect.source);
+    const targetInfo = getNodeDisplayName(scenario, effect.target);
     const previewingOwnEffect =
       previewStanceValue !== undefined && effect.source === nodeId;
     const contribution = state.effects[effect.id]?.lastContribution ?? 0;
@@ -137,7 +135,7 @@ export function projectNodeEffects(
 
   const target = scenario.nodes.find(({ id }) => id === nodeId);
   if (target) {
-    const targetInfo = getNodeDisplayInfo(scenario, nodeId);
+    const targetInfo = getNodeDisplayName(scenario, nodeId);
     for (const grudge of state.grudges) {
       if (grudge.target !== nodeId) continue;
       incoming.push({

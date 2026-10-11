@@ -1,9 +1,6 @@
 import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { FactionMetricName } from "@/ui/FactionMetric";
-import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import {
   Empty,
   EmptyHeader,
@@ -12,71 +9,9 @@ import {
 } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
-import { DossierItemButton } from "./DossierItemButton";
-import { nodeTypeLabel, type ReportChange } from "./projectReport";
+import { ChangeItem } from "./ChangeItem";
+import type { ReportChange } from "../changeView";
 import "./panels.css";
-
-/** One change row shared by yearly and terminal reports. */
-function ChangeItem({
-  change,
-  onNodeSelect,
-}: {
-  readonly change: ReportChange;
-  readonly onNodeSelect: (nodeId: string) => void;
-}) {
-  const signedDelta = formatSignedValue(change.delta, change.node.domain, true);
-  const displayedDelta = Number.parseFloat(signedDelta);
-  const status =
-    change.wasActive === change.isActive
-      ? undefined
-      : change.isActive
-        ? "Became active"
-        : "Became inactive";
-  return (
-    <DossierItemButton
-      variant="muted"
-      size="sm"
-      className="flex-col items-stretch sm:flex-row sm:items-center"
-      aria-label={`Open ${change.node.name}${change.metric ? ` ${change.metric.label}` : ""} dossier`}
-      onSelect={() => onNodeSelect(change.node.id)}
-      title={
-        <FactionMetricName name={change.node.name} metric={change.metric} />
-      }
-      description={
-        <span className="flex flex-wrap items-center gap-2">
-          <span>{nodeTypeLabel(change.node.type)}</span>
-          {status && <Badge variant="outline">{status}</Badge>}
-        </span>
-      }
-      data-game-change={
-        displayedDelta > 0
-          ? "increasing"
-          : displayedDelta < 0
-            ? "decreasing"
-            : "neutral"
-      }
-      trailing={
-        <span className="flex w-full flex-row flex-wrap items-center justify-between gap-2 text-right font-mono text-xs sm:w-auto sm:flex-col sm:items-end">
-          <span>
-            {formatValue(change.previousValue, change.node.domain)} →{" "}
-            {formatValue(change.value, change.node.domain)}
-          </span>
-          <Badge
-            variant={
-              displayedDelta > 0
-                ? "default"
-                : displayedDelta < 0
-                  ? "destructive"
-                  : "secondary"
-            }
-          >
-            {displayedDelta === 0 ? `±${signedDelta}` : signedDelta}
-          </Badge>
-        </span>
-      }
-    />
-  );
-}
 
 /** Reports choose the comparison period and preview size; rows stay consistent. */
 export function ChangesSection({
@@ -110,7 +45,7 @@ export function ChangesSection({
         >
           {visible.map((change) => (
             <ChangeItem
-              key={change.node.id}
+              key={change.id}
               change={change}
               onNodeSelect={onNodeSelect}
             />
