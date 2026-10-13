@@ -313,5 +313,7 @@ export function runDilemmaTests() {
     [],
     "Terminal Game Over prevents Dilemmas from queueing",
   );
+  assert.equal(terminal.dilemmas["second-decision"].triggerCount, 0);
+  assert.equal(terminal.dilemmas["second-decision"].lastResolvedTurn, null);
   assert.strictEqual(advanceTurn(terminalScenario, terminal).state, terminal);
 }

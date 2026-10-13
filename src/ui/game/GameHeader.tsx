@@ -539,7 +539,7 @@ export function GameHeader(props: GameHeaderProps) {
           className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
           data-game-advance
           onClick={terminal ? onOpenFinalReport : onAdvance}
-          disabled={resolvingTurn && (!terminal || normalEnding)}
+          disabled={resolvingTurn}
         >
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
             {terminal

@@ -434,7 +434,9 @@ export function runEndingTests() {
     afterEventScenario,
     initializeScenario(afterEventScenario),
   ).state;
-  assert.equal(afterEvent.gameOverProgress.exhausted.consecutiveTurns, 0);
+  assert.equal(afterEvent.events.council.triggerCount, 1);
+  assert.equal(afterEvent.nodes.reserve.value, 6);
+  assert.equal(afterEvent.gameOverProgress.exhausted.consecutiveTurns, 1);
   assert.equal(afterEvent.outcome?.kind, "ending");
 
   const dilemmaScenario = assemblyScenario({
@@ -559,26 +561,22 @@ export function runEndingTests() {
   ).state;
   assert.equal(declined.outcome, null);
   assert.equal(advanceTurn(anyChoice, declined).state.outcome?.kind, "ending");
-  const deferred = {
+  const immediate = {
     ...dilemmaScenario,
     completion: { ...dilemmaScenario.completion, prerequisiteGroups: [date()] },
   };
-  const deferredState = advanceTurn(
-    deferred,
-    initializeScenario(deferred),
+  const immediateState = advanceTurn(
+    immediate,
+    initializeScenario(immediate),
   ).state;
-  assert.equal(deferredState.outcome, null);
-  assert.strictEqual(advanceTurn(deferred, deferredState).state, deferredState);
-  const deferredChoice = executeCommand(deferred, deferredState, {
-    type: "resolve-dilemma",
-    dilemmaId: "assembly",
-    choiceId: "accept",
-  }).state;
-  assert.equal(deferredChoice.outcome, null);
   assert.equal(
-    advanceTurn(deferred, deferredChoice).state.outcome?.kind,
+    immediateState.outcome?.kind,
     "ending",
+    "Normal completion takes precedence over a newly selected Dilemma",
   );
+  assert.deepEqual(immediateState.pendingDilemmaIds, []);
+  assert.equal(immediateState.dilemmas.assembly.triggerCount, 0);
+  assert.equal(immediateState.dilemmas.assembly.lastTriggerTurn, null);
   assert.equal(
     advanceTurn(
       dilemmaScenario,
@@ -662,10 +660,13 @@ export function runEndingTests() {
   assert.equal(report.actors[0].id, "delegates");
   assert.deepEqual(report.changes, [], "Unchanged readings are omitted");
   assert.equal(projectEndingReport(terminal, gameOver), undefined);
-  const presentation = beginAutomaticEvents(["first", "second"], "ending")!;
+  const presentation = beginAutomaticEvents(
+    ["first", "second"],
+    "final-report",
+  )!;
   const next = closeEventPresentation(presentation);
   assert.equal(next.returnTo, undefined);
-  assert.equal(closeEventPresentation(next.next!).returnTo, "ending");
+  assert.equal(closeEventPresentation(next.next!).returnTo, "final-report");
 
   const sharedCrisis: ScenarioDefinition = {
     ...combined,

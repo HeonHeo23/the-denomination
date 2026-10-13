@@ -87,7 +87,7 @@ function GameView({
   const [eventPresentation, setEventPresentation] =
     useState<EventPresentation>();
   const [dilemmaOpen, setDilemmaOpen] = useState(
-    Boolean(restoredState?.pendingDilemmaIds.length),
+    Boolean(restoredState?.pendingDilemmaIds.length && !restoredState?.outcome),
   );
   const [revealingTurn, setRevealingTurn] = useState<TurnReport>();
   const [activePanel, setActivePanel] = useState<DashboardPanel>();
@@ -151,10 +151,6 @@ function GameView({
       setDilemmaOpen(false);
       setToastMessage(undefined);
       const presentCompletedTurn = () => {
-        if (session.state.outcome?.kind === "game-over") {
-          openReport();
-          return;
-        }
         setTurnReport(report);
         const ids = getTurnEventIds(
           session.scenario,
@@ -163,10 +159,10 @@ function GameView({
         );
         const presentation = beginAutomaticEvents(
           ids,
-          session.state.outcome?.kind === "ending" ? "ending" : undefined,
+          session.state.outcome ? "final-report" : undefined,
         );
         if (presentation) setEventPresentation(presentation);
-        else if (session.state.outcome?.kind === "ending") openReport();
+        else if (session.state.outcome) openReport();
         else setTurnReportOpen(true);
       };
       if (reducedMotion) {
@@ -432,6 +428,7 @@ function GameView({
             if (
               !open &&
               !eventPresentation &&
+              !session.state.outcome &&
               session.state.pendingDilemmaIds.length
             )
               setDilemmaOpen(true);
@@ -448,14 +445,14 @@ function GameView({
             if (open || !eventPresentation) return;
             const next = closeEventPresentation(eventPresentation);
             setEventPresentation(next.next);
-            if (next.returnTo === "ending") openReport();
+            if (next.returnTo === "final-report") openReport();
             if (next.returnTo === "report") setTurnReportOpen(true);
             if (next.returnTo === "chronicle") setActivePanel("chronicle");
           }}
         />
       )}
 
-      {session.state.pendingDilemmaIds.length > 0 && (
+      {!session.state.outcome && session.state.pendingDilemmaIds.length > 0 && (
         <DilemmaDialog
           scenario={scenario}
           state={session.state}

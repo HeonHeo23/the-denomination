@@ -209,7 +209,22 @@ export function runEndingPersistenceTests() {
     "Recorded endings are validated without reevaluating selection",
   );
 
-  const dilemmaScenario = assemblyScenario();
+  const dilemmaScenario = assemblyScenario({
+    ...scenario,
+    completion: {
+      ...scenario.completion,
+      prerequisiteGroups: [
+        {
+          id: "review",
+          title: "Review",
+          description: "Complete the assembly decision.",
+          allOf: [
+            { kind: "dilemma-choice", dilemmaId: "assembly", choiceId: "accept" },
+          ],
+        },
+      ],
+    },
+  });
   const dilemmaCatalog = loadScenarioCatalog([
     { contentVersion: 4, content: dilemmaScenario },
   ]).entries;
@@ -218,6 +233,16 @@ export function runEndingPersistenceTests() {
     initializeScenario(dilemmaScenario),
   ).state;
   assert.ok(restore(queued, dilemmaCatalog));
+  const endingWithPending = {
+    ...queued,
+    outcome: state.outcome,
+  };
+  assert.equal(endingWithPending.outcome?.kind, "ending");
+  assert.equal(
+    restore(endingWithPending, dilemmaCatalog),
+    undefined,
+    "Normal Endings must still reject pending Dilemmas",
+  );
   const session = createGameSession(dilemmaScenario, queued);
   const chosen = reduceGameSession(session, {
     type: "resolve-dilemma",

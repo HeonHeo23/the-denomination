@@ -86,6 +86,9 @@ the ending, turn, matched trigger/group IDs, and fallback flag. An ending turn
 must follow any recorded Dilemma resolution turn. Versions remain
 unchanged; old content and saves missing required fields fail validation.
 
+Game Over snapshots may retain pending Dilemma IDs and their trigger state.
+Ending snapshots require an empty Dilemma queue.
+
 ## Nodes
 
 All nodes, including individual Faction metrics, share numeric fields:

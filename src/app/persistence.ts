@@ -236,8 +236,7 @@ function isValidRuntimeState(
     if (
       typeof pendingId !== "string" ||
       pendingIds.has(pendingId) ||
-      !(scenario.dilemmas ?? []).some(({ id }) => id === pendingId) ||
-      value.outcome !== null
+      !(scenario.dilemmas ?? []).some(({ id }) => id === pendingId)
     )
       return false;
     pendingIds.add(pendingId);
@@ -387,6 +386,7 @@ function isValidRuntimeState(
         "usedFallback",
       ]) ||
       value.outcome.turn !== value.turn ||
+      value.pendingDilemmaIds.length > 0 ||
       typeof value.outcome.endingId !== "string" ||
       typeof value.outcome.usedFallback !== "boolean" ||
       Object.values(value.dilemmas as ObjectValue).some(
