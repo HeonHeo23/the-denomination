@@ -67,13 +67,6 @@ export const exampleScenario = {
         description:
           "The fellowship reviews two decades of institutional leadership.",
       },
-      {
-        id: "sustainable-expansion",
-        title: "Sustainable expansion achieved",
-        description:
-          "Mission reach, financial stability, and congregational cohesion support a durable expansion.",
-        allOf: expansionGroups[0].allOf,
-      },
     ],
     endings: [
       {
