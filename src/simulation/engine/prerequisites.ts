@@ -5,10 +5,10 @@ import type {
 import type { SimulationState } from "../domain/runtime";
 
 /** Evaluate one reusable runtime prerequisite against a snapshot. */
-export function isPrerequisiteMet(
+export const isPrerequisiteMet = (
   prerequisite: PrerequisiteDefinition,
   state: SimulationState,
-): boolean {
+): boolean => {
   switch (prerequisite.kind) {
     case "node-value": {
       const node = state.nodes[prerequisite.nodeId];
@@ -42,16 +42,14 @@ export function isPrerequisiteMet(
         )
       );
   }
-}
+};
 
 /** Return every satisfied all-of group; callers treat groups as alternatives. */
-export function findPrerequisiteGroupsMet(
+export const findPrerequisiteGroupsMet = (
   groups: readonly PrerequisiteGroupDefinition[],
   state: SimulationState,
-): readonly PrerequisiteGroupDefinition[] {
+): readonly PrerequisiteGroupDefinition[] => {
   return groups.filter((group) =>
-    group.allOf.every((prerequisite) =>
-      isPrerequisiteMet(prerequisite, state),
-    ),
+    group.allOf.every((prerequisite) => isPrerequisiteMet(prerequisite, state)),
   );
-}
+};

@@ -280,7 +280,7 @@ export function runDilemmaTests() {
             ],
           },
         ],
-        terminalAfterTurns: 2,
+        turnsToGameOver: 2,
         stages: [
           {
             id: "warning",
@@ -289,7 +289,7 @@ export function runDilemmaTests() {
             description: "Warning.",
           },
         ],
-        report: { title: "Loss", narrative: "The game ended." },
+        description: "The game ended.",
       },
     ],
   };

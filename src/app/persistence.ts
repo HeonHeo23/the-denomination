@@ -348,7 +348,7 @@ function isValidRuntimeState(
         "matchedPrerequisiteGroupIds",
       ]) ||
       !integer(progress.episode) ||
-      !integer(progress.consecutiveTurns, 0, definition.terminalAfterTurns)
+      !integer(progress.consecutiveTurns, 0, definition.turnsToGameOver)
     )
       return false;
     const groupIds = new Set(definition.prerequisiteGroups.map(({ id }) => id));
@@ -364,9 +364,9 @@ function isValidRuntimeState(
   const terminalIds = new Set(
     [...gameOvers.values()]
       .filter(
-        ({ id, terminalAfterTurns }) =>
+        ({ id, turnsToGameOver }) =>
           (gameOverProgress[id] as ObjectValue).consecutiveTurns ===
-          terminalAfterTurns,
+          turnsToGameOver,
       )
       .map(({ id }) => id),
   );

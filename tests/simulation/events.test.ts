@@ -222,7 +222,7 @@ export function runEventTests() {
             ],
           },
         ],
-        terminalAfterTurns: 2,
+        turnsToGameOver: 2,
         stages: [
           {
             id: "warning",
@@ -231,7 +231,7 @@ export function runEventTests() {
             description: "Warning.",
           },
         ],
-        report: { title: "End", narrative: "The game ended." },
+        description: "The game ended.",
       },
     ],
   };

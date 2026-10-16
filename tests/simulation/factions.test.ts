@@ -25,7 +25,7 @@ import {
 } from "../../src/ui/graph/projectNodeSearch";
 import {
   projectTurnReport,
-  projectEndingReport,
+  projectFinalReport,
   serializeTurnReport,
   restoreTurnReport,
 } from "../../src/ui/panels/projectReport";
@@ -510,7 +510,7 @@ export function runFactionTests() {
     ...ongoingCompletion,
     reportNodeIds: ["a-membership", "a-satisfaction", "a-confidence"],
   };
-  const ending = projectEndingReport(
+  const ending = projectFinalReport(
     { ...scenario, completion },
     {
       ...result.state,

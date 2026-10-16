@@ -857,7 +857,7 @@ export function validateScenario(input: unknown): readonly string[] {
         !object(value, path, [
           "id",
           "title",
-          "narrative",
+          "description",
           ...(conditional ? ["priority", "prerequisiteGroups"] : []),
         ])
       )
@@ -867,7 +867,7 @@ export function validateScenario(input: unknown): readonly string[] {
         error(`${path}.id`, "duplicate ending identifier");
       endingIds.add(value.id);
       string(value.title, `${path}.title`);
-      string(value.narrative, `${path}.narrative`);
+      string(value.description, `${path}.description`);
       if (conditional) {
         if (
           number(value.priority, `${path}.priority`) &&
@@ -905,11 +905,11 @@ export function validateScenario(input: unknown): readonly string[] {
         !object(definition, path, [
           "id",
           "title",
+          "description",
           "prerequisiteGroups",
-          "terminalAfterTurns",
+          "turnsToGameOver",
           "stages",
           "recovery",
-          "report",
         ])
       )
         return;
@@ -918,15 +918,13 @@ export function validateScenario(input: unknown): readonly string[] {
         error(`${path}.id`, "duplicate Game Over identifier");
       gameOverIds.add(definition.id);
       string(definition.title, `${path}.title`);
+      string(definition.description, `${path}.description`);
       if (
-        number(definition.terminalAfterTurns, `${path}.terminalAfterTurns`) &&
-        (!Number.isInteger(definition.terminalAfterTurns) ||
-          definition.terminalAfterTurns < 2)
+        number(definition.turnsToGameOver, `${path}.turnsToGameOver`) &&
+        (!Number.isInteger(definition.turnsToGameOver) ||
+          definition.turnsToGameOver < 2)
       )
-        error(
-          `${path}.terminalAfterTurns`,
-          "expected an integer of at least 2",
-        );
+        error(`${path}.turnsToGameOver`, "expected an integer of at least 2");
 
       prerequisiteGroups(
         definition.prerequisiteGroups,
@@ -958,10 +956,10 @@ export function validateScenario(input: unknown): readonly string[] {
           if (!Number.isInteger(stage.atTurn) || stage.atTurn < 1)
             error(`${stagePath}.atTurn`, "expected a positive integer");
           if (
-            typeof definition.terminalAfterTurns === "number" &&
-            stage.atTurn >= definition.terminalAfterTurns
+            typeof definition.turnsToGameOver === "number" &&
+            stage.atTurn >= definition.turnsToGameOver
           )
-            error(`${stagePath}.atTurn`, "must be before terminalAfterTurns");
+            error(`${stagePath}.atTurn`, "must be before turnsToGameOver");
           if (stageTurns.has(stage.atTurn))
             error(`${stagePath}.atTurn`, "duplicate stage turn");
           stageTurns.add(stage.atTurn);
@@ -985,10 +983,6 @@ export function validateScenario(input: unknown): readonly string[] {
           definition.recovery.consequences,
           `${path}.recovery.consequences`,
         );
-      }
-      if (object(definition.report, `${path}.report`, ["title", "narrative"])) {
-        string(definition.report.title, `${path}.report.title`);
-        string(definition.report.narrative, `${path}.report.narrative`);
       }
     });
   }

@@ -33,7 +33,7 @@ import {
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
-import { formatCrisisTurns } from "./projectCrisis";
+import { formatCrisisTurns } from "./projectOutcome";
 
 interface GameHeaderProps {
   readonly denominationName: string;
@@ -59,7 +59,7 @@ interface GameHeaderProps {
   readonly onReset: () => void;
   readonly onMainMenu: () => void;
   readonly onOpenOverview: () => void;
-  readonly onOpenCrises: () => void;
+  readonly onOpenOutcomes: () => void;
   readonly onOpenChronicle: () => void;
   readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
@@ -78,7 +78,7 @@ type GameHeaderActions = Pick<
   | "onLoad"
   | "onReset"
   | "onMainMenu"
-  | "onOpenCrises"
+  | "onOpenOutcomes"
   | "onOpenChronicle"
   | "onOpenDecisions"
   | "turnReportAvailable"
@@ -178,7 +178,7 @@ function PanelActions({
   urgentCrisis,
   terminal,
   resolvingTurn,
-  onOpenCrises,
+  onOpenOutcomes,
   onOpenChronicle,
   onOpenDecisions,
   onAddStance,
@@ -190,7 +190,7 @@ function PanelActions({
   | "urgentCrisis"
   | "terminal"
   | "resolvingTurn"
-  | "onOpenCrises"
+  | "onOpenOutcomes"
   | "onOpenChronicle"
   | "onOpenDecisions"
   | "onAddStance"
@@ -208,15 +208,15 @@ function PanelActions({
         size="lg"
         className="h-full rounded-none"
         data-game-header-button
-        onClick={onOpenCrises}
+        onClick={onOpenOutcomes}
         aria-label={
           urgentCrisis
-            ? `Open crises, ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining`
-            : `Open crises, ${activeCrisisCount} active`
+            ? `Open outcomes, ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining`
+            : `Open outcomes, ${activeCrisisCount} active`
         }
       >
         <ShieldAlert data-icon="inline-start" />
-        <span>Crises</span>
+        <span>Outcomes</span>
         {urgentCrisis ? (
           <Badge variant="destructive">
             {formatCrisisTurns(urgentCrisis.turnsRemaining)}
@@ -322,7 +322,7 @@ function GameActionsMenu({
   onLoad,
   onReset,
   onMainMenu,
-  onOpenCrises,
+  onOpenOutcomes,
   onOpenChronicle,
   onOpenDecisions,
   onAddStance,
@@ -362,8 +362,8 @@ function GameActionsMenu({
           <>
             <DropdownMenuGroup className="md:hidden">
               <DropdownMenuLabel>Institution</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onOpenCrises}>
-                <ShieldAlert /> Crises
+              <DropdownMenuItem onSelect={onOpenOutcomes}>
+                <ShieldAlert /> Outcomes
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
@@ -447,7 +447,7 @@ export function GameHeader(props: GameHeaderProps) {
     onReset,
     onMainMenu,
     onOpenOverview,
-    onOpenCrises,
+    onOpenOutcomes,
     onOpenChronicle,
     onOpenDecisions,
     turnReportAvailable,
@@ -462,7 +462,7 @@ export function GameHeader(props: GameHeaderProps) {
     onLoad,
     onReset,
     onMainMenu,
-    onOpenCrises,
+    onOpenOutcomes,
     onOpenChronicle,
     onOpenDecisions,
     onAddStance,
@@ -508,7 +508,7 @@ export function GameHeader(props: GameHeaderProps) {
           urgentCrisis={urgentCrisis}
           terminal={terminal}
           resolvingTurn={resolvingTurn}
-          onOpenCrises={onOpenCrises}
+          onOpenOutcomes={onOpenOutcomes}
           onOpenChronicle={onOpenChronicle}
           onOpenDecisions={onOpenDecisions}
           onAddStance={onAddStance}
@@ -522,8 +522,8 @@ export function GameHeader(props: GameHeaderProps) {
             size="lg"
             className="h-full rounded-none md:hidden"
             data-game-header-button
-            onClick={onOpenCrises}
-            aria-label={`Open crises: ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining before Game Over`}
+            onClick={onOpenOutcomes}
+            aria-label={`Open outcomes: ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining before Game Over`}
           >
             <ShieldAlert data-icon="inline-start" />
             <Badge variant="destructive">{urgentCrisis.turnsRemaining}</Badge>

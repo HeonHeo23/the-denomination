@@ -242,21 +242,22 @@ export interface GameOverStageDefinition {
   readonly consequences?: readonly ConsequenceDefinition[];
 }
 
-/** One recoverable, Scenario-authored trajectory toward a terminal outcome. */
-export interface GameOverDefinition {
+/** Fields shared by every authored outcome definition. */
+export interface OutcomeDefinition {
   readonly id: string;
   readonly title: string;
+  readonly description: string;
+}
+
+/** One recoverable, Scenario-authored trajectory toward a terminal outcome. */
+export interface GameOverDefinition extends OutcomeDefinition {
   readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
-  readonly terminalAfterTurns: number;
+  readonly turnsToGameOver: number;
   readonly stages: readonly GameOverStageDefinition[];
   readonly recovery?: {
     readonly title: string;
     readonly description: string;
     readonly consequences?: readonly ConsequenceDefinition[];
-  };
-  readonly report: {
-    readonly title: string;
-    readonly narrative: string;
   };
 }
 
@@ -304,15 +305,9 @@ export interface HistoricalActorDefinition {
   readonly description: string;
 }
 
-export interface EndingNarrativeDefinition {
-  readonly id: string;
-  readonly title: string;
-  readonly narrative: string;
-}
-
-export interface EndingDefinition extends EndingNarrativeDefinition {
-  readonly priority: number;
+export interface EndingDefinition extends OutcomeDefinition {
   readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
+  readonly priority: number;
 }
 
 export interface CompletionDefinition {
@@ -320,7 +315,7 @@ export interface CompletionDefinition {
     readonly description: string;
   })[];
   readonly endings: readonly EndingDefinition[];
-  readonly fallbackEnding: EndingNarrativeDefinition;
+  readonly fallbackEnding: OutcomeDefinition;
   readonly reportNodeIds: readonly NodeId[];
 }
 

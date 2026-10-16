@@ -70,11 +70,7 @@ export function NodeValueHistoryChart({
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const current = selectedIndex ?? latestIndex;
-    const index = getNextPoint(
-      current,
-      event.key,
-      chart.points.length,
-    );
+    const index = getNextPoint(current, event.key, chart.points.length);
     if (index !== undefined) {
       event.preventDefault();
       setSelection((previous) =>

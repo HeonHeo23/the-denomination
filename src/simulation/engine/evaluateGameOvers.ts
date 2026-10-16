@@ -4,10 +4,10 @@ import { applyConsequences } from "./consequences";
 import { findPrerequisiteGroupsMet } from "./prerequisites";
 
 /** Advance every recoverable terminal trajectory from the same evaluated state. */
-export function evaluateGameOvers(
+export const evaluateGameOvers = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-): SimulationState {
+): SimulationState => {
   if (state.outcome || !scenario.gameOvers?.length) return state;
 
   const matches = new Map(
@@ -24,7 +24,7 @@ export function evaluateGameOvers(
       const previous = progress[definition.id];
       const matchedPrerequisiteGroupIds = matches.get(definition.id) ?? [];
       return matchedPrerequisiteGroupIds.length > 0 &&
-        (previous?.consecutiveTurns ?? 0) + 1 >= definition.terminalAfterTurns
+        (previous?.consecutiveTurns ?? 0) + 1 >= definition.turnsToGameOver
         ? [{ gameOverId: definition.id, matchedPrerequisiteGroupIds }]
         : [];
     },
@@ -75,8 +75,8 @@ export function evaluateGameOvers(
             id: `${definition.id}:game-over:${progress[definition.id].episode}:${state.turn}`,
             turn: state.turn,
             kind: "game-over" as const,
-            title: definition.report.title,
-            detail: definition.report.narrative,
+            title: definition.title,
+            detail: definition.description,
           })),
       ],
     };
@@ -165,4 +165,4 @@ export function evaluateGameOvers(
     gameOverProgress: progress,
     outcome: null,
   };
-}
+};

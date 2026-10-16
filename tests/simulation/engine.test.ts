@@ -1,4 +1,5 @@
 import { runFactionTests } from "./factions.test";
+import { runProjectOutcomeTests } from "../ui/projectOutcome.test";
 import { runEndingTests } from "./endings.test";
 import { ongoingCompletion } from "./fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
@@ -47,6 +48,7 @@ function closeTo(actual: number, expected: number, message: string) {
 
 runFactionTests();
 runEndingTests();
+runProjectOutcomeTests();
 runDilemmaTests();
 runEventTests();
 runEventDetailTests();
@@ -357,7 +359,7 @@ const terminalScenario: ScenarioDefinition = {
           ],
         },
       ],
-      terminalAfterTurns: 3,
+      turnsToGameOver: 3,
       stages: [
         {
           id: "warning",
@@ -388,7 +390,7 @@ const terminalScenario: ScenarioDefinition = {
         description: "The crisis clears.",
         consequences: [{ kind: "resource", target: "reserve", amount: 2 }],
       },
-      report: { title: "Removed", narrative: "The institution removes you." },
+      description: "The institution removes you.",
     },
   ],
 };
@@ -514,6 +516,17 @@ assert(
     simultaneousState.outcome.causes.length === 2,
   "Every trajectory becoming terminal on the same turn should be reported",
 );
+for (const definition of simultaneousScenario.gameOvers!) {
+  assert(
+    simultaneousState.history.some(
+      (entry) =>
+        entry.kind === "game-over" &&
+        entry.title === definition.title &&
+        entry.detail === definition.description,
+    ),
+    "Each terminal cause records its shared authored title and description",
+  );
+}
 
 runResourceTests();
 

@@ -61,25 +61,29 @@ type HistoricalActorDefinition = {
   role: string;
   description: string;
 };
-type EndingNarrative = { id: string; title: string; narrative: string };
-type EndingDefinition = EndingNarrative & {
-  priority: number;
+interface OutcomeDefinition {
+  id: string;
+  title: string;
+  description: string;
+}
+interface EndingDefinition extends OutcomeDefinition {
   prerequisiteGroups: PrerequisiteGroupDefinition[];
-};
+  priority: number;
+}
 interface CompletionDefinition {
   prerequisiteGroups: Array<
     PrerequisiteGroupDefinition & { description: string }
   >;
   endings: EndingDefinition[];
-  fallbackEnding: EndingNarrative;
+  fallbackEnding: OutcomeDefinition;
   reportNodeIds: string[];
 }
 ```
 
-Actors require all four fields. Completion groups are non-empty and require
-descriptions; endings, actors, and report nodes may be empty. IDs are unique;
-the fallback shares the ending namespace. Priorities are integers (higher wins;
-ID breaks ties). Prerequisites use the shared validation rules.
+Outcome `title` and `description` are shared by inspection, terminal history, and final explanations. Both are required strings; nested `report` and `narrative` fields are invalid.
+Completion groups are non-empty and require descriptions; actors, endings, and report nodes may be empty.
+Ending IDs are unique, including the fallback. Priorities are integers (higher wins; ID breaks ties).
+Prerequisites use the shared validation rules.
 
 Runtime Dilemmas store the latest resolved turn and choice; ending outcomes store
 the ending, turn, matched trigger/group IDs, and fallback flag. An ending turn
@@ -331,18 +335,15 @@ Completion group IDs remain `matchedTriggerIds` in ending outcomes.
 ## Game Overs
 
 ```ts
-interface GameOverDefinition {
-  id: string;
-  title: string;
+interface GameOverDefinition extends OutcomeDefinition {
   prerequisiteGroups: PrerequisiteGroupDefinition[];
-  terminalAfterTurns: number;
+  turnsToGameOver: number;
   stages: GameOverStageDefinition[];
   recovery?: {
     title: string;
     description: string;
     consequences?: ConsequenceDefinition[];
   };
-  report: { title: string; narrative: string };
 }
 
 interface GameOverStageDefinition {
@@ -354,7 +355,7 @@ interface GameOverStageDefinition {
 }
 ```
 
-Game Over IDs are unique within a Scenario. `terminalAfterTurns` is an integer
+Game Over IDs are unique within a Scenario. `turnsToGameOver` is an integer
 of at least `2`. Stage IDs and `atTurn` values are unique within a trajectory;
 stage turns are positive and less than the terminal duration, and every
 trajectory has a warning stage at turn `1`. Omitted consequence arrays normalize
@@ -520,7 +521,7 @@ does not replace runtime validation for parsed content.
     title: 'Institutional review', description: 'Review two decades of ministry.',
     allOf: [{ kind: 'turn', atTurn: 20 }] }],
     endings: [], fallbackEnding: { id: 'preservation', title: 'Preservation',
-      narrative: 'The fellowship passes its commitments to a new period of leadership.' },
+      description: 'The fellowship passes its commitments to a new period of leadership.' },
     reportNodeIds: ['clergy-quality'] },
   nodes: [
     {

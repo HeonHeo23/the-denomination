@@ -1,48 +1,41 @@
 import { useCallback, useReducer } from "react";
+import type { OutcomeConditionRef } from "./outcomeViews";
 
 export interface DossierNavigationState {
   readonly selectedNodeId?: string;
-  readonly crisis?: { readonly id: string };
+  readonly condition?: OutcomeConditionRef;
   readonly reportOpen: boolean;
 }
 
 export type DossierNavigationAction =
   | { readonly type: "open-node"; readonly nodeId: string }
-  | { readonly type: "open-node-from-crisis"; readonly nodeId: string }
   | { readonly type: "close-node" }
-  | { readonly type: "open-crisis"; readonly crisisId: string }
-  | { readonly type: "close-crisis" }
+  | { readonly type: "open-condition"; readonly condition: OutcomeConditionRef }
+  | { readonly type: "close-condition" }
   | { readonly type: "open-report" }
   | { readonly type: "review-final-state" }
   | { readonly type: "reset" };
 
-/** Pure overlay transition, kept separate from the simulation snapshot. */
+/** Parent surfaces remain open beneath linked condition and node dossiers. */
 export function moveDossierNavigation(
   state: DossierNavigationState,
   action: DossierNavigationAction,
 ): DossierNavigationState {
   switch (action.type) {
     case "open-node":
-      return { ...state, selectedNodeId: action.nodeId, crisis: undefined };
-    case "open-node-from-crisis":
       return { ...state, selectedNodeId: action.nodeId };
     case "close-node":
       return { ...state, selectedNodeId: undefined };
-    case "open-crisis":
+    case "open-condition":
       return {
         ...state,
         selectedNodeId: undefined,
-        crisis: { id: action.crisisId },
+        condition: action.condition,
       };
-    case "close-crisis":
-      return { ...state, crisis: undefined };
+    case "close-condition":
+      return { ...state, condition: undefined };
     case "open-report":
-      return {
-        ...state,
-        selectedNodeId: undefined,
-        crisis: undefined,
-        reportOpen: true,
-      };
+      return { reportOpen: true };
     case "review-final-state":
       return { ...state, reportOpen: false };
     case "reset":
@@ -50,24 +43,20 @@ export function moveDossierNavigation(
   }
 }
 
-/** Coordinates the report, crisis dossier, and node dossier overlay stack. */
 export function useDossierNavigation(initialReportOpen: boolean) {
   const [state, dispatch] = useReducer(moveDossierNavigation, {
     reportOpen: initialReportOpen,
   });
   const openReport = useCallback(() => dispatch({ type: "open-report" }), []);
-
   return {
     selectedNodeId: state.selectedNodeId,
-    selectedCrisisId: state.crisis?.id,
+    selectedCondition: state.condition,
     reportOpen: state.reportOpen,
     openNode: (nodeId: string) => dispatch({ type: "open-node", nodeId }),
-    openNodeFromCrisis: (nodeId: string) =>
-      dispatch({ type: "open-node-from-crisis", nodeId }),
     closeNode: () => dispatch({ type: "close-node" }),
-    openCrisis: (crisisId: string) =>
-      dispatch({ type: "open-crisis", crisisId }),
-    closeCrisis: () => dispatch({ type: "close-crisis" }),
+    openCondition: (condition: OutcomeConditionRef) =>
+      dispatch({ type: "open-condition", condition }),
+    closeCondition: () => dispatch({ type: "close-condition" }),
     openReport,
     reviewFinalState: () => dispatch({ type: "review-final-state" }),
     reset: () => dispatch({ type: "reset" }),

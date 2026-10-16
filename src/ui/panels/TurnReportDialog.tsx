@@ -25,7 +25,7 @@ import { ItemGroup } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSignedValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
-import { formatCrisisTurns } from "@/ui/game/projectCrisis";
+import { formatCrisisTurns } from "@/ui/game/projectOutcome";
 import DossierDialogFrame from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 import type { TurnReport } from "./projectReport";

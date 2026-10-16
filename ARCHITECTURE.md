@@ -62,6 +62,8 @@ The project is a client-side application with a deterministic, framework-free si
 | React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                            |
 | Persistence adapter            | `src/app/persistence.ts`, `src/app/savedGames.ts`                                              | Validate snapshots and coordinate versioned browser save collections without changing engine semantics |
 
+`projectOutcome.ts` owns crisis lifecycle, completion and Ending projections, summaries, and condition detail analysis, reusing prerequisite and contribution helpers; `outcomeViews.ts` defines shared view types. `projectReport.ts` combines condition details, recorded outcomes, participants, active crises, and starting-state comparisons for final reports. Presentation does not select outcomes. The public query `getEndingsInSelectionOrder` returns conditional Endings in priority/ID order (descending priority, ascending ID), excluding fallback; selection and UI projections preserve that order.
+
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
 
@@ -225,8 +227,8 @@ The UI, session, and persistence layers MUST NOT duplicate those rules; define t
 `selectEvents` evaluates the post-decay snapshot. After Event consequences, Game Over handling, and normal completion, `queueDilemmas` evaluates the final turn state and skips terminal outcomes.
 Resolving a Dilemma applies its choice but does not recalculate persistent values or resolve an Ending; terminal outcomes reject choices.
 
-`matchingPrerequisiteGroups` evaluates runtime groups against a snapshot.
-These helpers do not choose timing: `evaluateGameOvers` checks after Event consequences, and `resolveEnding` checks completion after Game Over handling.
+`findPrerequisiteGroupsMet` evaluates runtime groups without choosing their evaluation phase.
+The public API also exposes it for UI requirement status.
 
 ### Engine functions
 
@@ -253,9 +255,6 @@ It describes current code rather than adding game semantics; `GAME_DESIGN.md` re
 
 React renders the current application snapshot and dispatches commands.
 Hooks may memoize projections but must not become an alternate simulation store.
-
-Crisis lifecycle views and recorded Game Over reports are separate projections that share prerequisite and contribution data.
-Neither owns simulation state or evaluates terminal outcomes.
 
 local dossier-navigation state controls overlapping dialogs and is never persisted.
 

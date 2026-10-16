@@ -11,12 +11,9 @@ import {
   initializeScenario,
   type ScenarioDefinition,
 } from "../../src/simulation";
-import { assemblyScenario, endingScenario } from "../simulation/endings.test";
+import { assemblyScenario, endingScenario } from "../simulation/fixtures";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
-import {
-  projectEndingReport,
-  projectGameOverCauses,
-} from "../../src/ui/panels/projectReport";
+import { projectFinalReport } from "../../src/ui/panels/projectReport";
 import { moveDossierNavigation } from "../../src/ui/game/useDossierNavigation";
 
 export function runEndingPersistenceTests() {
@@ -40,19 +37,14 @@ export function runEndingPersistenceTests() {
     );
   assert.ok(restore(state));
   assert.deepEqual(
-    projectEndingReport(scenario, restore(state)!.state)?.changes,
-    projectEndingReport(scenario, state)?.changes,
+    projectFinalReport(scenario, restore(state)!.state)?.changes,
+    projectFinalReport(scenario, state)?.changes,
   );
   const restored = createGameSession(scenario, save.state);
   assert.ok(restored.ok);
-  assert.equal(
-    projectEndingReport(restored.scenario, restored.state)?.ending.id,
-    "revival",
-  );
-  assert.deepEqual(
-    projectGameOverCauses(restored.scenario, restored.state),
-    [],
-  );
+  const restoredReport = projectFinalReport(restored.scenario, restored.state);
+  assert.ok(restoredReport?.kind === "ending");
+  assert.equal(restoredReport.reason.endingId, "revival");
   const rejected = reduceGameSession(restored, {
     type: "advance",
     randomValue: 0,
@@ -187,9 +179,13 @@ export function runEndingPersistenceTests() {
   const completed = advanceTurn(combinedScenario, restoredInterim.state).state;
   const restoredCompletion = restore(completed, combinedCatalog);
   assert.ok(restoredCompletion);
+  const completionReport = projectFinalReport(
+    combinedScenario,
+    restoredCompletion.state,
+  );
+  assert.ok(completionReport?.kind === "ending");
   assert.equal(
-    projectEndingReport(combinedScenario, restoredCompletion.state)?.triggers[0]
-      .description,
+    completionReport.reason.completion[0].description,
     "Complete the second-turn council review.",
   );
   assert.ok(
@@ -219,7 +215,11 @@ export function runEndingPersistenceTests() {
           title: "Review",
           description: "Complete the assembly decision.",
           allOf: [
-            { kind: "dilemma-choice", dilemmaId: "assembly", choiceId: "accept" },
+            {
+              kind: "dilemma-choice",
+              dilemmaId: "assembly",
+              choiceId: "accept",
+            },
           ],
         },
       ],
@@ -273,7 +273,7 @@ export function runEndingPersistenceTests() {
   assert.equal(completedAfterChoice.state.turn, queued.turn + 1);
   assert.ok(restore(completedAfterChoice.state, dilemmaCatalog));
   assert.equal(
-    projectEndingReport(dilemmaScenario, completedAfterChoice.state)?.turn,
+    projectFinalReport(dilemmaScenario, completedAfterChoice.state)?.turn,
     2,
   );
   for (const patch of [

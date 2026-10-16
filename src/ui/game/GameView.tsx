@@ -10,10 +10,11 @@ import { SimulationGraph } from "@/ui/graph/SimulationGraph";
 import type { GraphTurnFeedback } from "@/ui/graph/projectToReactFlow";
 import { ToastNotification } from "@/components/ToastNotification";
 import NodeDetailsDialog from "@/ui/panels/NodeDetailsDialog";
-import CrisisDetailsDialog from "@/ui/panels/CrisisDetailsDialog";
+import OutcomeConditionDialog from "@/ui/panels/OutcomeConditionDialog";
 import TurnReportDialog from "@/ui/panels/TurnReportDialog";
 import {
   projectTurnReport,
+  projectFinalReport,
   restoreTurnReport,
   serializeTurnReport,
   type TurnReport,
@@ -30,9 +31,8 @@ import {
 } from "./eventDialogFlow";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
-import EndingReportDialog from "./EndingReportDialog";
-import { GameOverReportDialog } from "./GameOverReportDialog";
-import { projectCrisis } from "./projectCrisis";
+import FinalReportDialog from "./FinalReportDialog";
+import { projectOutcomeConditionDetail, projectCrisis } from "./projectOutcome";
 import { useDossierNavigation } from "./useDossierNavigation";
 import "./game-shell.css";
 
@@ -238,18 +238,25 @@ function GameView({
   const selectedRuntime = selectedDefinition
     ? session.state.nodes[selectedDefinition.id]
     : undefined;
-  const crisisItems = projectCrisis(
-    scenario,
-    session.state,
+  const recoveredCrisisIds =
     turnReport?.crisisTransitions
       .filter(({ kind }) => kind === "recovered")
-      .map(({ definition }) => definition.id),
-  );
-  const selectedCrisis = crisisItems.find(
-    ({ definition }) => definition.id === navigation.selectedCrisisId,
-  );
+      .map(({ definition }) => definition.id) ?? [];
+  const crisisItems = projectCrisis(scenario, session.state);
+  const selectedCondition = navigation.selectedCondition
+    ? projectOutcomeConditionDetail(
+        scenario,
+        session.state,
+        navigation.selectedCondition,
+        recoveredCrisisIds,
+      )
+    : undefined;
+  const finalReport = navigation.reportOpen
+    ? projectFinalReport(scenario, session.state)
+    : undefined;
   const selectNode = navigation.openNode;
-  const selectCrisis = navigation.openCrisis;
+  const selectCrisis = (id: string) =>
+    navigation.openCondition({ kind: "crisis", id });
   const visibleToast =
     toastMessage ?? (notice !== dismissedNotice ? notice : undefined);
   const activeCrises = crisisItems.filter(
@@ -278,7 +285,7 @@ function GameView({
         urgentCrisis={
           urgentCrisis
             ? {
-                title: urgentCrisis.definition.title,
+                title: urgentCrisis.title,
                 turnsRemaining: urgentCrisis.turnsRemaining,
               }
             : undefined
@@ -309,9 +316,9 @@ function GameView({
           play("paper");
           setActivePanel("overview");
         }}
-        onOpenCrises={() => {
+        onOpenOutcomes={() => {
           play("paper");
-          setActivePanel("crises");
+          setActivePanel("outcomes");
         }}
         onOpenChronicle={() => {
           play("paper");
@@ -389,7 +396,7 @@ function GameView({
         state={session.state}
         resources={resources}
         onClose={() => setActivePanel(undefined)}
-        onCrisisSelect={selectCrisis}
+        onConditionSelect={navigation.openCondition}
         onEventSelect={(historyEntryId) => {
           setDilemmaOpen(false);
           setEventPresentation({
@@ -467,13 +474,12 @@ function GameView({
         />
       )}
 
-      {navigation.reportOpen && session.state.outcome?.kind === "game-over" && (
-        <GameOverReportDialog
+      {finalReport && (
+        <FinalReportDialog
+          report={finalReport}
           denominationName={denominationName}
           onNodeSelect={selectNode}
-          scenario={scenario}
-          state={session.state}
-          onCrisisSelect={selectCrisis}
+          onConditionSelect={navigation.openCondition}
           onReview={navigation.reviewFinalState}
           onRestart={() => {
             navigation.reset();
@@ -486,31 +492,11 @@ function GameView({
         />
       )}
 
-      {navigation.reportOpen && session.state.outcome?.kind === "ending" && (
-        <EndingReportDialog
-          scenario={scenario}
-          state={session.state}
-          denominationName={denominationName}
+      {selectedCondition && (
+        <OutcomeConditionDialog
+          condition={selectedCondition}
           onNodeSelect={selectNode}
-          onReview={navigation.reviewFinalState}
-          onRestart={() => {
-            navigation.reset();
-            session.reset();
-          }}
-          onMainMenu={() => {
-            navigation.reset();
-            onMainMenu(session.state, savedTurnReport);
-          }}
-        />
-      )}
-
-      {selectedCrisis && (
-        <CrisisDetailsDialog
-          crisis={selectedCrisis}
-          scenario={scenario}
-          state={session.state}
-          onNodeSelect={navigation.openNodeFromCrisis}
-          onClose={navigation.closeCrisis}
+          onClose={navigation.closeCondition}
         />
       )}
 

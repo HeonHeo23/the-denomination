@@ -1,12 +1,26 @@
-import type { ScenarioDefinition } from "../domain/definitions";
+import type {
+  EndingDefinition,
+  ScenarioDefinition,
+} from "../domain/definitions";
 import type { EndingOutcome, SimulationState } from "../domain/runtime";
 import { findPrerequisiteGroupsMet } from "./prerequisites";
 
+/** Return all conditional Endings by descending priority, then ascending ID.
+ * Includes unmet candidates, excludes fallback, and leaves authored data unchanged.
+ */
+export const getEndingsInSelectionOrder = (
+  scenario: ScenarioDefinition,
+): readonly EndingDefinition[] =>
+  [...scenario.completion.endings].sort(
+    (a, b) =>
+      b.priority - a.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  );
+
 /** Select a normal outcome from a completed snapshot without changing simulation. */
-export function evaluateEnding(
+export const evaluateEnding = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-): EndingOutcome | null {
+): EndingOutcome | null => {
   if (
     state.outcome ||
     state.pendingDilemmaIds.length ||
@@ -20,17 +34,10 @@ export function evaluateEnding(
     .map(({ id }) => id)
     .sort();
   if (!matchedTriggerIds.length) return null;
-  const selected = [...scenario.completion.endings]
-    .sort(
-      (a, b) =>
-        b.priority - a.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-    )
+  const selected = getEndingsInSelectionOrder(scenario)
     .map((definition) => ({
       definition,
-      groups: findPrerequisiteGroupsMet(
-        definition.prerequisiteGroups,
-        state,
-      ),
+      groups: findPrerequisiteGroupsMet(definition.prerequisiteGroups, state),
     }))
     .find(({ groups }) => groups.length > 0);
   return {
@@ -42,13 +49,13 @@ export function evaluateEnding(
       selected?.groups.map(({ id }) => id).sort() ?? [],
     usedFallback: !selected,
   };
-}
+};
 
 /** Append one terminal institutional record; terminal and pending states are unchanged. */
-export function resolveEnding(
+export const resolveEnding = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-): SimulationState {
+): SimulationState => {
   const outcome = evaluateEnding(scenario, state);
   if (!outcome) return state;
   const definition =
@@ -64,8 +71,8 @@ export function resolveEnding(
         turn: state.turn,
         kind: "ending",
         title: definition.title,
-        detail: definition.narrative,
+        detail: definition.description,
       },
     ],
   };
-}
+};

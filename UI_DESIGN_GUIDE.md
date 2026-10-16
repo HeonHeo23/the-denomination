@@ -41,10 +41,11 @@ The primary flow is:
 - Use Scenario metric order and labels.
 - Faction metric identity SHOULD appear optionally inline within the target-name area, without a dedicated row or column. Dedicated metric space is appropriate for metric selectors and comparative readings.
 - Use compact separate rows for Dilemma consequences.
-- Use Sheets for overview, Crises, and Chronicle review, and more. Situations
-  remain available as canonical graph nodes and dossiers.
+- Use Sheets for overview, Outcomes, and Chronicle review. The Outcomes Sheet groups active crises, completion conditions, and possible Endings, with fallback information.
+- Preserve the sequence returned by the simulation’s ordered Ending query in summaries, including unmet candidates; show fallback separately.
+- Share condition details and final reports across outcome kinds. Use crisis countdowns and met/unmet Ending requirements, and distinguish evaluation matches from current readings.
 - Keep a report, Sheet, or detail dialog open beneath a linked detail dialog so closing the linked detail returns the player to the same context.
-- Keep game dialogs consistent in width, header hierarchy, body scrolling, separators, spacing, and footer actions. Reuse the shared dialog frame for Dilemmas, dossiers, reports, and similar full-detail surfaces; vary the content within that frame to suit each decision or record.
+- Use the shared dialog frame for consistent widths, headers, scrolling, separators, spacing, and actions; adapt its content to each decision or record.
 - Keep feedback timely and purposeful.
 
 ## Visual Hierarchy

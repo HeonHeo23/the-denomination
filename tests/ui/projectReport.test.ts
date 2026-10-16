@@ -1,4 +1,9 @@
-import type { GameOverDefinition, SimulationState } from "../../src/simulation";
+import assert from "node:assert/strict";
+import type {
+  GameOverDefinition,
+  ScenarioDefinition,
+  SimulationState,
+} from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
   initializeScenario,
@@ -6,7 +11,7 @@ import {
 } from "../../src/simulation";
 import {
   projectTurnReport,
-  projectGameOverCauses,
+  projectFinalReport,
 } from "../../src/ui/panels/projectReport";
 import { institutionEra, isEtherealTurn } from "../../src/ui/institutionEra";
 import {
@@ -18,19 +23,94 @@ import {
 import { projectPrerequisiteGroups } from "../../src/ui/game/projectPrerequisite";
 import {
   projectCrisis,
-  formatCrisisElapsedLabel,
   formatCrisisProgressLabel,
   formatCrisisTurns,
   projectCrisisDetail,
-} from "../../src/ui/game/projectCrisis";
+  projectOutcomeConditionDetail,
+} from "../../src/ui/game/projectOutcome";
 import {
   moveDossierNavigation,
   type DossierNavigationState,
 } from "../../src/ui/game/useDossierNavigation";
 import { getDossierTriggerProps } from "../../src/ui/dossierActivation";
 
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(message);
+function terminalConditions(
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+) {
+  const report = projectFinalReport(scenario, state);
+  return report?.kind === "game-over"
+    ? report.reason.causes.map(({ condition }) => condition)
+    : [];
+}
+
+function assertFinalReportProjections(
+  scenario: ScenarioDefinition,
+  warningState: SimulationState,
+  terminalState: SimulationState,
+) {
+  const ending = scenario.completion.endings[0];
+  const recorded = {
+    ...warningState,
+    outcome: {
+      kind: "ending" as const,
+      turn: warningState.turn,
+      endingId: ending.id,
+      usedFallback: false,
+      matchedTriggerIds: [scenario.completion.prerequisiteGroups[0].id],
+      matchedPrerequisiteGroupIds: [ending.prerequisiteGroups[0].id],
+    },
+  };
+  const report = projectFinalReport(scenario, recorded);
+  assert.ok(report?.kind === "ending");
+  assert.equal(report.title, ending.title);
+  assert.equal(report.description, ending.description);
+  assert.deepEqual(
+    report.reason.ending,
+    projectOutcomeConditionDetail(scenario, recorded, {
+      kind: "ending",
+      id: ending.id,
+    }),
+  );
+  assert.equal(report.reason.completion[0].matchSource, "outcome");
+  assert.equal(
+    report.activeCrises[0].id,
+    scenario.gameOvers![0].id,
+    "Normal Endings retain unfinished crises",
+  );
+  assert.deepEqual(report.actors, scenario.historicalActors);
+
+  const fallbackEnding = scenario.completion.fallbackEnding;
+  const fallback = projectFinalReport(scenario, {
+    ...recorded,
+    outcome: {
+      ...recorded.outcome,
+      endingId: fallbackEnding.id,
+      usedFallback: true,
+      matchedPrerequisiteGroupIds: [],
+    },
+  });
+  assert.ok(fallback?.kind === "ending");
+  assert.equal(fallback.title, fallbackEnding.title);
+  assert.equal(fallback.description, fallbackEnding.description);
+  assert.equal(fallback.reason.ending, undefined);
+  assert.equal(fallback.reason.usedFallback, true);
+
+  const crisis = scenario.gameOvers![0];
+  const terminal = projectFinalReport(scenario, terminalState);
+  assert.ok(terminal?.kind === "game-over");
+  assert.equal(terminal.title, "Game Over");
+  assert.deepEqual(terminal.reason.causes[0], {
+    id: crisis.id,
+    title: crisis.title,
+    description: crisis.description,
+    condition: projectOutcomeConditionDetail(scenario, terminalState, {
+      kind: "crisis",
+      id: crisis.id,
+    }),
+  });
+  assert.equal(terminal.reason.causes[0].condition.matchSource, "outcome");
+  assert.equal(terminal.activeCrises[0].status, "terminal");
 }
 
 export function runReportProjectionTests() {
@@ -154,12 +234,19 @@ export function runReportProjectionTests() {
     },
   };
   const warnings = projectCrisis(exampleScenario, warningState);
+  const warningAnalysis = projectCrisisDetail(
+    exampleScenario,
+    warningState,
+    gameOverDefinition.id,
+  )!;
   assert(
     warnings[0]?.turnsRemaining === 3 &&
-      warnings[0].matchedGroups[0]?.prerequisites.length === 2 &&
-      warnings[0].allGroups.length ===
+      warningAnalysis.matchedGroups[0]?.prerequisites.length === 2 &&
+      warningAnalysis.allGroups.length ===
         gameOverDefinition.prerequisiteGroups.length &&
-      warnings[0].matchedPrerequisiteNodeIds.length === 2,
+      warningAnalysis.matchedGroups
+        .flatMap(({ prerequisites }) => prerequisites)
+        .filter(({ nodeId }) => nodeId).length === 2,
     "Game Over warnings should project countdowns and mechanical prerequisites",
   );
   assert(
@@ -205,7 +292,7 @@ export function runReportProjectionTests() {
       ...warningState.gameOverProgress,
       [gameOverDefinition.id]: {
         ...warningState.gameOverProgress[gameOverDefinition.id],
-        consecutiveTurns: gameOverDefinition.terminalAfterTurns,
+        consecutiveTurns: gameOverDefinition.turnsToGameOver,
       },
     },
     outcome: {
@@ -221,36 +308,44 @@ export function runReportProjectionTests() {
       ],
     },
   };
-  const gameOverReport = projectGameOverCauses(exampleScenario, terminalState);
+  const gameOverReport = terminalConditions(exampleScenario, terminalState);
+  assertFinalReportProjections(exampleScenario, warningState, terminalState);
   assert(
-    gameOverReport[0]?.definition.id === gameOverDefinition.id &&
-      gameOverReport[0].matchedGroups[0]?.group.id ===
+    gameOverReport[0]?.id === gameOverDefinition.id &&
+      gameOverReport[0].matchedGroups[0]?.id ===
         gameOverDefinition.prerequisiteGroups[0].id,
-    "The terminal report should preserve authored narrative and matched causes",
+    "The terminal report should preserve authored content and matched causes",
   );
 
   const warning = warnings[0];
   assert(warning !== undefined, "The example crisis should project a warning");
-  const warningDetail = projectCrisisDetail({ ...warning, status: "warning" });
-  const warningAtTwo = projectCrisisDetail({
-    ...warning,
-    consecutiveTurns: 2,
-    turnsRemaining: 2,
-    progressPercent: 50,
-    status: "warning",
-  });
-  const warningAtLastTurn = projectCrisisDetail({
-    ...warning,
-    consecutiveTurns: gameOverDefinition.terminalAfterTurns - 1,
-    status: "warning",
-  });
+  const timelineFor = (
+    consecutiveTurns: number,
+    definition: GameOverDefinition = gameOverDefinition,
+  ) =>
+    projectCrisisDetail(
+      { ...exampleScenario, gameOvers: [definition] },
+      {
+        ...warningState,
+        gameOverProgress: {
+          [definition.id]: {
+            episode: 1,
+            consecutiveTurns,
+            matchedPrerequisiteGroupIds: [],
+          },
+        },
+      },
+      definition.id,
+    )!.timeline;
+  const warningDetail = warningAnalysis.timeline;
+  const warningAtTwo = timelineFor(2);
+  const warningAtLastTurn = timelineFor(gameOverDefinition.turnsToGameOver - 1);
   const { milestones } = warningDetail;
   assert(
     warningDetail.stageLabel === gameOverDefinition.stages[0].title &&
-      warningDetail.terminalTurn === gameOverDefinition.terminalAfterTurns &&
+      warningDetail.terminalTurn === gameOverDefinition.turnsToGameOver &&
       warningDetail.progressLabel === formatCrisisProgressLabel(warning) &&
       formatCrisisTurns(warning.turnsRemaining) === "3 turns" &&
-      formatCrisisElapsedLabel(warning) === "1/4 qualifying turns" &&
       warningDetail.progressLabel.includes("1 of 4 qualifying turns"),
     "Crisis details should combine stage, scale, and accessible progress wording",
   );
@@ -263,10 +358,10 @@ export function runReportProjectionTests() {
           milestones[index]?.turn === stage.atTurn &&
           milestones[index]?.title === stage.title &&
           milestones[index]?.positionPercent ===
-            (stage.atTurn / gameOverDefinition.terminalAfterTurns) * 100,
+            (stage.atTurn / gameOverDefinition.turnsToGameOver) * 100,
       ) &&
       milestones.at(-1)?.kind === "terminal" &&
-      milestones.at(-1)?.turn === gameOverDefinition.terminalAfterTurns &&
+      milestones.at(-1)?.turn === gameOverDefinition.turnsToGameOver &&
       milestones.at(-1)?.title === "Game Over" &&
       milestones.at(-1)?.positionPercent === 100,
     "Crisis details should project stage and terminal ticks at authored positions",
@@ -278,18 +373,13 @@ export function runReportProjectionTests() {
   );
   assert(
     warningAtLastTurn.progressCopy.secondary ===
-      `Next threshold: turn ${gameOverDefinition.terminalAfterTurns}`,
+      `Next threshold: turn ${gameOverDefinition.turnsToGameOver}`,
     "Warning crises should fall back to the terminal turn when no authored stage remains",
   );
-  const initialDetail = projectCrisisDetail({
-    ...warning,
-    consecutiveTurns: 0,
-    stage: undefined,
-    status: "warning",
-  });
   assert(
-    initialDetail.stageLabel === "Under inquiry",
-    "Crisis details should show the inquiry fallback before the first stage",
+    projectCrisisDetail(exampleScenario, initial, gameOverDefinition.id) ===
+      undefined,
+    "Inactive crises should not build inspection details",
   );
   const longStageTitle =
     "A deliberately long authored stage name that must remain complete";
@@ -303,11 +393,9 @@ export function runReportProjectionTests() {
     },
     { ...gameOverDefinition.stages[0], id: "middle", atTurn: 2 },
   ]);
-  const unsortedDetail = projectCrisisDetail({
-    ...warning,
-    definition: { ...gameOverDefinition, stages: unsortedStages },
-    consecutiveTurns: 1,
-    status: "warning",
+  const unsortedDetail = timelineFor(1, {
+    ...gameOverDefinition,
+    stages: unsortedStages,
   });
   assert(
     unsortedDetail.milestones.map(({ turn }) => turn).join(",") === "1,2,3,4" &&
@@ -323,7 +411,12 @@ export function runReportProjectionTests() {
     recovered !== undefined,
     "The recovered crisis should appear in the reveal projection",
   );
-  const recoveredDetail = projectCrisisDetail(recovered);
+  const recoveredDetail = projectCrisisDetail(
+    exampleScenario,
+    recoveredState,
+    gameOverDefinition.id,
+    [gameOverDefinition.id],
+  )!.timeline;
   assert(
     recoveredDetail.stageLabel === "Prerequisites cleared" &&
       recoveredDetail.progressCopy.primary === "Recovered" &&
@@ -334,7 +427,11 @@ export function runReportProjectionTests() {
   );
   const terminal = projectCrisis(exampleScenario, terminalState)[0];
   assert(terminal !== undefined, "The terminal crisis should project details");
-  const terminalDetail = projectCrisisDetail(terminal);
+  const terminalDetail = projectCrisisDetail(
+    exampleScenario,
+    terminalState,
+    gameOverDefinition.id,
+  )!.timeline;
   assert(
     terminal.status === "terminal" &&
       terminalDetail.progressCopy.primary === "Game Over" &&
@@ -369,11 +466,11 @@ export function runReportProjectionTests() {
   for (const definition of exampleScenario.gameOvers ?? []) {
     const progress = projectProgress(definition, 1);
     assert(
-      progress.turnsRemaining === definition.terminalAfterTurns - 1 &&
-        Math.abs(
-          progress.progressPercent - 100 / definition.terminalAfterTurns,
-        ) < 0.000001 &&
-        progress.stage?.atTurn === 1,
+      progress.turnsRemaining === definition.turnsToGameOver - 1 &&
+        Math.abs(progress.progressPercent - 100 / definition.turnsToGameOver) <
+          0.000001 &&
+        timelineFor(1, definition).stageLabel ===
+          definition.stages.find(({ atTurn }) => atTurn === 1)?.title,
       `Crisis progress should respect ${definition.id}'s authored duration`,
     );
   }
@@ -384,7 +481,8 @@ export function runReportProjectionTests() {
   assert(
     beyondTerminal.turnsRemaining === 0 &&
       beyondTerminal.progressPercent === 100 &&
-      beyondTerminal.stage?.id === "late" &&
+      timelineFor(6, { ...gameOverDefinition, stages: unsortedStages })
+        .stageLabel === unsortedStages[0].title &&
       beyondTerminal.status === "warning",
     "Progress clamps and selects the latest reached stage without inventing terminal status",
   );
@@ -431,9 +529,12 @@ export function runReportProjectionTests() {
       [alternateGroup.id],
       scenarioWithAlternatives,
       alternateState,
-    ).filter(({ matched }) => matched)[0]?.group.id === alternateGroup.id &&
-      projectCrisis(scenarioWithAlternatives, alternateState)[0]
-        ?.matchedGroups[0]?.group.id === alternateGroup.id,
+    ).filter(({ matched }) => matched)[0]?.id === alternateGroup.id &&
+      projectCrisisDetail(
+        scenarioWithAlternatives,
+        alternateState,
+        gameOverDefinition.id,
+      )?.matchedGroups[0]?.id === alternateGroup.id,
     "Warnings should project whichever alternative group the runtime recorded",
   );
   const recordedOutcome = {
@@ -452,9 +553,8 @@ export function runReportProjectionTests() {
     },
   };
   assert(
-    projectGameOverCauses(scenarioWithAlternatives, recordedOutcome)[0]
-      ?.matchedGroups[0]?.group.id ===
-      gameOverDefinition.prerequisiteGroups[0].id,
+    terminalConditions(scenarioWithAlternatives, recordedOutcome)[0]
+      ?.matchedGroups[0]?.id === gameOverDefinition.prerequisiteGroups[0].id,
     "Terminal reports must use recorded outcome groups rather than live warning groups",
   );
 
@@ -496,19 +596,18 @@ export function runReportProjectionTests() {
   };
   const beforeProjection = JSON.stringify({ multipleScenario, multipleState });
   const multipleCrises = projectCrisis(multipleScenario, multipleState);
-  const multipleReport = projectGameOverCauses(multipleScenario, multipleState);
+  const multipleReport = terminalConditions(multipleScenario, multipleState);
   assert(
-    multipleCrises.map(({ definition }) => definition.id).join(",") ===
-      "urgent,a,b,z" &&
+    multipleCrises.map(({ id }) => id).join(",") === "urgent,a,b,z" &&
       multipleCrises
         .filter(({ status }) => status === "terminal")
-        .map(({ definition }) => definition.id)
+        .map(({ id }) => id)
         .join(",") === "b,z",
     "Crises sort by countdown, title, and stable title ties; only recorded causes are terminal",
   );
   assert(
-    multipleReport.map(({ definition }) => definition.id).join(",") === "b,z" &&
-      multipleReport[0].matchedGroups[0].group.id ===
+    multipleReport.map(({ id }) => id).join(",") === "b,z" &&
+      multipleReport[0].matchedGroups[0].id ===
         gameOverDefinition.prerequisiteGroups[0].id &&
       multipleReport[0].matchedGroups[0].prerequisites.some(
         ({ isMet }) => !isMet,
@@ -521,10 +620,10 @@ export function runReportProjectionTests() {
     { b: { episode: 1, consecutiveTurns: 0, matchedPrerequisiteGroupIds: [] } },
   ] as readonly SimulationState["gameOverProgress"][]) {
     assert(
-      projectGameOverCauses(multipleScenario, {
+      terminalConditions(multipleScenario, {
         ...multipleState,
         gameOverProgress,
-      })[0].consecutiveTurns === gameOverDefinition.terminalAfterTurns,
+      })[0].consecutiveTurns === gameOverDefinition.turnsToGameOver,
       "Missing or zero runtime duration falls back to authored terminal duration",
     );
   }
@@ -611,50 +710,60 @@ export function runReportProjectionTests() {
 
   let navigation: DossierNavigationState = { reportOpen: true };
   navigation = moveDossierNavigation(navigation, {
-    type: "open-crisis",
-    crisisId: gameOverDefinition.id,
+    type: "open-condition",
+    condition: { kind: "crisis", id: gameOverDefinition.id },
   });
   assert(
-    navigation.crisis?.id === gameOverDefinition.id && navigation.reportOpen,
+    navigation.condition?.id === gameOverDefinition.id && navigation.reportOpen,
     "Opening a terminal crisis should keep the report open underneath",
   );
   navigation = moveDossierNavigation(navigation, {
-    type: "open-node-from-crisis",
+    type: "open-node",
     nodeId: "leadership-trust",
   });
   assert(
     navigation.selectedNodeId === "leadership-trust" &&
-      navigation.crisis?.id === gameOverDefinition.id,
+      navigation.condition?.id === gameOverDefinition.id,
     "A node dossier should open over its crisis dossier",
+  );
+  navigation = moveDossierNavigation(navigation, {
+    type: "open-node",
+    nodeId: "authority",
+  });
+  assert(
+    navigation.selectedNodeId === "authority" &&
+      navigation.condition?.id === gameOverDefinition.id &&
+      navigation.reportOpen,
+    "Switching linked nodes should retain the condition and report underneath",
   );
   navigation = moveDossierNavigation(navigation, { type: "close-node" });
   assert(
     navigation.selectedNodeId === undefined &&
-      navigation.crisis?.id === gameOverDefinition.id,
+      navigation.condition?.id === gameOverDefinition.id,
     "Closing the node dossier should reveal its crisis dossier",
   );
-  navigation = moveDossierNavigation(navigation, { type: "close-crisis" });
+  navigation = moveDossierNavigation(navigation, { type: "close-condition" });
   assert(
-    navigation.crisis === undefined && navigation.reportOpen,
+    navigation.condition === undefined && navigation.reportOpen,
     "Closing a crisis opened from Game Over should reveal the open report",
   );
   navigation = moveDossierNavigation(navigation, {
     type: "review-final-state",
   });
   navigation = moveDossierNavigation(navigation, {
-    type: "open-crisis",
-    crisisId: gameOverDefinition.id,
+    type: "open-condition",
+    condition: { kind: "crisis", id: gameOverDefinition.id },
   });
-  navigation = moveDossierNavigation(navigation, { type: "close-crisis" });
+  navigation = moveDossierNavigation(navigation, { type: "close-condition" });
   assert(
-    !navigation.reportOpen && navigation.crisis === undefined,
+    !navigation.reportOpen && navigation.condition === undefined,
     "A crisis opened outside the terminal report should close to the game view",
   );
   navigation = moveDossierNavigation(navigation, { type: "open-report" });
   navigation = moveDossierNavigation(navigation, { type: "reset" });
   assert(
     !navigation.reportOpen &&
-      navigation.crisis === undefined &&
+      navigation.condition === undefined &&
       navigation.selectedNodeId === undefined,
     "Restarting should clear every dossier overlay",
   );

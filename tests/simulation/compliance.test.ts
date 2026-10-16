@@ -393,10 +393,10 @@ export function runComplianceTests() {
       {
         ...exampleScenario,
         gameOvers: exampleScenario.gameOvers.map((gameOver, index) =>
-          index === 0 ? { ...gameOver, terminalAfterTurns: 1 } : gameOver,
+          index === 0 ? { ...gameOver, turnsToGameOver: 1 } : gameOver,
         ),
       },
-      "$.gameOvers[0].terminalAfterTurns",
+      "$.gameOvers[0].turnsToGameOver",
     ],
     [
       {

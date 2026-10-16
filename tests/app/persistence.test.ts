@@ -8,7 +8,7 @@ import {
   rememberLoadedGame,
   storeSavedGameEntry,
 } from "../../src/app/savedGames";
-import { runEndingChangesTests } from "./endingChanges.test";
+import { runEndingChangesTests } from "./finalChanges.test";
 import { runStartingTurnPersistenceTests } from "./startingTurnPersistence.test";
 import { ongoingCompletion } from "../simulation/fixtures";
 import { runEndingPersistenceTests } from "./endings.test";
@@ -249,7 +249,7 @@ const terminalSave: SavedGame = {
       ...save.state.gameOverProgress,
       [terminalDefinition.id]: {
         episode: 1,
-        consecutiveTurns: terminalDefinition.terminalAfterTurns,
+        consecutiveTurns: terminalDefinition.turnsToGameOver,
         matchedPrerequisiteGroupIds: [
           terminalDefinition.prerequisiteGroups[0].id,
         ],

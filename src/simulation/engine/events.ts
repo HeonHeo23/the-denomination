@@ -6,11 +6,11 @@ import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
 
 /** Select Events from one completed-turn snapshot before applying consequences. */
-export function selectEvents(
+export const selectEvents = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   randomValue?: number,
-): readonly EventDefinition[] {
+): readonly EventDefinition[] => {
   if (state.outcome || !scenario.events?.length) return [];
   if (
     randomValue !== undefined &&
@@ -48,25 +48,20 @@ export function selectEvents(
     .sort((left, right) =>
       left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
     );
-}
+};
 
 /** Resolve selected Events without another incident or persistent evaluation. */
-export function resolveEvents(
+export const resolveEvents = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   selected: readonly EventDefinition[],
-): SimulationState {
+): SimulationState => {
   let next = state;
   for (const definition of selected) {
     const progress = next.events[definition.id];
     const triggerCount = progress.triggerCount + 1;
     const eventId = `${definition.id}:event:${triggerCount}`;
-    next = applyConsequences(
-      scenario,
-      next,
-      definition.consequences,
-      eventId,
-    );
+    next = applyConsequences(scenario, next, definition.consequences, eventId);
     next = {
       ...next,
       events: {
@@ -86,4 +81,4 @@ export function resolveEvents(
     };
   }
   return next;
-}
+};

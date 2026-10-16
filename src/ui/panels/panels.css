@@ -146,7 +146,7 @@
 }
 
 [data-game-node-record],
-[data-game-crisis-dossier],
+[data-game-condition-dossier],
 [data-game-chronicle] {
   background:
     linear-gradient(

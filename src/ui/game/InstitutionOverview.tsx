@@ -26,8 +26,9 @@ import type {
 } from "@/simulation";
 import { formatSignedValue, formatValue, meterPercent } from "@/ui/formatValue";
 import { institutionEra, type InstitutionEra } from "@/ui/institutionEra";
-import { projectCrisis, type CrisisView } from "./projectCrisis";
-import { CrisisSummaryCard } from "./CrisisSummaryCard";
+import { projectCrisis } from "./projectOutcome";
+import { OutcomeConditionCard } from "./OutcomeConditionCard";
+import type { CrisisSummaryView } from "./outcomeViews";
 
 const eraImages: Record<InstitutionEra, string> = {
   humble: humbleImage,
@@ -54,7 +55,7 @@ interface InstitutionOverviewProps {
 }
 
 interface ActiveCrisisItemsProps {
-  readonly crises: readonly CrisisView[];
+  readonly crises: readonly CrisisSummaryView[];
   readonly onCrisisSelect: (crisisId: string) => void;
 }
 
@@ -62,10 +63,10 @@ function ActiveCrisisItems({ crises, onCrisisSelect }: ActiveCrisisItemsProps) {
   return (
     <div className="flex flex-col gap-2" aria-label="Active crises">
       {crises.map((crisis) => (
-        <CrisisSummaryCard
-          key={crisis.definition.id}
-          crisis={crisis}
-          onOpen={() => onCrisisSelect(crisis.definition.id)}
+        <OutcomeConditionCard
+          key={crisis.id}
+          condition={crisis}
+          onOpen={() => onCrisisSelect(crisis.id)}
         />
       ))}
     </div>

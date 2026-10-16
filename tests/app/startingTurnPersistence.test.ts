@@ -60,7 +60,7 @@ const startingTurnScenario: ScenarioDefinition = {
     {
       id: "test-failure",
       title: "Test crisis",
-      terminalAfterTurns: 3,
+      turnsToGameOver: 3,
       prerequisiteGroups: [
         {
           id: "test-enabled",
@@ -84,10 +84,7 @@ const startingTurnScenario: ScenarioDefinition = {
           { kind: "resource" as const, target: "funds", amount: -1 },
         ],
       })),
-      report: {
-        title: "Test failure",
-        narrative: "The test Stance remained enabled.",
-      },
+      description: "The test Stance remained enabled.",
     },
   ],
 };

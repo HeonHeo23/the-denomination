@@ -93,7 +93,9 @@ export function projectPrerequisite(
 }
 
 export interface PrerequisiteGroupView {
-  readonly group: PrerequisiteGroupDefinition;
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
   readonly matched: boolean;
   readonly prerequisites: readonly PrerequisiteView[];
 }
@@ -107,7 +109,9 @@ export function projectPrerequisiteGroups(
 ): readonly PrerequisiteGroupView[] {
   const matchedIds = new Set(matchedGroupIds);
   return groups.map((group) => ({
-    group,
+    id: group.id,
+    title: group.title,
+    description: group.description,
     matched: matchedIds.has(group.id),
     prerequisites: group.allOf.map((prerequisite) =>
       projectPrerequisite(prerequisite, scenario, state),
