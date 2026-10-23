@@ -12,12 +12,16 @@ import {
   type NodeDisplayName,
 } from "../projections/projectFactionGroups";
 import { formatSignedValue } from "../formatValue";
+import {
+  findRecordedDilemma,
+  resolveHistoryRecords,
+} from "./resolveHistoryRecords";
 
 /** Resolve queued definitions in pending order, omitting unavailable content. */
-export function projectPendingDilemmas(
+export const projectPendingDilemmas = (
   scenario: ScenarioDefinition,
   state: Pick<SimulationState, "pendingDilemmaIds">,
-): readonly DilemmaDefinition[] {
+): readonly DilemmaDefinition[] => {
   const definitions = new Map(
     (scenario.dilemmas ?? []).map((dilemma) => [dilemma.id, dilemma]),
   );
@@ -25,7 +29,7 @@ export function projectPendingDilemmas(
     const definition = definitions.get(id);
     return definition ? [definition] : [];
   });
-}
+};
 
 export interface DilemmaConsequenceView extends NodeDisplayName {
   readonly consequence: ConsequenceDefinition;
@@ -34,10 +38,10 @@ export interface DilemmaConsequenceView extends NodeDisplayName {
   readonly valueLabel: string;
 }
 
-function consequenceLabels(
+const labelConsequence = (
   consequence: ConsequenceDefinition,
   domain?: NumericDomain,
-): Pick<DilemmaConsequenceView, "kindLabel" | "valueLabel"> {
+): Pick<DilemmaConsequenceView, "kindLabel" | "valueLabel"> => {
   switch (consequence.kind) {
     case "resource":
       return {
@@ -59,13 +63,13 @@ function consequenceLabels(
       throw new Error(`Unsupported consequence: ${unreachable}`);
     }
   }
-}
+};
 
 /** Order each group's consequences by its Scenario metric catalog, keeping other slots intact. */
-export function projectDilemmaConsequences(
+export const projectDilemmaConsequences = (
   scenario: ScenarioDefinition,
   consequences: readonly ConsequenceDefinition[],
-): readonly DilemmaConsequenceView[] {
+): readonly DilemmaConsequenceView[] => {
   const definitions = getFactionGroupIndex(scenario).definitions;
   const metricPositions = new Map(
     (scenario.factionMetrics ?? []).map((metric, index) => [metric.id, index]),
@@ -78,7 +82,7 @@ export function projectDilemmaConsequences(
         ...getNodeDisplayName(scenario, consequence.target),
         consequence,
         domain: target?.domain,
-        ...consequenceLabels(consequence, target?.domain),
+        ...labelConsequence(consequence, target?.domain),
       },
       groupId: context?.group.id,
       metricOrder: context
@@ -102,7 +106,7 @@ export function projectDilemmaConsequences(
     offsets.set(row.groupId, offset + 1);
     return groups.get(row.groupId)![offset].view;
   });
-}
+};
 
 export interface DilemmaDecisionView {
   readonly id: string;
@@ -114,30 +118,57 @@ export interface DilemmaDecisionView {
 }
 
 /** Read resolved choices from the canonical, saved event decision history. */
-export function projectDilemmaDecisions(
+export const projectDilemmaDecisions = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-): readonly DilemmaDecisionView[] {
-  return state.history
-    .filter((entry) => entry.kind === "dilemma")
-    .map((entry) => {
-      const definition = (scenario.dilemmas ?? []).find((dilemma) =>
-        entry.id.startsWith(`${dilemma.id}:choice:`),
-      );
-      const choice = definition?.choices.find(
-        ({ label, description }) => entry.detail === `${label}: ${description}`,
-      );
-      return {
-        id: entry.id,
-        turn: entry.turn,
-        year:
-          scenario.start.year === undefined
-            ? undefined
-            : scenario.start.year + entry.turn - scenario.start.turn,
-        title: entry.title,
-        choiceLabel: choice?.label ?? entry.detail,
-        choiceDescription: choice?.description ?? "",
-      };
-    })
+): readonly DilemmaDecisionView[] =>
+  resolveHistoryRecords(scenario, state)
+    .filter(({ entry }) => entry.kind === "dilemma")
+    .map(({ entry, decision }) => ({
+      id: entry.id,
+      turn: entry.turn,
+      year:
+        scenario.start.year === undefined
+          ? undefined
+          : scenario.start.year + entry.turn - scenario.start.turn,
+      title: entry.title,
+      choiceLabel: decision?.choiceLabel ?? entry.detail,
+      choiceDescription: decision?.choiceDescription ?? "",
+    }))
     .reverse();
+
+export interface HistoricalDilemmaView {
+  readonly id: string;
+  readonly title: string;
+  readonly dateLabel: string;
+  readonly description?: string;
+  readonly choices: DilemmaDefinition["choices"];
+  readonly chosenChoiceId?: string;
+  readonly savedResponse: string;
 }
+
+/** Reopen one saved dilemma without inferring identity from the latest choice. */
+export const projectHistoricalDilemma = (
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+  entryId: string,
+): HistoricalDilemmaView | undefined => {
+  const record = resolveHistoryRecords(scenario, state).find(
+    ({ entry }) => entry.kind === "dilemma" && entry.id === entryId,
+  );
+  if (!record) return undefined;
+  const { entry, decision } = record;
+  const definition = findRecordedDilemma(scenario, entry);
+  return {
+    id: entry.id,
+    title: entry.title,
+    dateLabel:
+      scenario.start.year === undefined
+        ? `Turn ${entry.turn}`
+        : `Year ${scenario.start.year + entry.turn - scenario.start.turn}`,
+    description: definition?.description,
+    choices: definition?.choices ?? [],
+    chosenChoiceId: decision?.choiceId,
+    savedResponse: entry.detail,
+  };
+};

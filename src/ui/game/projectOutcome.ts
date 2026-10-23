@@ -10,11 +10,11 @@ import { formatValue } from "../formatValue";
 import type {
   CompletionSummaryView,
   ConditionAnalysisView,
-  CrisisSummaryView,
+  CrisisView,
   CrisisTimelineView,
   EndingSummaryView,
   OutcomeConditionDetailView,
-  OutcomeConditionRef,
+  OutcomeCondition,
 } from "./outcomeViews";
 import { projectPrerequisiteGroups } from "./projectPrerequisite";
 import {
@@ -74,7 +74,7 @@ const projectCrisisSummary = (
   definition: GameOverDefinition,
   state: SimulationState,
   recovered: boolean,
-): CrisisSummaryView | undefined => {
+): CrisisView | undefined => {
   const progress = state.gameOverProgress[definition.id];
   const terminal =
     state.outcome?.kind === "game-over" &&
@@ -107,7 +107,7 @@ export const projectCrisis = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   recoveredCrisisIds: readonly string[] = [],
-): readonly CrisisSummaryView[] =>
+): readonly CrisisView[] =>
   (scenario.gameOvers ?? [])
     .flatMap((definition) => {
       const view = projectCrisisSummary(
@@ -125,7 +125,7 @@ export const projectCrisis = (
 export const formatCrisisTurns = (turns: number): string =>
   `${turns} turn${turns === 1 ? "" : "s"}`;
 
-export const formatCrisisProgressLabel = (crisis: CrisisSummaryView): string =>
+export const formatCrisisProgressLabel = (crisis: CrisisView): string =>
   crisis.status === "recovered"
     ? `${crisis.title}: Recovered, conditions cleared`
     : crisis.status === "terminal"
@@ -134,7 +134,7 @@ export const formatCrisisProgressLabel = (crisis: CrisisSummaryView): string =>
 
 const projectCrisisTimeline = (
   definition: GameOverDefinition,
-  crisis: CrisisSummaryView,
+  crisis: CrisisView,
 ): CrisisTimelineView => {
   const stages = [...definition.stages].sort((a, b) => a.atTurn - b.atTurn);
   const stage = stages.findLast(
@@ -254,12 +254,12 @@ export const projectEndingConditions = (
 export const projectRequirementDetail = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-  ref: OutcomeConditionRef,
+  target: OutcomeCondition,
 ): OutcomeConditionDetailView | undefined => {
   const outcome = state.outcome?.kind === "ending" ? state.outcome : undefined;
-  if (ref.kind === "completion") {
+  if (target.kind === "completion") {
     const group = scenario.completion.prerequisiteGroups.find(
-      ({ id }) => id === ref.id,
+      ({ id }) => id === target.id,
     );
     if (!group) return undefined;
     const recorded = outcome?.matchedTriggerIds.includes(group.id) ?? false;
@@ -281,8 +281,8 @@ export const projectRequirementDetail = (
       ),
     };
   }
-  const ending = scenario.completion.endings.find(({ id }) => id === ref.id);
-  if (!ending || ref.kind !== "ending") return undefined;
+  const ending = scenario.completion.endings.find(({ id }) => id === target.id);
+  if (!ending || target.kind !== "ending") return undefined;
   const recorded =
     !!outcome && !outcome.usedFallback && outcome.endingId === ending.id;
   const ids = recorded
@@ -310,8 +310,9 @@ export const projectRequirementDetail = (
 export const projectOutcomeConditions = (
   scenario: ScenarioDefinition,
   state: SimulationState,
+  crises?: readonly CrisisView[],
 ) => ({
-  crises: projectCrisis(scenario, state),
+  crises: crises ?? projectCrisis(scenario, state),
   completion: projectCompletionConditions(scenario, state),
   endings: projectEndingConditions(scenario, state),
   fallback: {
@@ -324,9 +325,9 @@ export const projectOutcomeConditions = (
 export const projectOutcomeConditionDetail = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-  ref: OutcomeConditionRef,
+  target: OutcomeCondition,
   recoveredCrisisIds: readonly string[] = [],
 ): OutcomeConditionDetailView | undefined =>
-  ref.kind === "crisis"
-    ? projectCrisisDetail(scenario, state, ref.id, recoveredCrisisIds)
-    : projectRequirementDetail(scenario, state, ref);
+  target.kind === "crisis"
+    ? projectCrisisDetail(scenario, state, target.id, recoveredCrisisIds)
+    : projectRequirementDetail(scenario, state, target);

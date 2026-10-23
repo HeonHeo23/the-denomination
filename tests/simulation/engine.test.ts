@@ -1,3 +1,4 @@
+import { runChronicleProjectionTests } from "../ui/projectChronicle.test";
 import { runFactionTests } from "./factions.test";
 import { runProjectOutcomeTests } from "../ui/projectOutcome.test";
 import { runEndingTests } from "./endings.test";
@@ -47,6 +48,7 @@ function closeTo(actual: number, expected: number, message: string) {
 }
 
 runFactionTests();
+runChronicleProjectionTests();
 runEndingTests();
 runProjectOutcomeTests();
 runDilemmaTests();

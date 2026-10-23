@@ -22,7 +22,7 @@ import type {
 } from "../../app/persistence";
 import type {
   OutcomeConditionDetailView,
-  CrisisSummaryView,
+  CrisisView,
 } from "../game/outcomeViews";
 import {
   projectCrisis,
@@ -43,7 +43,7 @@ export type FinalReportView = {
   readonly turn: number;
   readonly year?: number;
   readonly actors: readonly HistoricalActorDefinition[];
-  readonly activeCrises: readonly CrisisSummaryView[];
+  readonly activeCrises: readonly CrisisView[];
   readonly changes: readonly ReportChange[];
 } & (
   | {
@@ -85,6 +85,7 @@ export const projectFinalChanges = (
 export const projectFinalReport = (
   scenario: ScenarioDefinition,
   state: SimulationState,
+  crises?: readonly CrisisView[],
 ): FinalReportView | undefined => {
   const outcome = state.outcome;
   if (!outcome) return undefined;
@@ -92,7 +93,7 @@ export const projectFinalReport = (
     turn: outcome.turn,
     year: state.year,
     actors: scenario.historicalActors,
-    activeCrises: projectCrisis(scenario, state),
+    activeCrises: crises ?? projectCrisis(scenario, state),
     changes: projectFinalChanges(scenario, state),
   };
   if (outcome.kind === "ending") {

@@ -1,6 +1,7 @@
 import eventPlaceholder from "@/assets/event-placeholder.svg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CalendarDays, Repeat2, ScrollText } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -46,18 +47,32 @@ export default function EventDetailDialog({
           <ScrollArea className="min-h-0 flex-1">
             <div className="flex flex-col gap-5 p-5 sm:p-6">
               <DialogHeader className="gap-2 pr-6">
-                <Badge variant="outline" className="w-fit">
-                  Event · {date} · {event.triggerCount}
-                </Badge>
-                <DialogTitle>{event.definition.title}</DialogTitle>
+                <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1">
+                  <Badge variant="outline">
+                    <ScrollText aria-hidden="true" data-icon="inline-start" />
+                    Event
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    aria-label={`Trigger count: ${event.triggerCount}`}
+                  >
+                    <Repeat2 aria-hidden="true" data-icon="inline-start" />
+                    {event.triggerCount}×
+                  </Badge>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <CalendarDays aria-hidden="true" data-icon="inline-start" />
+                    {date}
+                  </Badge>
+                </div>
+                <DialogTitle>{event.title}</DialogTitle>
                 <DialogDescription className="leading-relaxed">
-                  {event.definition.description}
+                  {event.description}
                 </DialogDescription>
               </DialogHeader>
 
               <section
                 className="flex flex-col gap-3"
-                aria-labelledby="event-consequences-title"
+                aria-label="Recorded changes"
               >
                 {event.changes.length === 0 ? (
                   <p className="text-sm text-muted-foreground">

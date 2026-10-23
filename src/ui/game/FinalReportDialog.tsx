@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import DossierDialogFrame from "@/ui/panels/DossierDialogFrame";
 import { ChangesSection } from "@/ui/panels/ChangesSection";
 import type { FinalReportView } from "@/ui/panels/projectReport";
-import type { OutcomeConditionRef } from "./outcomeViews";
+import type { OutcomeCondition } from "./outcomeViews";
 import { OutcomeConditionCard } from "./OutcomeConditionCard";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { NodeName } from "@/ui/FactionMetric";
@@ -22,7 +22,7 @@ interface FinalReportDialogProps {
   readonly report: FinalReportView;
   readonly denominationName: string;
   readonly onNodeSelect: (id: string) => void;
-  readonly onConditionSelect: (ref: OutcomeConditionRef) => void;
+  readonly onConditionSelect: (target: OutcomeCondition) => void;
   readonly onReview: () => void;
   readonly onRestart: () => void;
   readonly onMainMenu: () => void;

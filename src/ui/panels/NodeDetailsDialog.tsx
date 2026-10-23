@@ -1,3 +1,4 @@
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   findFactionContext,
   getFactionGroupIndex,
@@ -32,6 +33,7 @@ import type {
 import "./panels.css";
 
 interface NodeDetailsDialogProps {
+  readonly historyDateLabel?: string;
   readonly definition: NodeDefinition;
   readonly runtime: NodeRuntimeState;
   readonly scenario: ScenarioDefinition;
@@ -224,6 +226,7 @@ function NodeDetailsDialogContent({
   definition,
   runtime,
   displayName,
+  historyDateLabel,
   displayDescription,
   factionSummary,
   metricLabel,
@@ -275,6 +278,9 @@ function NodeDetailsDialogContent({
               )}
             >
               <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+                {historyDateLabel && (
+                  <Badge variant="outline">{historyDateLabel}</Badge>
+                )}
                 <Badge variant="secondary">
                   {definition.category ?? "Uncategorized"}
                 </Badge>
@@ -321,29 +327,22 @@ function NodeDetailsDialogContent({
       }
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col px-6",
-            definition.type === "stance"
-              ? "gap-2 pb-4"
-              : "overflow-y-auto pb-6",
-          )}
-        >
-          {details.length > 0 && (
-            <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {details.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium wrap-break-word">
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {definition.type === "stance" ? (
+        {definition.type === "stance" ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-2 px-6 pb-4">
+            {details.length > 0 && (
+              <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                {details.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium wrap-break-word">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             <NodeEffectCard
               title="Outgoing effects"
               direction="outgoing"
@@ -354,25 +353,49 @@ function NodeDetailsDialogContent({
               }}
               layout="compact"
             />
-          ) : (
-            <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:min-h-32 md:flex-1 md:grid-cols-2 md:items-stretch">
-              <NodeEffectCard
-                title="Incoming effects"
-                direction="incoming"
-                effects={visibleEffects.incoming}
-                onNodeSelect={onNodeSelect}
-                fitContent
-              />
-              <NodeEffectCard
-                title="Outgoing effects"
-                direction="outgoing"
-                effects={visibleEffects.outgoing}
-                onNodeSelect={onNodeSelect}
-                fitContent
-              />
+          </div>
+        ) : (
+          <ScrollArea className="min-h-0 min-w-0 flex-1 focus-within:ring-2 focus-within:ring-ring [&>[data-slot=scroll-area-viewport]>div]:block! [&>[data-slot=scroll-area-viewport]>div]:h-full">
+            {/* Override the library's table wrapper so nested scroll areas stay bounded. */}
+            <div
+              className="flex min-h-full flex-col px-6 pb-6 outline-none md:h-full"
+              role="region"
+              aria-label="Node details"
+              tabIndex={0}
+            >
+              {details.length > 0 && (
+                <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {details.map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                        {label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium wrap-break-word">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:min-h-32 md:flex-1 md:grid-cols-2 md:items-stretch">
+                <NodeEffectCard
+                  title="Incoming effects"
+                  direction="incoming"
+                  effects={visibleEffects.incoming}
+                  onNodeSelect={onNodeSelect}
+                  fitContent
+                />
+                <NodeEffectCard
+                  title="Outgoing effects"
+                  direction="outgoing"
+                  effects={visibleEffects.outgoing}
+                  onNodeSelect={onNodeSelect}
+                  fitContent
+                />
+              </div>
             </div>
-          )}
-        </div>
+          </ScrollArea>
+        )}
 
         {definition.type === "stance" && (
           <div className="shrink-0 bg-background px-6 py-2">

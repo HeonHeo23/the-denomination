@@ -74,6 +74,8 @@ export const resolveEvents = (
           id: eventId,
           turn: state.turn,
           kind: "event",
+          definitionId: definition.id,
+          triggerCount,
           title: definition.title,
           detail: definition.description,
         },

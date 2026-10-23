@@ -768,7 +768,7 @@ export function runEndingTests() {
   const bundledInitial = initializeScenario(exampleScenario);
   for (const { turn, values, expected } of [
     {
-      turn: 1,
+      turn: 20,
       values: {
         "mission-reach": 0.7,
         "financial-stability": 0.6,

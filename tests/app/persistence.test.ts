@@ -28,6 +28,7 @@ import {
   advanceTurn,
   executeCommand,
   initializeScenario,
+  type HistoryEntry,
 } from "../../src/simulation";
 import {
   projectTurnReport,
@@ -273,6 +274,130 @@ assert.ok(
   validateSavedGame(terminalSave, catalog),
   "A terminal Game Over save should be restorable",
 );
+// Source references are independent of ID formatting, text, and parent ordering.
+{
+  const event = exampleScenario.events[0];
+  const dilemma = exampleScenario.dilemmas[0];
+  const crisis = exampleScenario.gameOvers[0];
+  const base = {
+    turn: state.turn,
+    title: "Saved title",
+    detail: "Saved response",
+  };
+  const entries: HistoryEntry[] = [
+    {
+      ...base,
+      id: "child",
+      kind: "consequence",
+      sourceHistoryId: "parent",
+      consequenceIndex: 0,
+    },
+    {
+      ...base,
+      id: "parent",
+      kind: "event",
+      definitionId: event.id,
+      triggerCount: 1,
+    },
+    {
+      ...base,
+      id: "choice",
+      kind: "dilemma",
+      definitionId: dilemma.id,
+      choiceId: dilemma.choices[0].id,
+    },
+    {
+      ...base,
+      id: "stage",
+      kind: "crisis",
+      definitionId: crisis.id,
+      transition: "stage",
+      stageId: crisis.stages[0].id,
+    },
+    {
+      ...base,
+      id: "recovery",
+      kind: "crisis",
+      definitionId: crisis.id,
+      transition: "recovery",
+    },
+    {
+      ...base,
+      id: "terminal",
+      kind: "game-over",
+      definitionId: terminalDefinition.id,
+      episode: 1,
+    },
+  ];
+  const restore = (history: readonly unknown[]) =>
+    validateSavedGame(
+      JSON.parse(
+        JSON.stringify({
+          ...terminalSave,
+          state: { ...terminalSave.state, history },
+        }),
+      ),
+      catalog,
+    );
+  assert.deepEqual(restore(entries)?.state.history, entries);
+  for (const sourceHistoryId of ["choice", "stage", "recovery"]) {
+    assert.ok(
+      restore(
+        entries.map((entry) =>
+          entry.kind === "consequence" ? { ...entry, sourceHistoryId } : entry,
+        ),
+      ),
+    );
+  }
+  assert.ok(
+    restore(
+      entries.map((entry) =>
+        entry.kind === "consequence"
+          ? { ...entry, consequenceIndex: event.consequences.length - 1 }
+          : entry,
+      ),
+    ),
+  );
+
+  for (const [index, patch] of [
+    [0, { sourceHistoryId: "missing" }],
+    [0, { sourceHistoryId: "child" }],
+    [0, { sourceHistoryId: "terminal" }],
+    [0, { turn: exampleScenario.start.turn }],
+    [0, { consequenceIndex: -1 }],
+    [0, { consequenceIndex: 0.5 }],
+    [0, { consequenceIndex: event.consequences.length }],
+    [1, { definitionId: "missing" }],
+    [1, { triggerCount: 0 }],
+    [1, { definitionId: undefined }],
+    [2, { choiceId: "missing" }],
+    [3, { stageId: "missing" }],
+    [4, { transition: "unknown" }],
+    [5, { episode: 0 }],
+  ] as const) {
+    assert.equal(
+      restore(
+        entries.map((entry, i) =>
+          i === index ? { ...entry, ...patch } : entry,
+        ),
+      ),
+      undefined,
+    );
+  }
+  assert.equal(
+    restore(
+      entries.map(({ id, turn, kind, title, detail }) => ({
+        id,
+        turn,
+        kind,
+        title,
+        detail,
+      })),
+    ),
+    undefined,
+    "Old entry shapes fail validation without changing the save version",
+  );
+}
 const storage = new MemoryStorage();
 assert.equal(
   storeSavedGameEntry(storage, catalog, { id: "round-trip", save }),

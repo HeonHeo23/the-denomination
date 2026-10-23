@@ -1,12 +1,11 @@
-import type { ReactNode } from "react";
-import { Clock3, History, ScrollText, ShieldCheck } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import { History, ShieldCheck } from "lucide-react";
 import type {
   NodeDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyDescription,
@@ -14,14 +13,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -33,22 +24,25 @@ import {
 } from "@/components/ui/sheet";
 import { InstitutionOverview } from "./InstitutionOverview";
 import { OutcomeConditionCard } from "./OutcomeConditionCard";
-import type { OutcomeConditionRef } from "./outcomeViews";
+import type { CrisisView, OutcomeCondition } from "./outcomeViews";
 import { projectOutcomeConditions } from "./projectOutcome";
-import { DossierItemButton } from "@/ui/panels/DossierItemButton";
-import { projectDilemmaDecisions } from "./projectDilemma";
+import { ChronicleContent } from "./ChronicleContent";
+import { projectChronicle, type ChronicleTarget } from "./projectChronicle";
 
-export type DashboardPanel =
-  "overview" | "outcomes" | "chronicle" | "decisions";
+export type DashboardPanel = "overview" | "outcomes" | "chronicle";
 
 interface DashboardSheetsProps {
   readonly activePanel?: DashboardPanel;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
+  readonly crises: readonly CrisisView[];
   readonly resources: readonly NodeDefinition[];
   readonly onClose: () => void;
-  readonly onConditionSelect: (ref: OutcomeConditionRef) => void;
-  readonly onEventSelect: (historyEntryId: string) => void;
+  readonly onConditionSelect: (target: OutcomeCondition) => void;
+  readonly onChronicleSelect: (
+    target: ChronicleTarget,
+    dateLabel: string,
+  ) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
@@ -107,15 +101,20 @@ function DashboardSheet({
 interface OutcomesContentProps {
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
-  readonly onConditionSelect: (ref: OutcomeConditionRef) => void;
+  readonly crises: readonly CrisisView[];
+  readonly onConditionSelect: (target: OutcomeCondition) => void;
 }
 
 function OutcomesContent({
   scenario,
   state,
+  crises,
   onConditionSelect,
 }: OutcomesContentProps) {
-  const conditions = projectOutcomeConditions(scenario, state);
+  const conditions = useMemo(
+    () => projectOutcomeConditions(scenario, state, crises),
+    [scenario, state, crises],
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -193,14 +192,15 @@ export function DashboardSheets({
   activePanel,
   scenario,
   state,
+  crises,
   resources,
   onClose,
   onConditionSelect,
-  onEventSelect,
+  onChronicleSelect,
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
-  const decisions = projectDilemmaDecisions(scenario, state);
+  const chronicle = projectChronicle(scenario, state);
 
   return (
     <>
@@ -217,6 +217,7 @@ export function DashboardSheets({
           scenario={scenario}
           state={state}
           resources={resources}
+          crises={crises}
           compact
           hideScenario
           onCrisisSelect={(id) => onConditionSelect({ kind: "crisis", id })}
@@ -231,17 +232,20 @@ export function DashboardSheets({
         description="Active crises, Scenario completion conditions, and possible Endings."
         onClose={onClose}
       >
-        <OutcomesContent
-          scenario={scenario}
-          state={state}
-          onConditionSelect={onConditionSelect}
-        />
+        {activePanel === "outcomes" && (
+          <OutcomesContent
+            scenario={scenario}
+            state={state}
+            crises={crises}
+            onConditionSelect={onConditionSelect}
+          />
+        )}
       </DashboardSheet>
 
       <DashboardSheet
         open={activePanel === "chronicle"}
         title="Chronicle"
-        description="Institutional history and temporary effects still in force."
+        description="Institutional history and the choices that shaped it."
         eyebrow="Institutional ledger"
         onClose={onClose}
       >
@@ -253,92 +257,12 @@ export function DashboardSheets({
               </EmptyMedia>
               <EmptyTitle>No recorded changes</EmptyTitle>
               <EmptyDescription>
-                The chronicle begins when the first turn is completed.
+                Recorded changes will appear here.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup>
-            {[...state.history].reverse().map((entry) =>
-              entry.kind === "event" ? (
-                <DossierItemButton
-                  key={entry.id}
-                  variant="muted"
-                  leading={<Clock3 aria-hidden="true" />}
-                  title={entry.title}
-                  description={entry.detail}
-                  trailing={<Badge variant="outline">Turn {entry.turn}</Badge>}
-                  aria-label={`Open ${entry.title} Event details from turn ${entry.turn}`}
-                  onSelect={() => onEventSelect(entry.id)}
-                />
-              ) : (
-                <Item
-                  role="listitem"
-                  variant="muted"
-                  key={entry.id}
-                  data-game-chronicle-entry
-                >
-                  <Clock3 aria-hidden="true" />
-                  <ItemContent>
-                    <ItemTitle>{entry.title}</ItemTitle>
-                    <ItemDescription>{entry.detail}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <Badge variant="outline">Turn {entry.turn}</Badge>
-                  </ItemActions>
-                </Item>
-              ),
-            )}
-          </ItemGroup>
-        )}
-      </DashboardSheet>
-
-      <DashboardSheet
-        open={activePanel === "decisions"}
-        title="Decisions"
-        description="The choices made when the institution faced a dilemma."
-        eyebrow={`${decisions.length} ${decisions.length === 1 ? "decision" : "decisions"}`}
-        onClose={onClose}
-      >
-        {decisions.length === 0 ? (
-          <Empty className="min-h-64 border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <ScrollText />
-              </EmptyMedia>
-              <EmptyTitle>No decisions recorded</EmptyTitle>
-              <EmptyDescription>
-                Resolved dilemmas will appear here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <ItemGroup>
-            {decisions.map((decision) => (
-              <Item role="listitem" variant="muted" key={decision.id}>
-                <ScrollText aria-hidden="true" />
-                <ItemContent>
-                  <ItemTitle className="line-clamp-none">
-                    {decision.title}
-                  </ItemTitle>
-                  <ItemDescription className="line-clamp-none">
-                    <strong>{decision.choiceLabel}</strong>
-                    {decision.choiceDescription && (
-                      <span className="block">
-                        {decision.choiceDescription}
-                      </span>
-                    )}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant="outline">
-                    {decision.year === undefined ? "Turn" : "Year"}{" "}
-                    {decision.year ?? decision.turn}
-                  </Badge>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
+          <ChronicleContent groups={chronicle} onSelect={onChronicleSelect} />
         )}
       </DashboardSheet>
     </>

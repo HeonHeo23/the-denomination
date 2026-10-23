@@ -141,6 +141,8 @@ export function resolveDilemma(
           id: historyEntryId,
           turn: state.turn,
           kind: "dilemma",
+          definitionId: dilemmaId,
+          choiceId,
           title: definition.title,
           detail: `${choice.label}: ${choice.description}`,
         },

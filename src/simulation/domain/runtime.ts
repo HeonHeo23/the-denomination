@@ -25,22 +25,49 @@ export interface GrudgeRuntimeState {
   readonly createdTurn: number;
 }
 
-/** Player-visible record of a meaningful simulation occurrence. */
-export interface HistoryEntry {
+interface HistoryEntryBase {
   readonly id: string;
   readonly turn: number;
-  readonly kind:
-    | "stance"
-    | "situation"
-    | "crisis"
-    | "consequence"
-    | "game-over"
-    | "ending"
-    | "dilemma"
-    | "event";
   readonly title: string;
   readonly detail: string;
 }
+
+/** A recorded history entry with explicit references to its source definitions. */
+export type HistoryEntry = HistoryEntryBase &
+  (
+    | ({ readonly definitionId: string } & (
+        | {
+            readonly kind: "stance";
+            readonly action: "change" | "enact" | "repeal";
+          }
+        | {
+            readonly kind: "situation";
+            readonly transition: "start" | "stop";
+          }
+        | {
+            readonly kind: "event";
+            readonly triggerCount: number;
+          }
+        | {
+            readonly kind: "dilemma";
+            readonly choiceId: string;
+          }
+        | ({ readonly kind: "crisis" } & (
+            | { readonly transition: "stage"; readonly stageId: string }
+            | { readonly transition: "recovery" }
+          ))
+        | {
+            readonly kind: "game-over";
+            readonly episode: number;
+          }
+        | { readonly kind: "ending" }
+      ))
+    | {
+        readonly kind: "consequence";
+        readonly sourceHistoryId: string;
+        readonly consequenceIndex: number;
+      }
+  );
 
 /** A node's recorded value and activation state at one turn. */
 export interface NodeHistoryState {

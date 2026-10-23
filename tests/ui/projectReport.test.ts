@@ -63,6 +63,12 @@ function assertFinalReportProjections(
   };
   const report = projectFinalReport(scenario, recorded);
   assert.ok(report?.kind === "ending");
+  const suppliedCrises: readonly [] = [];
+  assert.equal(
+    projectFinalReport(scenario, recorded, suppliedCrises)?.activeCrises,
+    suppliedCrises,
+    "Final reports reuse supplied crisis summaries, including an empty array",
+  );
   assert.equal(report.title, ending.title);
   assert.equal(report.description, ending.description);
   assert.deepEqual(

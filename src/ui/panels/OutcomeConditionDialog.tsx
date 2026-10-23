@@ -1,3 +1,4 @@
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { NodeName } from "@/ui/FactionMetric";
 import {
   ArrowRight,
@@ -26,6 +27,7 @@ import DossierDialogFrame from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 
 interface OutcomeConditionDialogProps {
+  readonly historyDateLabel?: string;
   readonly condition: OutcomeConditionDetailView;
   readonly onNodeSelect: (nodeId: string) => void;
   readonly onClose: () => void;
@@ -48,6 +50,7 @@ const contributionRowView = (contribution: Contribution): NodeEffectView => {
 
 export default function OutcomeConditionDialog({
   condition,
+  historyDateLabel,
   onNodeSelect,
   onClose,
 }: OutcomeConditionDialogProps) {
@@ -69,6 +72,11 @@ export default function OutcomeConditionDialog({
       }}
       header={
         <>
+          {historyDateLabel && (
+            <Badge variant="outline" className="w-fit">
+              Current details · opened from {historyDateLabel}
+            </Badge>
+          )}
           <div className="grid min-w-0 gap-3">
             <div className="min-w-0">
               <DialogTitle>{condition.title}</DialogTitle>
@@ -82,13 +90,13 @@ export default function OutcomeConditionDialog({
     >
       {/* If more tooltips are added, the provider may move to a component higher in the hierarchy. */}
       <TooltipProvider>
-        <div
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto"
-          tabIndex={0}
-          role="region"
-          aria-label="Outcome condition details"
-        >
-          <div className="flex flex-col gap-5 px-6 pb-6">
+        <ScrollArea className="min-h-0 min-w-0 flex-1 focus-within:ring-2 focus-within:ring-ring">
+          <div
+            className="flex flex-col gap-5 px-6 pb-6 outline-none"
+            tabIndex={0}
+            role="region"
+            aria-label="Outcome condition details"
+          >
             {condition.kind === "crisis" && detail && (
               <section
                 className="node-record__reading node-record__reading--crisis"
@@ -322,7 +330,7 @@ export default function OutcomeConditionDialog({
               </section>
             )}
           </div>
-        </div>
+        </ScrollArea>
       </TooltipProvider>
     </DossierDialogFrame>
   );

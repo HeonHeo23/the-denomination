@@ -35,6 +35,8 @@ export function applyConsequences(
         id: newId,
         turn: state.turn,
         kind: "consequence",
+        sourceHistoryId: historyEntryId,
+        consequenceIndex: index,
         title: `${definition.name} changed`,
         detail: `Resource balance changed by ${consequence.amount}.`,
       });
@@ -51,6 +53,8 @@ export function applyConsequences(
         id: newId,
         turn: state.turn,
         kind: "consequence",
+        sourceHistoryId: historyEntryId,
+        consequenceIndex: index,
         title: `${definition.name} activation set`,
         detail: `${definition.name} is now ${consequence.active ? "active" : "inactive"}.`,
       });
@@ -69,6 +73,8 @@ export function applyConsequences(
       id: newId,
       turn: state.turn,
       kind: "consequence",
+      sourceHistoryId: historyEntryId,
+      consequenceIndex: index,
       title: `Grudge created: ${consequence.label}`,
       detail: `A temporary contribution of ${consequence.magnitude} was applied to ${definition.name} (decay ${consequence.decay}).`,
     });

@@ -70,6 +70,7 @@ export const resolveEnding = (
         id: `${definition.id}:ending:${state.turn}`,
         turn: state.turn,
         kind: "ending",
+        definitionId: definition.id,
         title: definition.title,
         detail: definition.description,
       },

@@ -1,4 +1,9 @@
-import type { ScenarioDefinition, SimulationState } from "../simulation";
+import type {
+  ConsequenceDefinition,
+  HistoryEntry,
+  ScenarioDefinition,
+  SimulationState,
+} from "../simulation";
 import type { LoadedScenarioCatalogEntry } from "./scenarioCatalog";
 
 export const SAVE_STORAGE_KEY = "the-denomination.save.v4";
@@ -153,6 +158,137 @@ function isValidEffectState(
     value.sourceHistory.every(finite) &&
     finite(value.lastContribution)
   );
+}
+
+/** Validate source references without interpreting generated IDs or saved prose. */
+function isValidHistoryEntry(
+  value: unknown,
+  scenario: ScenarioDefinition,
+  turn: number,
+): value is HistoryEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as ObjectValue;
+  if (
+    !nonempty(entry.id) ||
+    !integer(entry.turn, scenario.start.turn, turn) ||
+    !nonempty(entry.title) ||
+    typeof entry.detail !== "string"
+  )
+    return false;
+  const hasFields = (...fields: string[]) =>
+    exactObject(entry, ["id", "turn", "kind", "title", "detail", ...fields]);
+  switch (entry.kind) {
+    case "stance":
+      return (
+        hasFields("definitionId", "action") &&
+        scenario.nodes.some(
+          (node) => node.type === "stance" && node.id === entry.definitionId,
+        ) &&
+        (entry.action === "change" ||
+          entry.action === "enact" ||
+          entry.action === "repeal")
+      );
+    case "situation":
+      return (
+        hasFields("definitionId", "transition") &&
+        scenario.nodes.some(
+          (node) => node.type === "situation" && node.id === entry.definitionId,
+        ) &&
+        (entry.transition === "start" || entry.transition === "stop")
+      );
+    case "event":
+      return (
+        hasFields("definitionId", "triggerCount") &&
+        !!scenario.events?.some(({ id }) => id === entry.definitionId) &&
+        integer(entry.triggerCount, 1)
+      );
+    case "dilemma":
+      return (
+        hasFields("definitionId", "choiceId") &&
+        !!scenario.dilemmas
+          ?.find(({ id }) => id === entry.definitionId)
+          ?.choices.some(({ id }) => id === entry.choiceId)
+      );
+    case "crisis": {
+      const definition = scenario.gameOvers?.find(
+        ({ id }) => id === entry.definitionId,
+      );
+      return entry.transition === "recovery"
+        ? hasFields("definitionId", "transition") && !!definition?.recovery
+        : entry.transition === "stage" &&
+            hasFields("definitionId", "transition", "stageId") &&
+            !!definition?.stages.some(({ id }) => id === entry.stageId);
+    }
+    case "game-over":
+      return (
+        hasFields("definitionId", "episode") &&
+        !!scenario.gameOvers?.some(({ id }) => id === entry.definitionId) &&
+        integer(entry.episode, 1)
+      );
+    case "ending":
+      return (
+        hasFields("definitionId") &&
+        [
+          ...scenario.completion.endings,
+          scenario.completion.fallbackEnding,
+        ].some(({ id }) => id === entry.definitionId)
+      );
+    case "consequence":
+      return (
+        hasFields("sourceHistoryId", "consequenceIndex") &&
+        nonempty(entry.sourceHistoryId) &&
+        integer(entry.consequenceIndex)
+      );
+    default:
+      return false;
+  }
+}
+
+function isValidHistory(
+  entries: readonly unknown[],
+  scenario: ScenarioDefinition,
+  turn: number,
+): entries is readonly HistoryEntry[] {
+  const history = new Map<string, HistoryEntry>();
+  for (const entry of entries) {
+    if (!isValidHistoryEntry(entry, scenario, turn) || history.has(entry.id))
+      return false;
+    history.set(entry.id, entry);
+  }
+  // Consequences can precede their parents in the recorded order.
+  for (const entry of history.values()) {
+    if (entry.kind !== "consequence") continue;
+    const parent = history.get(entry.sourceHistoryId);
+    if (!parent || parent.turn !== entry.turn) return false;
+    let consequences: readonly ConsequenceDefinition[] | undefined;
+    switch (parent.kind) {
+      case "event":
+        consequences = scenario.events?.find(
+          ({ id }) => id === parent.definitionId,
+        )?.consequences;
+        break;
+      case "dilemma":
+        consequences = scenario.dilemmas
+          ?.find(({ id }) => id === parent.definitionId)
+          ?.choices.find(({ id }) => id === parent.choiceId)?.consequences;
+        break;
+      case "crisis": {
+        const definition = scenario.gameOvers?.find(
+          ({ id }) => id === parent.definitionId,
+        );
+        consequences =
+          parent.transition === "recovery"
+            ? definition?.recovery?.consequences
+            : definition?.stages.find(({ id }) => id === parent.stageId)
+                ?.consequences;
+        break;
+      }
+      default:
+        return false;
+    }
+    if (!consequences?.[entry.consequenceIndex]) return false;
+  }
+  return true;
 }
 
 function isValidRuntimeState(
@@ -488,29 +624,7 @@ function isValidRuntimeState(
     grudgeIds.add(grudge.id);
   }
 
-  const historyIds = new Set<string>();
-  for (const entry of value.history) {
-    if (
-      !exactObject(entry, ["id", "turn", "kind", "title", "detail"]) ||
-      !nonempty(entry.id) ||
-      historyIds.has(entry.id) ||
-      !integer(entry.turn, scenario.start.turn, value.turn) ||
-      ![
-        "stance",
-        "situation",
-        "crisis",
-        "consequence",
-        "game-over",
-        "ending",
-        "dilemma",
-        "event",
-      ].includes(String(entry.kind)) ||
-      !nonempty(entry.title) ||
-      typeof entry.detail !== "string"
-    )
-      return false;
-    historyIds.add(entry.id);
-  }
+  if (!isValidHistory(value.history, scenario, value.turn)) return false;
   const endingEntries = value.history.filter(
     (entry) => (entry as ObjectValue).kind === "ending",
   ) as ObjectValue[];
@@ -518,7 +632,7 @@ function isValidRuntimeState(
   if (outcome?.kind === "ending") {
     if (
       endingEntries.length !== 1 ||
-      endingEntries[0].id !== `${outcome.endingId}:ending:${value.turn}` ||
+      endingEntries[0].definitionId !== outcome.endingId ||
       endingEntries[0].turn !== value.turn
     )
       return false;

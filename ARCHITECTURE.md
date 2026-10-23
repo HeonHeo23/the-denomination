@@ -247,7 +247,7 @@ It describes current code rather than adding game semantics; `GAME_DESIGN.md` re
 | `resolveEnding`                                                       | Engine-internal | Check completion and record the highest-priority eligible Ending or fallback, unless terminal or awaiting a Dilemma.                                                                                      |
 | `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal` | Public          | Check Stance actions against one Scenario and runtime snapshot.                                                                                                                                           |
 | `executeCommand`                                                      | Public          | Reassess and commit an accepted Stance or Dilemma command as an immutable state update.                                                                                                                   |
-| `applyConsequences`                                                   | Engine-internal | Apply Resource, Grudge, or activation consequences for one occurrence.                                                                                                                                    |
+| `applyConsequences`                                                   | Engine-internal | Apply Resource, Grudge, or activation consequences for one incident.                                                                                                                                      |
 
 `src/simulation/index.ts` re-exports the public engine operations and domain contracts, including loading, Stance assessment, and Effect preview helpers.
 

@@ -325,6 +325,8 @@ export function executeCommand(
           id: `${stance.id}:${action}:${state.turn}:${state.history.length}`,
           turn: state.turn,
           kind: "stance",
+          definitionId: stance.id,
+          action,
           title:
             command.type === "set-stance"
               ? `${stance.name} changed`

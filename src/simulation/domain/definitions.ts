@@ -214,7 +214,7 @@ export interface PrerequisiteGroupDefinition {
   readonly allOf: readonly PrerequisiteDefinition[];
 }
 
-/** Reusable immediate state changes created by authored occurrences. */
+/** Reusable immediate state changes created by authored incidents. */
 export type ConsequenceDefinition =
   | {
       readonly kind: "resource";

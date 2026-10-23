@@ -8,7 +8,6 @@ import {
   Menu,
   PanelLeftOpen,
   RotateCcw,
-  ScrollText,
   Save,
   ShieldAlert,
   Settings2,
@@ -61,7 +60,6 @@ interface GameHeaderProps {
   readonly onOpenOverview: () => void;
   readonly onOpenOutcomes: () => void;
   readonly onOpenChronicle: () => void;
-  readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
   readonly onOpenTurnReport: () => void;
   readonly onOpenFinalReport: () => void;
@@ -80,7 +78,6 @@ type GameHeaderActions = Pick<
   | "onMainMenu"
   | "onOpenOutcomes"
   | "onOpenChronicle"
-  | "onOpenDecisions"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >;
@@ -180,7 +177,6 @@ function PanelActions({
   resolvingTurn,
   onOpenOutcomes,
   onOpenChronicle,
-  onOpenDecisions,
   onAddStance,
   turnReportAvailable,
   onOpenTurnReport,
@@ -192,7 +188,6 @@ function PanelActions({
   | "resolvingTurn"
   | "onOpenOutcomes"
   | "onOpenChronicle"
-  | "onOpenDecisions"
   | "onAddStance"
   | "turnReportAvailable"
   | "onOpenTurnReport"
@@ -232,21 +227,10 @@ function PanelActions({
         className="h-full rounded-none"
         data-game-header-button
         onClick={onOpenChronicle}
+        aria-label="Open Chronicle"
       >
         <BookOpenText data-icon="inline-start" />
         <span className="hidden lg:inline">Chronicle</span>
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="h-full rounded-none"
-        data-game-header-button
-        onClick={onOpenDecisions}
-        aria-label="Open decisions history"
-      >
-        <ScrollText data-icon="inline-start" />
-        <span className="hidden lg:inline">Decisions</span>
       </Button>
       <Button
         type="button"
@@ -324,7 +308,6 @@ function GameActionsMenu({
   onMainMenu,
   onOpenOutcomes,
   onOpenChronicle,
-  onOpenDecisions,
   onAddStance,
   terminal,
   resolvingTurn,
@@ -367,9 +350,6 @@ function GameActionsMenu({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenDecisions}>
-                <ScrollText /> Decisions
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={onAddStance}
@@ -449,7 +429,6 @@ export function GameHeader(props: GameHeaderProps) {
     onOpenOverview,
     onOpenOutcomes,
     onOpenChronicle,
-    onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
     onOpenFinalReport,
@@ -464,7 +443,6 @@ export function GameHeader(props: GameHeaderProps) {
     onMainMenu,
     onOpenOutcomes,
     onOpenChronicle,
-    onOpenDecisions,
     onAddStance,
     terminal,
     resolvingTurn,
@@ -510,7 +488,6 @@ export function GameHeader(props: GameHeaderProps) {
           resolvingTurn={resolvingTurn}
           onOpenOutcomes={onOpenOutcomes}
           onOpenChronicle={onOpenChronicle}
-          onOpenDecisions={onOpenDecisions}
           onAddStance={onAddStance}
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}

@@ -117,6 +117,18 @@ function assertSummaryAndDetailProjections(
   const { base, healthy, impossible, crisis, scenario, state, recorded } =
     fixture;
   const summaries = projectOutcomeConditions(scenario, state);
+  const suppliedCrises = summaries.crises;
+  assert.equal(
+    projectOutcomeConditions(scenario, state, suppliedCrises).crises,
+    suppliedCrises,
+    "Supplied crisis summaries are reused without copying",
+  );
+  const emptyCrises: readonly [] = [];
+  assert.equal(
+    projectOutcomeConditions(scenario, state, emptyCrises).crises,
+    emptyCrises,
+    "A supplied empty crisis summary array is not recomputed",
+  );
   assert.deepEqual(
     summaries.endings.map(({ id }) => id),
     ["unmet", "a", "z", "revival"],

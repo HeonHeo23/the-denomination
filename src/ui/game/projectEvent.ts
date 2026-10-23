@@ -1,4 +1,5 @@
 import { getNodeDisplayName } from "../projections/projectFactionGroups";
+import { resolveHistoryRecords } from "./resolveHistoryRecords";
 import type { ChangeView } from "../changeView";
 import type {
   EventDefinition,
@@ -13,104 +14,94 @@ export interface EventView {
   readonly year?: number;
   readonly triggerCount: number;
   readonly changes: readonly ChangeView[];
-}
-
-function parseEventId(
-  scenario: ScenarioDefinition,
-  eventId: string,
-): { definition: EventDefinition; number: number } | undefined {
-  for (const definition of scenario.events ?? []) {
-    const prefix = `${definition.id}:event:`;
-    if (!eventId.startsWith(prefix)) continue;
-    const number = Number(eventId.slice(prefix.length));
-    if (
-      Number.isSafeInteger(number) &&
-      number > 0 &&
-      eventId === `${prefix}${number}`
-    )
-      return { definition, number };
-  }
-  return undefined;
+  readonly title: string;
+  readonly description: string;
 }
 
 /** Derive one player-facing Event record from canonical event history. */
-export function projectEvent(
+export const projectEvent = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   eventId: string,
-): EventView | undefined {
+): EventView | undefined => {
   const event = state.history.find(
     (entry) => entry.kind === "event" && entry.id === eventId,
   );
-  const match = parseEventId(scenario, eventId);
-  if (!event || !match) return undefined;
+  if (!event || event.kind !== "event") return undefined;
+  const definition = scenario.events?.find(
+    ({ id }) => id === event.definitionId,
+  );
+  if (!definition) return undefined;
 
   const nodes = new Map(scenario.nodes.map((node) => [node.id, node]));
-  const changes = match.definition.consequences.flatMap<ChangeView>(
-    (consequence, index) => {
-      const entry = state.history.find(
-        (item) =>
-          item.kind === "consequence" &&
-          item.id === `${eventId}:consequence:${index}` &&
-          item.turn === event.turn,
-      );
-      if (!entry) return [];
-      const node = nodes.get(consequence.target);
-      const display = getNodeDisplayName(scenario, consequence.target);
-      // Use the saved Resource change for historical detail displays.
-      const resourceChange =
-        consequence.kind === "resource"
-          ? /^Resource balance changed by (-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\.$/.exec(
-              entry.detail,
-            )
-          : null;
+  const changes = resolveHistoryRecords(scenario, state)
+    .filter(
+      (record) =>
+        record.sourceHistoryId === eventId && record.entry.turn === event.turn,
+    )
+    .flatMap((record): ChangeView[] => {
+      const applied = record.applied;
+      if (!applied) return [];
+      const node = state.nodes[applied.target]
+        ? nodes.get(applied.target)
+        : undefined;
+      const display = node
+        ? getNodeDisplayName(scenario, applied.target)
+        : undefined;
       return [
         {
-          id: entry.id,
-          category: consequence.kind,
+          id: record.entry.id,
+          category: applied.kind,
           nodeId: node?.id,
-          name: node ? display.name : entry.title,
+          name: node
+            ? (record.targetName ?? display?.name ?? node.name)
+            : applied.target,
           domain: node?.domain,
-          metric: display.metric,
+          metric: display?.metric,
           amount:
-            consequence.kind === "grudge"
-              ? consequence.magnitude
-              : resourceChange
-                ? Number(resourceChange[1])
+            applied.kind === "resource"
+              ? applied.amount
+              : applied.kind === "grudge"
+                ? applied.magnitude
                 : undefined,
-          isActive:
-            consequence.kind === "activation" ? consequence.active : undefined,
+          isActive: applied.kind === "activation" ? applied.active : undefined,
         },
       ];
-    },
-  );
+    });
 
   return {
     id: eventId,
-    definition: match.definition,
+    definition,
     turn: event.turn,
     year:
       scenario.start.year === undefined
         ? undefined
         : scenario.start.year + event.turn - scenario.start.turn,
-    triggerCount: match.number,
+    triggerCount: event.triggerCount,
     changes,
+    title: event.title,
+    description: event.detail,
   };
-}
+};
 
 /** The fired Events for one turn, in the engine's Event ID order. */
-export function getTurnEventIds(
+export const getTurnEventIds = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   turn: number,
-): readonly string[] {
-  const ids = state.history
-    .filter((entry) => entry.kind === "event" && entry.turn === turn)
-    .filter((entry) => parseEventId(scenario, entry.id) !== undefined)
-    .map((entry) => entry.id);
-  return ids.sort((left, right) => {
-    const leftId = parseEventId(scenario, left)!.definition.id;
-    const rightId = parseEventId(scenario, right)!.definition.id;
-    return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
-  });
-}
+): readonly string[] => {
+  const definitions = new Set(scenario.events?.map(({ id }) => id));
+  return state.history
+    .filter((entry) => entry.kind === "event")
+    .filter(
+      (entry) => entry.turn === turn && definitions.has(entry.definitionId),
+    )
+    .sort((left, right) =>
+      left.definitionId < right.definitionId
+        ? -1
+        : left.definitionId > right.definitionId
+          ? 1
+          : 0,
+    )
+    .map(({ id }) => id);
+};

@@ -26,9 +26,8 @@ import type {
 } from "@/simulation";
 import { formatSignedValue, formatValue, meterPercent } from "@/ui/formatValue";
 import { institutionEra, type InstitutionEra } from "@/ui/institutionEra";
-import { projectCrisis } from "./projectOutcome";
 import { OutcomeConditionCard } from "./OutcomeConditionCard";
-import type { CrisisSummaryView } from "./outcomeViews";
+import type { CrisisView } from "./outcomeViews";
 
 const eraImages: Record<InstitutionEra, string> = {
   humble: humbleImage,
@@ -46,6 +45,7 @@ interface InstitutionOverviewProps {
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
   readonly resources: readonly NodeDefinition[];
+  readonly crises: readonly CrisisView[];
   readonly compact?: boolean;
   readonly hideScenario?: boolean;
   readonly className?: string;
@@ -55,7 +55,7 @@ interface InstitutionOverviewProps {
 }
 
 interface ActiveCrisisItemsProps {
-  readonly crises: readonly CrisisSummaryView[];
+  readonly crises: readonly CrisisView[];
   readonly onCrisisSelect: (crisisId: string) => void;
 }
 
@@ -77,6 +77,7 @@ export function InstitutionOverview({
   scenario,
   state,
   resources,
+  crises,
   compact = false,
   hideScenario = false,
   className,
@@ -85,8 +86,6 @@ export function InstitutionOverview({
   onResourceSelect,
 }: InstitutionOverviewProps) {
   const era = institutionEra(state.turn);
-  const activeCrises = projectCrisis(scenario, state);
-
   return (
     <aside
       className={cn(
@@ -196,7 +195,7 @@ export function InstitutionOverview({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {activeCrises.length === 0 ? (
+          {crises.length === 0 ? (
             <Empty className="min-h-24">
               <EmptyHeader>
                 <EmptyTitle>No active crises</EmptyTitle>
@@ -207,7 +206,7 @@ export function InstitutionOverview({
             </Empty>
           ) : (
             <ActiveCrisisItems
-              crises={activeCrises}
+              crises={crises}
               onCrisisSelect={onCrisisSelect}
             />
           )}

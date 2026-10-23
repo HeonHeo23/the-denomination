@@ -42,6 +42,7 @@ The primary flow is:
 - Faction metric identity SHOULD appear optionally inline within the target-name area, without a dedicated row or column. Dedicated metric space is appropriate for metric selectors and comparative readings.
 - Use compact separate rows for Dilemma consequences.
 - Use Sheets for overview, Outcomes, and Chronicle review. The Outcomes Sheet groups active crises, completion conditions, and possible Endings, with fallback information.
+- Chronicle is a compact navigation ledger in expanded year groups (Turn when no year exists), newest first, with timeline markers. Group applied changes beneath their source with a separate disclosure and independently linked child rows.
 - Preserve the sequence returned by the simulation’s ordered Ending query in summaries, including unmet candidates; show fallback separately.
 - Share condition details and final reports across outcome kinds. Use crisis countdowns and met/unmet Ending requirements, and distinguish evaluation matches from current readings.
 - Keep a report, Sheet, or detail dialog open beneath a linked detail dialog so closing the linked detail returns the player to the same context.
@@ -51,6 +52,8 @@ The primary flow is:
 ## Visual Hierarchy
 
 Use scale, spacing, typography, alignment, and material contrast before decoration. Reserve stronger accents for player control, active Situations, changed state, warnings, and primary actions.
+
+Avoid the middle dot (·).
 
 ## Responsive and Accessible Behavior
 

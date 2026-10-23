@@ -7,6 +7,7 @@ import {
   type ScenarioDefinition,
 } from "../../src/simulation";
 import { getTurnEventIds, projectEvent } from "../../src/ui/game/projectEvent";
+import { projectChronicle } from "../../src/ui/game/projectChronicle";
 import {
   beginAutomaticEvents,
   closeEventPresentation,
@@ -54,12 +55,12 @@ export function runEventDetailTests() {
     (entry) => entry.id === `${ids[1]}:consequence:0`,
   );
   assert.equal(applied?.detail, "Resource balance changed by 100.");
-  assert.equal(
-    gift.changes[0].amount,
-    Number(applied?.detail.match(/changed by (-?\d+(?:\.\d+)?)/)?.[1]),
-  );
+  assert.equal(gift.changes[0].amount, 100);
 
   const petition = projectEvent(scenario, first, ids[0]);
+  assert.ok(petition);
+  assert.equal(petition.changes[1].nodeId, "leadership-trust");
+  assert.equal(petition.changes[1].name, "Leadership Trust");
   assert.equal(petition?.changes[1].category, "grudge");
   assert.equal(petition?.changes[1].amount, -0.02);
   assert.equal(petition?.changes[1].isActive, undefined);
@@ -96,6 +97,7 @@ export function runEventDetailTests() {
         consequences: [
           { kind: "activation", target: "ecumenical-dialogue", active: false },
           { kind: "activation", target: "clergy-formation", active: false },
+          { kind: "resource", target: "money", amount: 2 },
         ],
       },
     ],
@@ -121,6 +123,96 @@ export function runEventDetailTests() {
   assert.equal(activated.nodes["ecumenical-dialogue"].isActive, true);
   assert.equal(activation?.changes[0].isActive, true);
   assert.equal(activation?.changes[0].amount, undefined);
+  assert.equal(activation?.changes[0].category, "activation");
+  assert.equal(activation?.changes[0].nodeId, "ecumenical-dialogue");
+
+  // A matched consequence survives either missing definitions or runtime nodes.
+  for (const [content, snapshot, eventId, changeIndex] of [
+    [scenario, first, ids[1], 0],
+    [scenario, first, ids[0], 1],
+    [activationScenario, activated, "activate-dialogue:event:1", 0],
+  ] as const) {
+    const original = projectEvent(content, snapshot, eventId)!.changes[
+      changeIndex
+    ];
+    const targetId = original.nodeId!;
+    for (const [missingContent, missingState] of [
+      [
+        {
+          ...content,
+          nodes: content.nodes.filter(({ id }) => id !== targetId),
+        },
+        snapshot,
+      ],
+      [
+        content,
+        {
+          ...snapshot,
+          nodes: Object.fromEntries(
+            Object.entries(snapshot.nodes).filter(([id]) => id !== targetId),
+          ),
+        },
+      ],
+    ] as const) {
+      const projected = projectEvent(missingContent, missingState, eventId)!;
+      assert.deepEqual(projected.changes[changeIndex], {
+        ...original,
+        nodeId: undefined,
+        name: targetId,
+        domain: undefined,
+        metric: undefined,
+      });
+      const chronicle = projectChronicle(missingContent, missingState)
+        .flatMap(({ records }) => records)
+        .find(({ entry }) => entry.id === eventId)!;
+      const recorded = chronicle.changes.find(
+        ({ entry }) => entry.id === original.id,
+      )!;
+      assert.ok(recorded.applied);
+      assert.equal(recorded.target, undefined);
+      assert.equal(
+        recorded.entry,
+        snapshot.history.find(({ id }) => id === original.id),
+      );
+    }
+  }
+
+  const unmatched = {
+    id: `${ids[1]}:consequence:99`,
+    kind: "consequence" as const,
+    sourceHistoryId: ids[1],
+    consequenceIndex: 99,
+    turn: first.turn,
+    title: "An older consequence",
+    detail: "Original detail retained only in Chronicle.",
+  };
+  const withUnmatched = { ...first, history: [...first.history, unmatched] };
+  assert.deepEqual(
+    projectEvent(scenario, withUnmatched, ids[1])?.changes,
+    gift.changes,
+  );
+  const withoutAuthoredConsequences = {
+    ...scenario,
+    events: scenario.events.map((event) => ({ ...event, consequences: [] })),
+  };
+  assert.deepEqual(
+    projectEvent(withoutAuthoredConsequences, withUnmatched, ids[1])?.changes,
+    [],
+  );
+  for (const content of [scenario, withoutAuthoredConsequences]) {
+    const records = projectChronicle(content, withUnmatched)
+      .flatMap(({ records }) => records)
+      .flatMap((record) => [record, ...record.changes]);
+    assert.equal(
+      records.find(({ entry }) => entry.id === unmatched.id)?.entry,
+      unmatched,
+    );
+    assert.equal(
+      records.find(({ entry }) => entry.id === applied?.id)?.entry,
+      applied,
+    );
+    assert.equal(applied?.detail, "Resource balance changed by 100.");
+  }
 
   const deactivated = advanceTurn(activationScenario, activated, 0.2).state;
   const deactivation = projectEvent(
@@ -132,7 +224,17 @@ export function runEventDetailTests() {
   assert.equal(deactivation?.changes[0].isActive, false);
   // Forced-active nodes produce no applied deactivation record or badge row.
   assert.equal(deactivated.nodes["clergy-formation"].isActive, true);
-  assert.equal(deactivation?.changes.length, 1);
+  assert.equal(deactivation?.changes.length, 2);
+  assert.equal(deactivation?.changes[1].amount, 2);
+  assert.deepEqual(
+    deactivated.history
+      .filter((entry) => entry.kind === "consequence")
+      .filter(
+        (entry) => entry.sourceHistoryId === "deactivate-dialogue:event:1",
+      )
+      .map(({ consequenceIndex }) => consequenceIndex),
+    [0, 2],
+  );
   assert.equal(
     projectEvent(activationScenario, deactivated, "activate-dialogue:event:1")
       ?.changes[0].isActive,

@@ -48,11 +48,10 @@ interface ScenarioDefinition {
 }
 ```
 
-`gameOvers` is optional and normalizes to an empty array. A Scenario without
-Game Overs has no terminal-loss trajectory.
+`gameOvers` is optional and normalizes to an empty array.
+A Scenario without Game Overs has no terminal-loss trajectory.
 
-`schemaVersion` versions the representation, not game balance or saved
-runtime state.
+`schemaVersion` versions the representation, not game balance or saved runtime state.
 
 ```ts
 type HistoricalActorDefinition = {
@@ -85,10 +84,9 @@ Completion groups are non-empty and require descriptions; actors, endings, and r
 Ending IDs are unique, including the fallback. Priorities are integers (higher wins; ID breaks ties).
 Prerequisites use the shared validation rules.
 
-Runtime Dilemmas store the latest resolved turn and choice; ending outcomes store
-the ending, turn, matched trigger/group IDs, and fallback flag. An ending turn
-must follow any recorded Dilemma resolution turn. Versions remain
-unchanged; old content and saves missing required fields fail validation.
+Runtime Dilemmas store the latest resolved turn and choice; ending outcomes store the ending, turn, matched trigger/group IDs, and fallback flag.
+An ending turn must follow any recorded Dilemma resolution turn.
+Versions remain unchanged; old content and saves missing required fields fail validation.
 
 Game Over snapshots may retain pending Dilemma IDs and their trigger state.
 Ending snapshots require an empty Dilemma queue.
@@ -123,15 +121,13 @@ interface BaseNodeDefinition {
 }
 ```
 
-`initial.value` sets the turn-zero value. For non-Resources, `baseline`,
-where present, is the underlying term used by persistent-state calculation;
-if omitted, it defaults to `initial.value`. Resources do not permit `baseline`:
-their `initial.value` is the starting balance, clamped when the domain enables it.
+`initial.value` sets the turn-zero value. For non-Resources, `baseline`, where present, is the underlying term used by persistent-state calculation; if omitted, it defaults to `initial.value`.
+Resources do not permit `baseline`: their `initial.value` is the starting balance, clamped when the domain enables it.
 
 `isActive` controls participation; `isForced` prevents normal deactivation.
 
-`graphVisible` defaults to `true` and affects only presentation. A hidden node
-remains a normal simulation participant.
+`graphVisible` defaults to `true` and affects only presentation.
+A hidden node remains a normal simulation participant.
 
 ### Categories
 
@@ -169,20 +165,16 @@ interface StanceDefinition extends BaseNodeDefinition {
 }
 ```
 
-Discrete state values must be unique and within the Stance domain. Every cost's
-`resourceId` must reference a Resource. `maxChange` limits one active-Stance
-change action, not the number of actions in a turn. `enactmentCost` and
-`repealCost` are optional fixed costs; an omitted transition cost permits that
-transition without a Resource debit.
+Discrete state values must be unique and within the Stance domain.
+Every cost's `resourceId` must reference a Resource.
+`maxChange` limits one active-Stance change action, not the number of actions in a turn.
+`enactmentCost` and `repealCost` are optional fixed costs; an omitted transition cost permits that transition without a Resource debit.
 
-Version 3 Stances do not define a separate target position, implementation
-progress, or minister-like actor/assignment. Those belong to a deferred design
-direction for gradual Stance implementation. Do not add ad hoc fields for that
-system; its authored and runtime representation must be specified and
-versioned after the mechanics are settled.
+Version 3 Stances do not define a separate target position, implementation progress, or minister-like actor/assignment.
+Those belong to a deferred design direction for gradual Stance implementation.
+Do not add ad hoc fields for that system; its authored and runtime representation must be specified and versioned after the mechanics are settled.
 
-Named range labels and incompatible-Stance data are not canonical fields until
-their deferred mechanics are specified.
+Named range labels and incompatible-Stance data are not canonical fields until their deferred mechanics are specified.
 
 ### Indicator
 
@@ -233,9 +225,8 @@ interface ResourceDefinition extends BaseNodeDefinition {
 ```
 
 Resources share the common domain and Effect references and have no baseline.
-Runtime state stores the balance in `value` and per-turn Effect and Grudge flow
-in `netFlow`. Optional domain clamping occurs before Effect sampling; domains
-may allow debt or disable clamping.
+Runtime state stores the balance in `value` and per-turn Effect and Grudge flow in `netFlow`.
+Optional domain clamping occurs before Effect sampling; domains may allow debt or disable clamping.
 
 ### Situation
 
@@ -247,8 +238,7 @@ interface SituationDefinition extends BaseNodeDefinition {
 }
 ```
 
-Both thresholds must lie within the Situation domain, and `stopThreshold` must
-not exceed `startThreshold`.
+Both thresholds must lie within the Situation domain, and `stopThreshold` must not exceed `startThreshold`.
 
 ## Effects
 
@@ -265,9 +255,8 @@ interface EffectDefinition {
 }
 ```
 
-`source` and `target` are node IDs except that `_default_` is the reserved
-constant/default source. `inertiaTurns` is a positive integer and defaults to
-`1`.
+`source` and `target` are node IDs except that `_default_` is the reserved constant/default source.
+`inertiaTurns` is a positive integer and defaults to `1`.
 
 The current canonical response shapes are:
 
@@ -289,11 +278,11 @@ type ResponseDefinition =
     };
 ```
 
-These tagged objects keep content inspectable and validateable. Their complete
-evaluation semantics, especially constant responses attached to node sources
-and contextual-factor activation, remain a game-design TBD. Do not add an
-arbitrary expression language or executable callbacks until those semantics
-are settled. Every `product.factors` entry must reference a node.
+These tagged objects keep content inspectable and validateable.
+Their complete evaluation semantics, especially constant responses attached to node sources
+and contextual-factor activation, remain a game-design TBD.
+Do not add an arbitrary expression language or executable callbacks until those semantics are settled.
+Every `product.factors` entry must reference a node.
 
 All numeric references, including Faction metrics, use node IDs directly.
 Legacy metric selectors and nested Faction values are rejected.
@@ -324,12 +313,13 @@ interface PrerequisiteGroupDefinition {
 }
 ```
 
-Every `nodeId` must resolve. A node-value threshold must lie within its node's
-domain. A group contains at least one prerequisite. IDs are unique within the
-consumer that owns the groups. Turn thresholds are integers after `start.turn`.
-Event and Dilemma references (including optional choices) must resolve;
-`situation-resolved` must reference a Situation active in retained history but
-inactive now. Groups are alternatives; their predicates are conjunctive.
+Every `nodeId` must resolve.
+A node-value threshold must lie within its node's domain.
+A group contains at least one prerequisite.
+IDs are unique within the consumer that owns the groups.
+Turn thresholds are integers after `start.turn`.
+Event and Dilemma references (including optional choices) must resolve; `situation-resolved` must reference a Situation active in retained history but inactive now.
+Groups are alternatives; their predicates are conjunctive.
 Completion group IDs remain `matchedTriggerIds` in ending outcomes.
 
 ## Game Overs
@@ -355,12 +345,12 @@ interface GameOverStageDefinition {
 }
 ```
 
-Game Over IDs are unique within a Scenario. `turnsToGameOver` is an integer
-of at least `2`. Stage IDs and `atTurn` values are unique within a trajectory;
-stage turns are positive and less than the terminal duration, and every
-trajectory has a warning stage at turn `1`. Omitted consequence arrays normalize
-to empty arrays. Stage declaration order has no meaning; trusted content sorts
-stages by `atTurn`.
+Game Over IDs are unique within a Scenario.
+`turnsToGameOver` is an integer of at least `2`.
+Stage IDs and `atTurn` values are unique within a trajectory; stage turns are positive and less than the terminal duration, and every
+trajectory has a warning stage at turn `1`.
+Omitted consequence arrays normalize to empty arrays.
+Stage declaration order has no meaning; trusted content sorts stages by `atTurn`.
 
 ## Incidents
 
@@ -387,10 +377,8 @@ interface BaseIncidentDefinition {
 positive integer. Influence sources other than `_random_` must reference
 nodes.
 
-The format declares candidates and their thresholds. One qualifying Dilemma
-is selected randomly from the shared snapshot using the same random value as
-incident influences; all qualifying Events resolve from that snapshot in Event
-ID order.
+The format declares candidates and their thresholds.
+One qualifying Dilemma is selected randomly from the shared snapshot using the same random value as incident influences; all qualifying Events resolve from that snapshot in Event ID order.
 Dilemma declaration order has no selection meaning.
 
 ### Event
@@ -417,11 +405,12 @@ interface DilemmaDefinition extends BaseIncidentDefinition {
 }
 ```
 
-Choice IDs are unique within their Dilemma. A Dilemma has at least two choices.
-Choice images are optional authored presentation metadata. `src` MUST be a
-nonempty string and `alt` MUST be a string; an empty `alt` denotes decorative
-artwork. Relative sources resolve against the application base URL; absolute
-URLs are supported. Missing or failed images display an option placeholder.
+Choice IDs are unique within their Dilemma.
+A Dilemma has at least two choices.
+Choice images are optional authored presentation metadata.
+`src` MUST be a nonempty string and `alt` MUST be a string; an empty `alt` denotes decorative artwork.
+Relative sources resolve against the application base URL; absolute URLs are supported.
+Missing or failed images display an option placeholder.
 
 ## Reusable consequences and Grudge creation
 
@@ -452,14 +441,12 @@ Rules:
 - a `resource` consequence targets a Resource;
 - a Grudge decay factor is greater than `0` and at most `1`;
 - `activation` cannot deactivate a node whose initial or runtime state is forced;
-- the definition creates a Grudge; generated identity, creation turn, and
-  current magnitude belong to runtime state.
+- the definition creates a Grudge; generated identity, creation turn, and current magnitude belong to runtime state.
 
-No generic permanent node-value consequence is defined. Adding one would
-require game-design approval.
+No generic permanent node-value consequence is defined. Adding one would require game-design approval.
 
-These definitions are shared content contracts. Game Over stages and recovery
-occurrences, Dilemma choices, and Events execute them.
+These definitions are shared content contracts.
+Game Over stages and crisis recovery, Dilemma choices, and Events execute them.
 
 ## Static definition versus runtime state
 
@@ -469,7 +456,7 @@ conditions. Runtime state records what has happened:
 | Static content              | Runtime state                                                         |
 | --------------------------- | --------------------------------------------------------------------- |
 | Scenario identity and start | `scenarioId`, `turn`, optional `year`                                 |
-| Nodes                       | `nodes`: activation and numeric values; Resource balance and flow      |
+| Nodes                       | `nodes`: activation and numeric values; Resource balance and flow     |
 | Effects                     | `effects`: source history and last contribution                       |
 | Grudge templates            | `grudges`: IDs, targets/metrics, magnitude, decay, creation turn      |
 | Events                      | `events`: last trigger turn and count                                 |
@@ -477,15 +464,31 @@ conditions. Runtime state records what has happened:
 | Game Overs and Endings      | `gameOverProgress`: episode/matched groups; `outcome`: result or null |
 | Histories                   | `history`: occurrences; `nodeValueHistory`: turn-keyed node readings  |
 
-A runtime snapshot is not Scenario content and must not be merged back into its
-definition. A save format may reuse runtime structures but requires its own
-version and compatibility rules.
+History entries share `id`, `turn`, `title`, and `detail`; `kind` identifies required source fields:
+
+| Kind            | Source fields                                             |
+| --------------- | --------------------------------------------------------- |
+| Stance          | `definitionId`, `action` (`change`, `enact`, or `repeal`) |
+| Situation       | `definitionId`, `transition` (`start` or `stop`)          |
+| Event           | `definitionId`, positive `triggerCount`                   |
+| Dilemma         | `definitionId`, `choiceId`                                |
+| Crisis stage    | `definitionId`, `transition: "stage"`, `stageId`          |
+| Crisis recovery | `definitionId`, `transition: "recovery"`                  |
+| Game Over       | `definitionId`, positive `episode`                        |
+| Ending          | `definitionId`                                            |
+| Consequence     | `sourceHistoryId`, nonnegative `consequenceIndex`         |
+
+`definitionId` identifies a definition in the Scenario collection selected by `kind`.
+Consequence entries use `sourceHistoryId` to reference their source entry and `consequenceIndex` to identify the authored consequence.
+
+A runtime snapshot is not Scenario content and must not be merged back into its definition.
+A save format may reuse runtime structures but requires its own version and compatibility rules.
 
 ## Overrides
 
-Scenario overrides are allowed by the game design in principle but their scope
-and merge behavior are TBD. Version 1 therefore has no generic `overrides`
-field. Authors must provide the complete effective definition in the Scenario.
+Scenario overrides are allowed by the game design in principle but their scope and merge behavior are TBD.
+Version 1 therefore has no generic `overrides` field.
+Authors must provide the complete effective definition in the Scenario.
 Do not invent inheritance, patch ordering, or deep-merge behavior.
 
 ## Validation
@@ -560,13 +563,13 @@ does not replace runtime validation for parsed content.
 The MVP representation is close to the intended contract, but migration is
 required:
 
-| MVP                                     | Intended format                                                |
-| --------------------------------------- | -------------------------------------------------------------- |
-| no schema version                       | `schemaVersion: 3`                                             |
-| `startingTurn`, `startingYear`          | `start.turn`, `start.year`                                     |
-| `initialValue`, activation state        | `initial.value`, `initial.isActive`, `initial.isForced`        |
-| `baselineValue`                         | `baseline`                                                     |
-| required empty event/dilemma arrays     | optional arrays normalized to empty                            |
+| MVP                                 | Intended format                                         |
+| ----------------------------------- | ------------------------------------------------------- |
+| no schema version                   | `schemaVersion: 3`                                      |
+| `startingTurn`, `startingYear`      | `start.turn`, `start.year`                              |
+| `initialValue`, activation state    | `initial.value`, `initial.isActive`, `initial.isForced` |
+| `baselineValue`                     | `baseline`                                              |
+| required empty event/dilemma arrays | optional arrays normalized to empty                     |
 
 The MVP's node, Effect, response, incident, and consequence discriminators are
 otherwise useful and should be retained. Migration should be performed at the

@@ -1,16 +1,16 @@
 import { useCallback, useReducer } from "react";
-import type { OutcomeConditionRef } from "./outcomeViews";
+import type { OutcomeCondition } from "./outcomeViews";
 
 export interface DossierNavigationState {
   readonly selectedNodeId?: string;
-  readonly condition?: OutcomeConditionRef;
+  readonly condition?: OutcomeCondition;
   readonly reportOpen: boolean;
 }
 
 export type DossierNavigationAction =
   | { readonly type: "open-node"; readonly nodeId: string }
   | { readonly type: "close-node" }
-  | { readonly type: "open-condition"; readonly condition: OutcomeConditionRef }
+  | { readonly type: "open-condition"; readonly condition: OutcomeCondition }
   | { readonly type: "close-condition" }
   | { readonly type: "open-report" }
   | { readonly type: "review-final-state" }
@@ -54,7 +54,7 @@ export function useDossierNavigation(initialReportOpen: boolean) {
     reportOpen: state.reportOpen,
     openNode: (nodeId: string) => dispatch({ type: "open-node", nodeId }),
     closeNode: () => dispatch({ type: "close-node" }),
-    openCondition: (condition: OutcomeConditionRef) =>
+    openCondition: (condition: OutcomeCondition) =>
       dispatch({ type: "open-condition", condition }),
     closeCondition: () => dispatch({ type: "close-condition" }),
     openReport,

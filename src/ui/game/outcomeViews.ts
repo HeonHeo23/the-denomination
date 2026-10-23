@@ -1,9 +1,10 @@
 import type { PrerequisiteGroupView } from "./projectPrerequisite";
 import type { Contribution, ContributionGroup } from "./projectContributions";
 
-/** IDs are local to each authored consumer, so navigation always includes kind. */
-export type OutcomeConditionRef = {
+/** Identifies a crisis, completion condition, or ending. */
+export type OutcomeCondition = {
   readonly kind: "crisis" | "completion" | "ending";
+  /** GameOverDefinition.id | PrerequisiteGroupDefinition.id | EndingDefinition.id */
   readonly id: string;
 };
 
@@ -12,7 +13,7 @@ interface ConditionSummary {
   readonly title: string;
 }
 
-export interface CrisisSummaryView extends ConditionSummary {
+export interface CrisisView extends ConditionSummary {
   readonly kind: "crisis";
   readonly status: "warning" | "recovered" | "terminal";
   readonly consecutiveTurns: number;
@@ -33,7 +34,7 @@ export interface EndingSummaryView extends ConditionSummary {
 }
 
 export type OutcomeConditionSummaryView =
-  CrisisSummaryView | CompletionSummaryView | EndingSummaryView;
+  CrisisView | CompletionSummaryView | EndingSummaryView;
 
 export interface CrisisTimelineView {
   readonly stageLabel: string;
@@ -68,7 +69,7 @@ export interface ConditionAnalysisView {
 
 export type OutcomeConditionDetailView = ConditionAnalysisView &
   (
-    | (CrisisSummaryView & { readonly timeline: CrisisTimelineView })
+    | (CrisisView & { readonly timeline: CrisisTimelineView })
     | CompletionSummaryView
     | EndingSummaryView
   );

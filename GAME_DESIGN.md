@@ -222,8 +222,7 @@ References MUST resolve; value thresholds are inclusive and within their node's 
 
 ## Consequences
 
-Occurrences may apply consequences once; they do not change the trigger or
-timing of their occurrence:
+Incidents may apply consequences once; they do not change the trigger or timing of their incidents:
 
 - **Resource:** change its balance immediately.
 - **Grudge:** create a temporary contribution without changing its target's baseline. It contributes before decaying; one created after turn evaluation first contributes on the next turn.

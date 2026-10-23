@@ -139,6 +139,8 @@ export function evaluatePersistentState(
         isActive = true;
         history.push({
           id: `${definition.id}:start:${state.turn}`,
+          definitionId: definition.id,
+          transition: "start",
           turn: state.turn,
           kind: "situation",
           title: `${definition.name} began`,
@@ -152,6 +154,8 @@ export function evaluatePersistentState(
         isActive = false;
         history.push({
           id: `${definition.id}:stop:${state.turn}`,
+          definitionId: definition.id,
+          transition: "stop",
           turn: state.turn,
           kind: "situation",
           title: `${definition.name} ended`,

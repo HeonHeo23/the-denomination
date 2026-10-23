@@ -13,13 +13,10 @@ The authoritative sources remain:
 
 Statuses used here are:
 
-- **Implemented** — the behavior is present and covered by the current code or
-  tests;
-- **Partial** — a supported subset exists, but the complete intended behavior
-  is not implemented;
+- **Implemented** — the behavior is present and covered by the current code or tests;
+- **Partial** — a supported subset exists, but the complete intended behavior is not implemented;
 - **Deferred** — intentionally postponed by the authoritative design;
-- **Unsupported** — represented or reserved by the design/format but rejected
-  or unavailable in the current implementation.
+- **Unsupported** — represented or reserved by the design/format but rejected or unavailable in the current implementation.
 
 ## Current implementation
 
@@ -38,30 +35,32 @@ Statuses used here are:
 | Browser persistence                    | Partial     | `src/app/persistence.ts`, `src/app/savedGames.ts`                                                           | Versioned checkpoints created on every Save and Save and main menu, Continue following the latest successful save or load, a shared searchable load dialog, and confirmed deletion. Snapshots include identity, Scenario/content version, runtime state, and an optional validated Turn report. Listing reads metadata; loading validates timestamps, structure, references, and runtime invariants. Failed loads remain deletable. Save times appear on Continue and in the dialog. Timestamp-less saves remain stored but cannot load. No older-format migration or ending reevaluation. |
 | Domain-aware UI projection             | Partial     | `src/ui/formatValue.ts`, `src/ui/graph`, `src/ui/game`, `src/ui/panels`                                     | Domain-aware values and Faction metrics, graph navigation, node search, dossiers, and Effect analysis. Outcomes use summaries for lists and selected detail analysis. The graph retains just-ended nodes temporarily; inactive Stances have a dedicated index.                                                                                                                                                                                                                                                                                                                             |
 | Interface audio                        | Implemented | `src/ui/sound`                                                                                              | UI-only Web Audio cues use an independently saved mute preference and are gesture-initialized, throttled, and cleaned up on unmount.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Dilemmas                               | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx`                                        | One qualifying Dilemma queues per nonterminal turn after outcome checks, selected randomly from all qualifying Dilemmas. Cooldowns, history, UI, and saves are supported. Choices support optional authored images with placeholder fallback. Resolved choices appear in a dedicated Decisions sheet projected from saved history.                                                                                                                                                                                                                                                         |
+| Dilemmas                               | Implemented | `src/simulation/engine/dilemmas.ts`, `src/ui/game/DilemmaDialog.tsx`                                        | One qualifying Dilemma queues per nonterminal turn after outcome checks, selected randomly from all qualifying Dilemmas. Cooldowns, history, UI, and saves are supported. Pending and historical records share `DilemmaDialog` option cards, artwork fallback, and scrolling; historical mode highlights only uniquely resolved choices and otherwise preserves the saved response. Chronicle projects existing history into year/Turn groups and read-only incident records. Type badges sit above titles; source changes collapse with independent links.                                |
 | Events                                 | Implemented | `src/simulation/engine/events.ts`, `advanceTurn.ts`, `src/ui/game/EventDetailDialog.tsx`                    | All qualifying Events resolve in ID order from the shared post-decay incident snapshot before crisis evaluation; automatic detail dialogs precede either final report. Report and Chronicle reopening, cooldowns, and saves are supported.                                                                                                                                                                                                                                                                                                                                                 |
 | Runtime prerequisites and consequences | Implemented | `prerequisites.ts`, `consequences.ts`                                                                       | Grouped node, turn, incident, and Situation-history predicates with shared validation and consequences.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Normal endings                         | Implemented | `resolveEnding.ts`, `FinalReportDialog.tsx`                                                                 | Turn-only completion before Dilemma selection, prioritized Endings and fallback, persistence, and a shared final report. Outcome artwork remains placeholders.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Scenario Game Overs                    | Implemented | `src/simulation/engine/evaluateGameOvers.ts`, `src/ui/game`                                                 | Post-Event crisis evaluation, consecutive qualifying turns, warning/recovery consequences, combined terminal causes, action guards, persistence, and shared outcome views.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
-The bundled Money Resource is unclamped and can carry debt below -100. The existing insolvency
-trajectory also qualifies at -30 Money, even without Financial Strain.
+`projectOutcome.ts` and `outcomeViews.ts` provide outcome projections and shared types.
+`GameView` shares memoized crisis summaries; `DashboardSheets` and `OutcomeConditionDialog` preserve focus and distinguish recorded matches from current readings.
+`FinalReportDialog` shows participants and active crises; `completion.reportNodeIds` remains unused.
 
-`projectOutcome.ts` provides summary and selected-detail projections; `outcomeViews.ts` defines their shared types. `DashboardSheets` and `OutcomeConditionDialog` preserve parent focus through dossier navigation and distinguish recorded matches from current readings; header urgency uses active warnings only.
-`FinalReportDialog` shows participants, active crises, and all net changes since initialization, including hidden nodes and Faction metrics. Shared details explain endings and fallback, and preserve Game Over causes, group order, and duration fallback. Ending selection and display consume the simulation's ordered Ending query; `completion.reportNodeIds` is validated but unused.
+Turn and final reports share `ChangesSection` and `ChangeItem`; Turn reports preview four changes.
+`projectReport.ts` owns comparisons, assembly, and save adapters.
+Live and restored rows share a mapper; saves record activation transitions and reject old activation-pair saves without migration.
 
-Turn and final reports share `ChangesSection` and `ChangeItem`; Turn reports preview four changes. `projectReport.ts` owns comparisons, assembly, and save adapters. Live and restored rows share a mapper; saves record activation transitions and reject old activation-pair saves without migration.
+Engine history records definition, choice, action, transition, and consequence-parent references; Chronicle and dialogs resolve them directly.
+
+`EventDetailDialog` renders referenced consequences through `ChangeItem`; missing targets retain rows under their IDs without dossier links.
 
 UI coverage uses projection tests and browser review; there is no dedicated coverage Scenario or walkthrough.
+`ScrollArea` supplies custom scrollbars for outcome conditions and dropdowns.
 Faction and ordinary Effects use React Flow smooth-step edges; hovering a Faction Effect shows its group and metric endpoints.
-Choice commands do not resolve endings. Saves with same-turn choice endings
-fail validation, as do older saves missing required fields. The Connectional Fellowship reaches Expansion in turn 1 (1981).
+Choice commands do not resolve endings.
+Saves with same-turn choice endings fail validation.
 
-Saves retain node history, incident state, and Resource balance and flow.
-Starting-turn history includes immediate Stance actions and their costs; save
-validation accepts these runtime readings while checking domains and consistency
-with current state. Known gaps: non-`0..1` Effect displays, negative change costs,
-and a stale product-preview test.
+Starting-turn history includes immediate Stance actions and their costs; save validation accepts these runtime readings while checking domains and consistency with current state.
+Known gaps: non-`0..1` Effect displays and negative change costs.
 
 ## Deferred or incomplete areas
 
@@ -70,18 +69,10 @@ The following remain deferred or incomplete:
 - runtime-prerequisite consumers beyond Game Overs and normal endings;
 - complete within-turn phase ordering;
 - injected or seedable runtime dependencies for deterministic replay;
-- party affiliation, a possible future concept described in
-  [GAME_DESIGN.md](GAME_DESIGN.md#deferred-decisions); no runtime
-  or content representation exists;
+- party affiliation, a possible future concept described in [GAME_DESIGN.md](GAME_DESIGN.md#deferred-decisions); no runtime or content representation exists;
 - additional response-function and contextual-input semantics;
-- turn-report expanded layout: expanding “Review all changes” may remove the
-  collapsed layout’s bottom spacing; retain appropriate spacing while allowing
-  the report body to scroll;
-- gradual Stance implementation and the minister-like actors or offices
-  intended to influence its pace; the design direction is recorded in
-  `GAME_DESIGN.md`, but no target/progress state or such actor system exists;
+- turn-report expanded layout: expanding “Review all changes” may remove the collapsed layout’s bottom spacing; retain appropriate spacing while allowing the report body to scroll;
+- gradual Stance implementation and the minister-like actors or offices intended to influence its pace; the design direction is recorded in `GAME_DESIGN.md`, but no target/progress state or such actor system exists;
 - incompatible-Stance resolution and specialized governance procedures.
 
-Changes to these areas require updating the appropriate authoritative document
-before implementation when they introduce new mechanics or alter intended
-semantics.
+Changes to these areas require updating the appropriate authoritative document before implementation when they introduce new mechanics or alter intended semantics.

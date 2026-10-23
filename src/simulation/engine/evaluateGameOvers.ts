@@ -30,8 +30,7 @@ export const evaluateGameOvers = (
     },
   );
 
-  // A terminal result takes precedence over every nonterminal occurrence on
-  // the same turn, preserving the exact snapshot that satisfied its causes.
+  // A terminal result takes precedence over every nonterminal result on the same turn, preserving the exact snapshot that satisfied its causes.
   if (terminalCauses.length > 0) {
     for (const definition of scenario.gameOvers) {
       const previous = progress[definition.id] ?? {
@@ -75,6 +74,8 @@ export const evaluateGameOvers = (
             id: `${definition.id}:game-over:${progress[definition.id].episode}:${state.turn}`,
             turn: state.turn,
             kind: "game-over" as const,
+            definitionId: definition.id,
+            episode: progress[definition.id].episode,
             title: definition.title,
             detail: definition.description,
           })),
@@ -110,6 +111,8 @@ export const evaluateGameOvers = (
                 id: `${definition.id}:recovery:${previous.episode}:${state.turn}`,
                 turn: state.turn,
                 kind: "crisis",
+                definitionId: definition.id,
+                transition: "recovery",
                 title: recovery.title,
                 detail: recovery.description,
               },
@@ -153,6 +156,9 @@ export const evaluateGameOvers = (
           id: historyEntryId,
           turn: state.turn,
           kind: "crisis",
+          definitionId: definition.id,
+          transition: "stage",
+          stageId: stage.id,
           title: stage.title,
           detail: stage.description,
         },
