@@ -4,7 +4,7 @@ import {
   initializeScenario,
   loadScenario,
   validateScenario,
-  prerequisiteMet,
+  isPrerequisiteMet,
   type FactionDefinition,
   type ScenarioDefinition,
 } from "../../src/simulation";
@@ -25,13 +25,13 @@ import {
 } from "../../src/ui/graph/projectNodeSearch";
 import {
   projectTurnReport,
-  projectEndingReport,
+  projectFinalReport,
   serializeTurnReport,
   restoreTurnReport,
 } from "../../src/ui/panels/projectReport";
 import { projectNodeValueHistory } from "../../src/ui/panels/projectNodeValueHistory";
 import { projectNodeEffects } from "../../src/ui/panels/projectNodeEffects";
-import { projectEventOccurrence } from "../../src/ui/game/projectEventOccurrence";
+import { projectEvent } from "../../src/ui/game/projectEvent";
 import { validateSavedGame, type SavedGame } from "../../src/app/persistence";
 
 function fixture(): ScenarioDefinition {
@@ -237,7 +237,7 @@ export function runFactionTests() {
   close(grudged.nodes["a-satisfaction"].value, 1);
   assert.equal(grudged.grudges[0].magnitude, -0.5);
   assert.ok(
-    prerequisiteMet(
+    isPrerequisiteMet(
       {
         kind: "node-value",
         nodeId: "a-satisfaction",
@@ -305,8 +305,12 @@ export function runFactionTests() {
   assert.equal(edge.target, createFactionGraphId("b"));
   assert.equal(edge.data!.sourceNodeId, "a-membership");
   assert.equal(edge.data!.targetNodeId, "b-satisfaction");
-  assert.equal(edge.data!.sourceMetric, "Membership");
-  assert.equal(edge.data!.targetMetric, "Satisfaction");
+  assert.equal(edge.data!.sourceMetric?.label, "Membership");
+  assert.equal(edge.data!.targetMetric?.label, "Satisfaction");
+  assert.equal(
+    edge.data!.sourceMetric,
+    scenario.factionMetrics!.find(({ id }) => id === "membership"),
+  );
   const self = graph.edges.find((edge) => edge.id === "within-group")!;
   assert.equal(self.source, self.target);
   assert.equal(edge.type, "smoothstep");
@@ -413,7 +417,7 @@ export function runFactionTests() {
   assert.equal(
     projectNodeEffects("b-satisfaction", scenario, initial).incoming.find(
       (effect) => effect.id === "cross-metric",
-    )!.sourceMetric,
+    )!.sourceMetric?.label,
     "Membership",
   );
 
@@ -422,8 +426,8 @@ export function runFactionTests() {
   assert.ok(savedReport.changes.every((change) => !("metric" in change)));
   assert.equal(
     restoreTurnReport(scenario, savedReport).changes.find(
-      (change) => change.node.id === "a-membership",
-    )!.metric,
+      (change) => change.nodeId === "a-membership",
+    )!.metric?.label,
     "Membership",
   );
   const save: SavedGame = {
@@ -506,7 +510,7 @@ export function runFactionTests() {
     ...ongoingCompletion,
     reportNodeIds: ["a-membership", "a-satisfaction", "a-confidence"],
   };
-  const ending = projectEndingReport(
+  const ending = projectFinalReport(
     { ...scenario, completion },
     {
       ...result.state,
@@ -521,16 +525,16 @@ export function runFactionTests() {
     },
   )!;
   assert.ok(
-    ending.changes.some((change) => change.node.id === "a-satisfaction"),
+    ending.changes.some((change) => change.nodeId === "a-satisfaction"),
   );
   assert.ok(
     ending.changes
-      .filter((change) => change.node.type === "faction")
-      .every((change) => change.metric && change.metricId),
+      .filter((change) => change.category === "faction")
+      .every((change) => change.metric?.label && change.metric.id),
   );
   assert.ok(
     ending.changes.some(
-      (change) => !completion.reportNodeIds.includes(change.node.id),
+      (change) => !completion.reportNodeIds.includes(change.nodeId),
     ),
     "Report-node selection does not restrict net changes",
   );
@@ -564,9 +568,7 @@ export function runFactionTests() {
     0,
   ).state;
   assert.equal(eventState.grudges[0].target, "a-confidence");
-  assert.ok(
-    projectEventOccurrence(eventScenario, eventState, "discontent:event:1"),
-  );
+  assert.ok(projectEvent(eventScenario, eventState, "discontent:event:1"));
 
   const invalid: unknown[] = [
     { ...scenario, factionMetrics: null },

@@ -4,14 +4,13 @@ import type {
 } from "../domain/definitions";
 import type { SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { conditionsMet } from "./shared";
 
 /** Select Events from one completed-turn snapshot before applying consequences. */
-export function selectEvents(
+export const selectEvents = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   randomValue?: number,
-): readonly EventDefinition[] {
+): readonly EventDefinition[] => {
   if (state.outcome || !scenario.events?.length) return [];
   if (
     randomValue !== undefined &&
@@ -23,9 +22,8 @@ export function selectEvents(
     .filter((definition) => {
       const progress = state.events[definition.id];
       if (
-        !conditionsMet(scenario, definition.requires) ||
-        (progress.lastTriggerTurn !== null &&
-          state.turn - progress.lastTriggerTurn <= definition.cooldownTurns)
+        progress.lastTriggerTurn !== null &&
+        state.turn - progress.lastTriggerTurn <= definition.cooldownTurns
       )
         return false;
       if (
@@ -50,25 +48,20 @@ export function selectEvents(
     .sort((left, right) =>
       left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
     );
-}
+};
 
 /** Resolve selected Events without another incident or persistent evaluation. */
-export function resolveEvents(
+export const resolveEvents = (
   scenario: ScenarioDefinition,
   state: SimulationState,
   selected: readonly EventDefinition[],
-): SimulationState {
+): SimulationState => {
   let next = state;
   for (const definition of selected) {
     const progress = next.events[definition.id];
     const triggerCount = progress.triggerCount + 1;
-    const occurrenceId = `${definition.id}:event:${triggerCount}`;
-    next = applyConsequences(
-      scenario,
-      next,
-      definition.consequences,
-      occurrenceId,
-    );
+    const eventId = `${definition.id}:event:${triggerCount}`;
+    next = applyConsequences(scenario, next, definition.consequences, eventId);
     next = {
       ...next,
       events: {
@@ -78,9 +71,11 @@ export function resolveEvents(
       history: [
         ...next.history,
         {
-          id: occurrenceId,
+          id: eventId,
           turn: state.turn,
           kind: "event",
+          definitionId: definition.id,
+          triggerCount,
           title: definition.title,
           detail: definition.description,
         },
@@ -88,4 +83,4 @@ export function resolveEvents(
     };
   }
   return next;
-}
+};

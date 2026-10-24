@@ -1,17 +1,24 @@
-import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+/**
+ * Projects runtime prerequisite checks into readable views for the UI.
+ * Recorded group matches remain separate from current prerequisite readings.
+ */
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
 import type {
+  FactionMetricDefinition,
   PrerequisiteDefinition,
+  PrerequisiteGroupDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "../../simulation";
-import { prerequisiteMet } from "../../simulation";
+import { isPrerequisiteMet } from "../../simulation";
 import { formatValue } from "../formatValue";
 
 export interface PrerequisiteView {
   readonly title: string;
   readonly description: string;
-  readonly met: boolean;
+  readonly isMet: boolean;
   readonly nodeId?: string;
+  readonly metric?: FactionMetricDefinition;
 }
 
 /** Describe any runtime prerequisite using the shared engine evaluation. */
@@ -20,10 +27,10 @@ export function projectPrerequisite(
   scenario: ScenarioDefinition,
   state: SimulationState,
 ): PrerequisiteView {
-  const met = prerequisiteMet(prerequisite, state);
+  const isMet = isPrerequisiteMet(prerequisite, state);
   if (prerequisite.kind === "turn") {
     return {
-      met,
+      isMet,
       title: "Scenario date",
       description: `Turn ${state.turn}; required turn ${prerequisite.atTurn} or later.`,
     };
@@ -33,9 +40,9 @@ export function projectPrerequisite(
       ({ id }) => id === prerequisite.eventId,
     )!;
     return {
-      met,
+      isMet,
       title: event.title,
-      description: `${event.title} has ${met ? "fired" : "not fired"}.`,
+      description: `${event.title} has ${isMet ? "fired" : "not fired"}.`,
     };
   }
   if (prerequisite.kind === "dilemma-choice") {
@@ -50,7 +57,7 @@ export function projectPrerequisite(
       ({ id }) => id === prerequisite.choiceId,
     );
     return {
-      met,
+      isMet,
       title: dilemma.title,
       description: `${choice ? `Last resolved with ${choice.label}.` : "Not yet resolved."}${required ? ` Required choice: ${required.label}.` : ""}`,
     };
@@ -59,27 +66,55 @@ export function projectPrerequisite(
     ({ id }) => id === prerequisite.nodeId,
   )!;
   const runtime = state.nodes[prerequisite.nodeId];
-  const nodedisplayinfo = getNodeDisplayInfo(scenario, definition.id);
-  const title = `${nodedisplayinfo.name}${nodedisplayinfo.metric ? ` — ${nodedisplayinfo.metric}` : ""}`;
+  const nodedisplayinfo = getNodeDisplayName(scenario, definition.id);
+  const title = nodedisplayinfo.name;
   const base = {
-    met,
+    isMet,
     nodeId: definition.id,
     title,
+    ...(nodedisplayinfo.metric ? { metric: nodedisplayinfo.metric } : {}),
   };
   if (prerequisite.kind === "node-activation") {
     return {
       ...base,
-      description: `${title} is ${runtime.isActive ? "active" : "inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
+      description: `${runtime.isActive ? "Active" : "Inactive"}; required ${prerequisite.active ? "active" : "inactive"}.`,
     };
   }
   if (prerequisite.kind === "situation-resolved") {
     return {
       ...base,
-      description: `${title} ${met ? "was active and is now resolved" : "has not resolved after being active"}.`,
+      description: `${isMet ? "Was active and is now resolved" : "Has not resolved after being active"}.`,
     };
   }
   return {
     ...base,
-    description: `${title} is ${formatValue(runtime.value, definition.domain)}; threshold ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
+    description: `Current value: ${formatValue(runtime.value, definition.domain)} ${prerequisite.comparison === "at-most" ? "≤" : "≥"} ${formatValue(prerequisite.value, definition.domain)}.`,
   };
+}
+
+export interface PrerequisiteGroupView {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly matched: boolean;
+  readonly prerequisites: readonly PrerequisiteView[];
+}
+
+/** Recorded group matches remain independent of current readings. */
+export function projectPrerequisiteGroups(
+  groups: readonly PrerequisiteGroupDefinition[],
+  matchedGroupIds: readonly string[],
+  scenario: ScenarioDefinition,
+  state: SimulationState,
+): readonly PrerequisiteGroupView[] {
+  const matchedIds = new Set(matchedGroupIds);
+  return groups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    matched: matchedIds.has(group.id),
+    prerequisites: group.allOf.map((prerequisite) =>
+      projectPrerequisite(prerequisite, scenario, state),
+    ),
+  }));
 }

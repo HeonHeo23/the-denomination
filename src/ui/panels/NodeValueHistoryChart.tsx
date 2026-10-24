@@ -8,15 +8,14 @@ import {
 } from "react";
 import type {
   NodeDefinition,
-  FactionMetric,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
 import { formatValue } from "@/ui/formatValue";
 import {
-  historyYearMarkLabels,
-  nearestHistoryPointIndex,
-  nextHistoryPointIndex,
+  labelYearMarks,
+  findNearestPoint,
+  getNextPoint,
   projectNodeValueHistory,
 } from "./projectNodeValueHistory";
 
@@ -24,7 +23,7 @@ interface NodeValueHistoryChartProps {
   readonly definition: NodeDefinition;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
-  readonly metric?: FactionMetric;
+  readonly metricLabel?: string;
   readonly metricSelector?: ReactNode;
 }
 
@@ -39,7 +38,7 @@ export function NodeValueHistoryChart({
   definition,
   scenario,
   state,
-  metric,
+  metricLabel,
   metricSelector,
 }: NodeValueHistoryChartProps) {
   const lineClipId = useId();
@@ -54,13 +53,13 @@ export function NodeValueHistoryChart({
   const selectedIndex = selection?.index;
   const selected =
     selectedIndex === undefined ? undefined : chart.points[selectedIndex];
-  const yearMarkLabels = historyYearMarkLabels(chart.points.length);
+  const yearMarkLabels = labelYearMarks(chart.points.length);
   const selectAtPointer = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (bounds.width === 0) return;
     const viewBoxX =
       ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
-    const index = nearestHistoryPointIndex(chart.points, viewBoxX);
+    const index = findNearestPoint(chart.points, viewBoxX);
     if (index < 0) return;
     const source = event.pointerType === "touch" ? "touch" : "pointer";
     setSelection((previous) =>
@@ -71,11 +70,7 @@ export function NodeValueHistoryChart({
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const current = selectedIndex ?? latestIndex;
-    const index = nextHistoryPointIndex(
-      current,
-      event.key,
-      chart.points.length,
-    );
+    const index = getNextPoint(current, event.key, chart.points.length);
     if (index !== undefined) {
       event.preventDefault();
       setSelection((previous) =>
@@ -115,7 +110,7 @@ export function NodeValueHistoryChart({
           }
           role="group"
           tabIndex={0}
-          aria-label={`${definition.name}${metric ? ` ${metric}` : ""} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
+          aria-label={`${definition.name}${metricLabel ? ` ${metricLabel}` : ""} value history. Use left and right arrow keys to inspect turns; Home and End jump to the first and latest turn.`}
           aria-describedby={`${lineClipId}-instructions ${lineClipId}-references`}
           onPointerMove={selectAtPointer}
           onPointerDown={selectAtPointer}

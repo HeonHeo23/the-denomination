@@ -1,3 +1,4 @@
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   findFactionContext,
   getFactionGroupIndex,
@@ -10,17 +11,18 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import type {
   NodeDefinition,
-  FactionMetric,
+  FactionMetricId,
   NodeRuntimeState,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
 import { Badge } from "@/components/ui/badge";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { MoveHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NodeEffectCard } from "./NodeEffectCard";
 import { NodeValueHistoryChart } from "./NodeValueHistoryChart";
-import { DossierDialogFrame } from "./DossierDialogFrame";
+import DossierDialogFrame from "./DossierDialogFrame";
 import { projectNodeEffects } from "./projectNodeEffects";
 import { StanceEditor } from "./StanceEditor";
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
@@ -31,6 +33,7 @@ import type {
 import "./panels.css";
 
 interface NodeDetailsDialogProps {
+  readonly historyDateLabel?: string;
   readonly definition: NodeDefinition;
   readonly runtime: NodeRuntimeState;
   readonly scenario: ScenarioDefinition;
@@ -43,12 +46,12 @@ interface NodeDetailsDialogProps {
   readonly onClose: () => void;
 }
 
-function activationLabel(runtime: NodeRuntimeState): string {
+const activationLabel = (runtime: NodeRuntimeState): string => {
   if (runtime.isForced) return "Forced active";
   return runtime.isActive ? "Active" : "Inactive";
-}
+};
 
-export function NodeDetailsDialog(props: NodeDetailsDialogProps) {
+export default function NodeDetailsDialog(props: NodeDetailsDialogProps) {
   const factionContext = findFactionContext(
     props.scenario,
     props.definition.id,
@@ -77,7 +80,7 @@ function FactionDetailDialog({
 }) {
   const { scenario, state } = props;
   // Start with the metric represented by the node that opened the dossier.
-  const [selectedMetric, setSelectedMetric] = useState<FactionMetric>(
+  const [selectedMetric, setSelectedMetric] = useState<FactionMetricId>(
     factionContext.metric.id,
   );
   // Resolve all nodes in this group.
@@ -119,7 +122,7 @@ function FactionDetailDialog({
           title={metric.label}
           className="node-value-history__metric-button"
         >
-          <FactionMetricIcon metric={metric.label} metricId={metric.id} />
+          <FactionMetricIcon metric={metric} />
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -159,59 +162,53 @@ function FactionSummary({
   readonly state: SimulationState;
   readonly onNodeSelect: (nodeId: string) => void;
 }) {
+  const opposingGroups = constraints
+    .flatMap(({ participants }) =>
+      participants.filter(
+        ({ belongsToCurrentGroup }) => !belongsToCurrentGroup,
+      ),
+    )
+    .filter(
+      (participant, index, participants) =>
+        participants.findIndex(
+          ({ nodeId }) => nodeId === participant.nodeId,
+        ) === index,
+    );
+
   return (
-    <div className="mt-3 flex flex-col gap-2 md:mt-auto">
-      <FactionMetricReadings
-        readings={groupNodeContexts.map((member) => ({
-          metric: member.metric.label,
-          metricId: member.metric.id,
-          value: formatValue(
-            state.nodes[member.node.id].value,
-            member.node.domain,
-          ),
-        }))}
-      />
-      {constraints.map((constraint) => (
-        <div
-          key={constraint.id}
-          className="flex flex-col gap-1 rounded-sm border border-border/60 px-3 py-2"
-        >
-          {/* Keep this*/}
-          {/* <p className="text-sm font-medium">
-            {constraint.name ?? "Shared limit"}
-          </p> */}
-          {/* <p className="text-sm text-muted-foreground">
-            Combined value for{" "}
-            {constraint.participants
-              .map(({ groupName }) => groupName)
-              .join(", ")}{" "}
-            cannot exceed {constraint.maxTotal}.
-          </p> */}
-          {constraint.participants.some(
-            ({ belongsToCurrentGroup }) => !belongsToCurrentGroup,
-          ) && (
-            <div className="flex flex-wrap items-center gap-x-1">
-              <span className="text-sm text-muted-foreground">
-                Other participating group(s):
-              </span>
-              {constraint.participants
-                .filter(({ belongsToCurrentGroup }) => !belongsToCurrentGroup)
-                .map(({ nodeId, groupName, metricLabel }) => (
-                  <Button
-                    key={nodeId}
-                    variant="link"
-                    aria-label={
-                      "Open " + groupName + " " + metricLabel + " dossier"
-                    }
-                    onClick={() => onNodeSelect(nodeId)}
-                  >
-                    {groupName}
-                  </Button>
-                ))}
-            </div>
-          )}
-        </div>
-      ))}
+    <div className="mt-3 flex flex-col md:mt-0 md:flex-1">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 md:flex-1 md:content-end">
+        <FactionMetricReadings
+          readings={groupNodeContexts.map((member) => ({
+            metric: member.metric,
+            value: formatValue(
+              state.nodes[member.node.id].value,
+              member.node.domain,
+            ),
+          }))}
+        />
+        {opposingGroups.length > 0 && (
+          <div className="ml-auto flex flex-wrap items-center gap-x-1">
+            <span className="text-muted-foreground">
+              <MoveHorizontal aria-hidden="true" className="size-4" />
+              <span className="sr-only">Opposing group(s):</span>
+            </span>
+            {opposingGroups.map(({ nodeId, groupName, metricLabel }) => (
+              <Button
+                key={nodeId}
+                variant="link"
+                className="h-auto p-0"
+                aria-label={
+                  "Open " + groupName + " " + metricLabel + " dossier"
+                }
+                onClick={() => onNodeSelect(nodeId)}
+              >
+                {groupName}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -229,6 +226,7 @@ function NodeDetailsDialogContent({
   definition,
   runtime,
   displayName,
+  historyDateLabel,
   displayDescription,
   factionSummary,
   metricLabel,
@@ -280,6 +278,9 @@ function NodeDetailsDialogContent({
               )}
             >
               <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+                {historyDateLabel && (
+                  <Badge variant="outline">{historyDateLabel}</Badge>
+                )}
                 <Badge variant="secondary">
                   {definition.category ?? "Uncategorized"}
                 </Badge>
@@ -316,7 +317,7 @@ function NodeDetailsDialogContent({
                   definition={definition}
                   scenario={scenario}
                   state={state}
-                  metric={metricLabel}
+                  metricLabel={metricLabel}
                   metricSelector={metricSelector}
                 />
               </div>
@@ -326,29 +327,22 @@ function NodeDetailsDialogContent({
       }
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col px-6",
-            definition.type === "stance"
-              ? "gap-2 pb-4"
-              : "overflow-y-auto pb-6",
-          )}
-        >
-          {details.length > 0 && (
-            <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-              {details.map(([label, value]) => (
-                <div key={label}>
-                  <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
-                    {label}
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium wrap-break-word">
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {definition.type === "stance" ? (
+        {definition.type === "stance" ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-2 px-6 pb-4">
+            {details.length > 0 && (
+              <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                {details.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium wrap-break-word">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             <NodeEffectCard
               title="Outgoing effects"
               direction="outgoing"
@@ -359,25 +353,49 @@ function NodeDetailsDialogContent({
               }}
               layout="compact"
             />
-          ) : (
-            <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:min-h-32 md:flex-1 md:grid-cols-2 md:items-stretch">
-              <NodeEffectCard
-                title="Incoming effects"
-                direction="incoming"
-                effects={visibleEffects.incoming}
-                onNodeSelect={onNodeSelect}
-                fitContent
-              />
-              <NodeEffectCard
-                title="Outgoing effects"
-                direction="outgoing"
-                effects={visibleEffects.outgoing}
-                onNodeSelect={onNodeSelect}
-                fitContent
-              />
+          </div>
+        ) : (
+          <ScrollArea className="min-h-0 min-w-0 flex-1 focus-within:ring-2 focus-within:ring-ring [&>[data-slot=scroll-area-viewport]>div]:block! [&>[data-slot=scroll-area-viewport]>div]:h-full">
+            {/* Override the library's table wrapper so nested scroll areas stay bounded. */}
+            <div
+              className="flex min-h-full flex-col px-6 pb-6 outline-none md:h-full"
+              role="region"
+              aria-label="Node details"
+              tabIndex={0}
+            >
+              {details.length > 0 && (
+                <dl className="node-record__facts grid shrink-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {details.map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="font-mono text-[0.62rem] tracking-wider text-muted-foreground uppercase">
+                        {label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium wrap-break-word">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:min-h-32 md:flex-1 md:grid-cols-2 md:items-stretch">
+                <NodeEffectCard
+                  title="Incoming effects"
+                  direction="incoming"
+                  effects={visibleEffects.incoming}
+                  onNodeSelect={onNodeSelect}
+                  fitContent
+                />
+                <NodeEffectCard
+                  title="Outgoing effects"
+                  direction="outgoing"
+                  effects={visibleEffects.outgoing}
+                  onNodeSelect={onNodeSelect}
+                  fitContent
+                />
+              </div>
             </div>
-          )}
-        </div>
+          </ScrollArea>
+        )}
 
         {definition.type === "stance" && (
           <div className="shrink-0 bg-background px-6 py-2">

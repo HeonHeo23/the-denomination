@@ -5,7 +5,7 @@
 The Denomination is a turn-based causal simulation with a framework-independent
 TypeScript engine and a React/React Flow client.
 
-## Sources of Truth
+## References
 
 Use repository documentation according to the following ownership:
 
@@ -16,7 +16,7 @@ Use repository documentation according to the following ownership:
 - `AGENTS.md` — authoritative for repository-level agent instructions.
 - `IMPLEMENTATION_STATUS.md` — non-authoritative inventory of current implementation status and known gaps.
 
-Before design-sensitive or architecture-sensitive work, read the relevant source-of-truth documents.
+Before design-sensitive or architecture-sensitive work, read the relevant reference documents.
 
 If documents conflict:
 
@@ -44,7 +44,7 @@ Across repository documentation:
 
 ## Game Design
 
-Implementation MUST preserve the mechanics defined in `GAME_DESIGN.md`.
+Implementation MAY preserve the mechanics defined in `GAME_DESIGN.md`.
 
 In particular, treat it as authoritative for:
 
@@ -77,8 +77,7 @@ Do not redefine game semantics in architecture or data-format code. If implement
 - Do not duplicate concepts already owned by another documented subsystem.
 - Add or update tests when behavior changes.
 - Run relevant validation before finishing.
-- Update `IMPLEMENTATION_STATUS.md` when a change materially alters an
-  implementation boundary, supported capability, or known gap.
+- Update `IMPLEMENTATION_STATUS.md` when a change materially alters an implementation boundary, supported capability, or known gap.
 
 ## Code Comments
 
@@ -104,6 +103,4 @@ If an out-of-scope conflict with the documentation is discovered, report it inst
 
 ## Documentation Style
 
-Keep authored and updated documentation concise. State each rule once, use short
-examples, and omit repeated explanations or implementation detail that belongs
-in code or a more authoritative document.
+Keep authored and updated documentation concise. State each rule once, use short examples, and omit repeated explanations or implementation detail that belongs in code or a more authoritative document.

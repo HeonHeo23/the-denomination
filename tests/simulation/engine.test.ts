@@ -1,4 +1,6 @@
+import { runChronicleProjectionTests } from "../ui/projectChronicle.test";
 import { runFactionTests } from "./factions.test";
+import { runProjectOutcomeTests } from "../ui/projectOutcome.test";
 import { runEndingTests } from "./endings.test";
 import { ongoingCompletion } from "./fixtures";
 import { exampleScenario as bundledScenario } from "../../src/scenarios/example";
@@ -18,7 +20,7 @@ import { runNodeEffectProjectionTests } from "../ui/projectNodeEffects.test";
 import { runReportProjectionTests } from "../ui/projectReport.test";
 import { runInterfaceSoundTests } from "../ui/interfaceSound.test";
 import { runNodeValueHistoryProjectionTests } from "../ui/projectNodeValueHistory.test";
-import { runEventDetailTests } from "../ui/projectEventOccurrence.test";
+import { runEventDetailTests } from "../ui/projectEvent.test";
 import {
   runDilemmaDecisionProjectionTests,
   runDilemmaConsequenceProjectionTests,
@@ -46,7 +48,9 @@ function closeTo(actual: number, expected: number, message: string) {
 }
 
 runFactionTests();
+runChronicleProjectionTests();
 runEndingTests();
+runProjectOutcomeTests();
 runDilemmaTests();
 runEventTests();
 runEventDetailTests();
@@ -201,7 +205,7 @@ const formationChange = executeCommand(exampleScenario, initial, {
   stanceId: "clergy-formation",
   value: 0.4,
 });
-assert(formationChange.accepted, "A permitted Stance change should succeed");
+assert(formationChange.isAccepted, "A permitted Stance change should succeed");
 const afterFormationChange = advanceTurn(
   exampleScenario,
   formationChange.state,
@@ -223,7 +227,7 @@ for (const value of [0.75, 0.95, 1]) {
     stanceId: "centralization",
     value,
   });
-  assert(change.accepted, `Centralization change to ${value} should succeed`);
+  assert(change.isAccepted, `Centralization change to ${value} should succeed`);
   crisisState = change.state;
 }
 for (let index = 0; index < 5; index += 1) {
@@ -357,7 +361,7 @@ const terminalScenario: ScenarioDefinition = {
           ],
         },
       ],
-      terminalAfterTurns: 3,
+      turnsToGameOver: 3,
       stages: [
         {
           id: "warning",
@@ -388,7 +392,7 @@ const terminalScenario: ScenarioDefinition = {
         description: "The crisis clears.",
         consequences: [{ kind: "resource", target: "reserve", amount: 2 }],
       },
-      report: { title: "Removed", narrative: "The institution removes you." },
+      description: "The institution removes you.",
     },
   ],
 };
@@ -409,7 +413,7 @@ const safeRisk = executeCommand(terminalScenario, terminalState, {
   stanceId: "risk",
   value: 0.8,
 });
-assert(safeRisk.accepted, "The player should be able to answer a crisis");
+assert(safeRisk.isAccepted, "The player should be able to answer a crisis");
 terminalState = advanceTurn(terminalScenario, safeRisk.state).state;
 assert(
   terminalState.gameOverProgress.collapse.consecutiveTurns === 2 &&
@@ -432,7 +436,7 @@ assert(
     type: "set-stance",
     stanceId: "risk",
     value: 0.1,
-  }).accepted,
+  }).isAccepted,
   "Terminal snapshots must reject player commands",
 );
 
@@ -514,6 +518,17 @@ assert(
     simultaneousState.outcome.causes.length === 2,
   "Every trajectory becoming terminal on the same turn should be reported",
 );
+for (const definition of simultaneousScenario.gameOvers!) {
+  assert(
+    simultaneousState.history.some(
+      (entry) =>
+        entry.kind === "game-over" &&
+        entry.title === definition.title &&
+        entry.detail === definition.description,
+    ),
+    "Each terminal cause records its shared authored title and description",
+  );
+}
 
 runResourceTests();
 

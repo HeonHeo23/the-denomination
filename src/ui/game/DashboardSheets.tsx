@@ -1,17 +1,11 @@
-import type { ReactNode } from "react";
-import {
-  Clock3,
-  History,
-  ScrollText,
-  ShieldAlert,
-  ShieldCheck,
-} from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import { History, ShieldCheck } from "lucide-react";
 import type {
   NodeDefinition,
   ScenarioDefinition,
   SimulationState,
 } from "@/simulation";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -19,14 +13,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -37,21 +23,26 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { InstitutionOverview } from "./InstitutionOverview";
-import { CrisisSummaryCard } from "./CrisisSummaryCard";
-import { projectCrises } from "./projectGameOvers";
-import { DossierItemButton } from "@/ui/panels/DossierItemButton";
-import { projectDilemmaDecisions } from "./projectDilemma";
+import { OutcomeConditionCard } from "./OutcomeConditionCard";
+import type { CrisisView, OutcomeCondition } from "./outcomeViews";
+import { projectOutcomeConditions } from "./projectOutcome";
+import { ChronicleContent } from "./ChronicleContent";
+import { projectChronicle, type ChronicleTarget } from "./projectChronicle";
 
-export type DashboardPanel = "overview" | "crises" | "chronicle" | "decisions";
+export type DashboardPanel = "overview" | "outcomes" | "chronicle";
 
 interface DashboardSheetsProps {
   readonly activePanel?: DashboardPanel;
   readonly scenario: ScenarioDefinition;
   readonly state: SimulationState;
+  readonly crises: readonly CrisisView[];
   readonly resources: readonly NodeDefinition[];
   readonly onClose: () => void;
-  readonly onCrisisSelect: (crisisId: string) => void;
-  readonly onEventSelect: (occurrenceId: string) => void;
+  readonly onConditionSelect: (target: OutcomeCondition) => void;
+  readonly onChronicleSelect: (
+    target: ChronicleTarget,
+    dateLabel: string,
+  ) => void;
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
 }
@@ -107,19 +98,109 @@ function DashboardSheet({
   );
 }
 
+interface OutcomesContentProps {
+  readonly scenario: ScenarioDefinition;
+  readonly state: SimulationState;
+  readonly crises: readonly CrisisView[];
+  readonly onConditionSelect: (target: OutcomeCondition) => void;
+}
+
+function OutcomesContent({
+  scenario,
+  state,
+  crises,
+  onConditionSelect,
+}: OutcomesContentProps) {
+  const conditions = useMemo(
+    () => projectOutcomeConditions(scenario, state, crises),
+    [scenario, state, crises],
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3" aria-label="Active crises">
+        <h3 className="font-heading text-lg">Active crises</h3>
+        {conditions.crises.length ? (
+          conditions.crises.map((condition) => (
+            <OutcomeConditionCard
+              key={condition.id}
+              condition={condition}
+              onOpen={() => onConditionSelect(condition)}
+            />
+          ))
+        ) : (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ShieldCheck />
+              </EmptyMedia>
+              <EmptyTitle>No active crises</EmptyTitle>
+              <EmptyDescription>
+                No crisis currently requires intervention.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+      </section>
+      <section
+        className="flex flex-col gap-3"
+        aria-label="Completion conditions"
+      >
+        <h3 className="font-heading text-lg">Completion conditions</h3>
+        <p className="text-sm text-muted-foreground">
+          Any matching completion group ends the Scenario. Every requirement
+          within that group must hold.
+        </p>
+        {conditions.completion.map((condition) => (
+          <OutcomeConditionCard
+            key={condition.id}
+            condition={condition}
+            onOpen={() => onConditionSelect(condition)}
+          />
+        ))}
+      </section>
+      <section className="flex flex-col gap-3" aria-label="Possible Endings">
+        <h3 className="font-heading text-lg">Possible Endings</h3>
+        <p className="text-sm text-muted-foreground">
+          At completion, the highest-priority qualifying Ending is selected.
+          Meeting these requirements alone does not end play.
+        </p>
+        {conditions.endings.map((condition) => (
+          <OutcomeConditionCard
+            key={condition.id}
+            condition={condition}
+            onOpen={() => onConditionSelect(condition)}
+          />
+        ))}
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>Fallback: {conditions.fallback.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Used at completion if no conditional Ending qualifies.
+            </p>
+            <p className="mt-2 text-sm">{conditions.fallback.description}</p>
+          </CardContent>
+        </Card>
+      </section>
+    </div>
+  );
+}
+
 export function DashboardSheets({
   activePanel,
   scenario,
   state,
+  crises,
   resources,
   onClose,
-  onCrisisSelect,
-  onEventSelect,
+  onConditionSelect,
+  onChronicleSelect,
   onResourceHover,
   onResourceSelect,
 }: DashboardSheetsProps) {
-  const crises = projectCrises(scenario, state);
-  const decisions = projectDilemmaDecisions(scenario, state);
+  const chronicle = projectChronicle(scenario, state);
 
   return (
     <>
@@ -136,63 +217,35 @@ export function DashboardSheets({
           scenario={scenario}
           state={state}
           resources={resources}
+          crises={crises}
           compact
           hideScenario
-          onCrisisSelect={onCrisisSelect}
+          onCrisisSelect={(id) => onConditionSelect({ kind: "crisis", id })}
           onResourceHover={onResourceHover}
           onResourceSelect={onResourceSelect}
         />
       </DashboardSheet>
 
       <DashboardSheet
-        open={activePanel === "crises"}
-        title="Crises"
-        description="Recoverable trajectories that may become terminal Game Overs if their prerequisites persist."
-        eyebrow={`${crises.length} ${crises.length === 1 ? "crisis" : "crises"}`}
+        open={activePanel === "outcomes"}
+        title="Outcomes"
+        description="Active crises, Scenario completion conditions, and possible Endings."
         onClose={onClose}
       >
-        {crises.length === 0 ? (
-          <Empty className="min-h-48 border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <ShieldCheck />
-              </EmptyMedia>
-              <EmptyTitle>No active crises</EmptyTitle>
-              <EmptyDescription>
-                No terminal trajectory currently requires intervention.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <section
-            className="flex flex-col gap-3"
-            aria-labelledby="active-crises-title"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldAlert aria-hidden="true" />
-              <h3 id="active-crises-title" className="font-heading text-lg">
-                Active terminal crises
-              </h3>
-            </div>
-            {crises.map((crisis) => (
-              <CrisisSummaryCard
-                key={crisis.definition.id}
-                variant="compact"
-                crisis={crisis}
-                onOpen={() => {
-                  onClose();
-                  onCrisisSelect(crisis.definition.id);
-                }}
-              />
-            ))}
-          </section>
+        {activePanel === "outcomes" && (
+          <OutcomesContent
+            scenario={scenario}
+            state={state}
+            crises={crises}
+            onConditionSelect={onConditionSelect}
+          />
         )}
       </DashboardSheet>
 
       <DashboardSheet
         open={activePanel === "chronicle"}
         title="Chronicle"
-        description="Institutional history and temporary effects still in force."
+        description="Institutional history and the choices that shaped it."
         eyebrow="Institutional ledger"
         onClose={onClose}
       >
@@ -204,92 +257,12 @@ export function DashboardSheets({
               </EmptyMedia>
               <EmptyTitle>No recorded changes</EmptyTitle>
               <EmptyDescription>
-                The chronicle begins when the first turn is completed.
+                Recorded changes will appear here.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
-          <ItemGroup>
-            {[...state.history].reverse().map((entry) =>
-              entry.kind === "event" ? (
-                <DossierItemButton
-                  key={entry.id}
-                  variant="muted"
-                  leading={<Clock3 aria-hidden="true" />}
-                  title={entry.title}
-                  description={entry.detail}
-                  trailing={<Badge variant="outline">Turn {entry.turn}</Badge>}
-                  aria-label={`Open ${entry.title} Event details from turn ${entry.turn}`}
-                  onSelect={() => onEventSelect(entry.id)}
-                />
-              ) : (
-                <Item
-                  role="listitem"
-                  variant="muted"
-                  key={entry.id}
-                  data-game-chronicle-entry
-                >
-                  <Clock3 aria-hidden="true" />
-                  <ItemContent>
-                    <ItemTitle>{entry.title}</ItemTitle>
-                    <ItemDescription>{entry.detail}</ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <Badge variant="outline">Turn {entry.turn}</Badge>
-                  </ItemActions>
-                </Item>
-              ),
-            )}
-          </ItemGroup>
-        )}
-      </DashboardSheet>
-
-      <DashboardSheet
-        open={activePanel === "decisions"}
-        title="Decisions"
-        description="The choices made when the institution faced a dilemma."
-        eyebrow={`${decisions.length} ${decisions.length === 1 ? "decision" : "decisions"}`}
-        onClose={onClose}
-      >
-        {decisions.length === 0 ? (
-          <Empty className="min-h-64 border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <ScrollText />
-              </EmptyMedia>
-              <EmptyTitle>No decisions recorded</EmptyTitle>
-              <EmptyDescription>
-                Resolved dilemmas will appear here.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <ItemGroup>
-            {decisions.map((decision) => (
-              <Item role="listitem" variant="muted" key={decision.id}>
-                <ScrollText aria-hidden="true" />
-                <ItemContent>
-                  <ItemTitle className="line-clamp-none">
-                    {decision.title}
-                  </ItemTitle>
-                  <ItemDescription className="line-clamp-none">
-                    <strong>{decision.choiceLabel}</strong>
-                    {decision.choiceDescription && (
-                      <span className="block">
-                        {decision.choiceDescription}
-                      </span>
-                    )}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant="outline">
-                    {decision.year === undefined ? "Turn" : "Year"}{" "}
-                    {decision.year ?? decision.turn}
-                  </Badge>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
+          <ChronicleContent groups={chronicle} onSelect={onChronicleSelect} />
         )}
       </DashboardSheet>
     </>

@@ -1,19 +1,19 @@
 import type { ScenarioDefinition } from "../domain/definitions";
 import type { GameOverOutcomeCause, SimulationState } from "../domain/runtime";
 import { applyConsequences } from "./consequences";
-import { matchingPrerequisiteGroups } from "./prerequisites";
+import { findPrerequisiteGroupsMet } from "./prerequisites";
 
 /** Advance every recoverable terminal trajectory from the same evaluated state. */
-export function evaluateGameOvers(
+export const evaluateGameOvers = (
   scenario: ScenarioDefinition,
   state: SimulationState,
-): SimulationState {
+): SimulationState => {
   if (state.outcome || !scenario.gameOvers?.length) return state;
 
   const matches = new Map(
     scenario.gameOvers.map((definition) => [
       definition.id,
-      matchingPrerequisiteGroups(definition.prerequisiteGroups, state).map(
+      findPrerequisiteGroupsMet(definition.prerequisiteGroups, state).map(
         ({ id }) => id,
       ),
     ]),
@@ -24,14 +24,13 @@ export function evaluateGameOvers(
       const previous = progress[definition.id];
       const matchedPrerequisiteGroupIds = matches.get(definition.id) ?? [];
       return matchedPrerequisiteGroupIds.length > 0 &&
-        (previous?.consecutiveTurns ?? 0) + 1 >= definition.terminalAfterTurns
+        (previous?.consecutiveTurns ?? 0) + 1 >= definition.turnsToGameOver
         ? [{ gameOverId: definition.id, matchedPrerequisiteGroupIds }]
         : [];
     },
   );
 
-  // A terminal result takes precedence over every nonterminal occurrence on
-  // the same turn, preserving the exact snapshot that satisfied its causes.
+  // A terminal result takes precedence over every nonterminal result on the same turn, preserving the exact snapshot that satisfied its causes.
   if (terminalCauses.length > 0) {
     for (const definition of scenario.gameOvers) {
       const previous = progress[definition.id] ?? {
@@ -75,8 +74,10 @@ export function evaluateGameOvers(
             id: `${definition.id}:game-over:${progress[definition.id].episode}:${state.turn}`,
             turn: state.turn,
             kind: "game-over" as const,
-            title: definition.report.title,
-            detail: definition.report.narrative,
+            definitionId: definition.id,
+            episode: progress[definition.id].episode,
+            title: definition.title,
+            detail: definition.description,
           })),
       ],
     };
@@ -110,6 +111,8 @@ export function evaluateGameOvers(
                 id: `${definition.id}:recovery:${previous.episode}:${state.turn}`,
                 turn: state.turn,
                 kind: "crisis",
+                definitionId: definition.id,
+                transition: "recovery",
                 title: recovery.title,
                 detail: recovery.description,
               },
@@ -138,21 +141,24 @@ export function evaluateGameOvers(
       ({ atTurn }) => atTurn === consecutiveTurns,
     );
     if (!stage) continue;
-    const occurrenceId = `${definition.id}:${stage.id}:${episode}:${state.turn}`;
+    const historyEntryId = `${definition.id}:${stage.id}:${episode}:${state.turn}`;
     next = applyConsequences(
       scenario,
       next,
       stage.consequences ?? [],
-      occurrenceId,
+      historyEntryId,
     );
     next = {
       ...next,
       history: [
         ...next.history,
         {
-          id: occurrenceId,
+          id: historyEntryId,
           turn: state.turn,
           kind: "crisis",
+          definitionId: definition.id,
+          transition: "stage",
+          stageId: stage.id,
           title: stage.title,
           detail: stage.description,
         },
@@ -165,4 +171,4 @@ export function evaluateGameOvers(
     gameOverProgress: progress,
     outcome: null,
   };
-}
+};

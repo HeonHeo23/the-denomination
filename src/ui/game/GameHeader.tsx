@@ -8,7 +8,6 @@ import {
   Menu,
   PanelLeftOpen,
   RotateCcw,
-  ScrollText,
   Save,
   ShieldAlert,
   Settings2,
@@ -33,7 +32,7 @@ import {
 import { formatSignedValue, formatValue } from "@/ui/formatValue";
 import { getDossierTriggerProps } from "@/ui/dossierActivation";
 import { useInterfaceSound } from "@/ui/sound/interfaceSoundContext";
-import { crisisTurnsLabel } from "./crisisPresentation";
+import { formatCrisisTurns } from "./projectOutcome";
 
 interface GameHeaderProps {
   readonly denominationName: string;
@@ -43,7 +42,7 @@ interface GameHeaderProps {
   readonly onResourceHover: (nodeId?: string) => void;
   readonly onResourceSelect: (nodeId: string) => void;
   readonly activeCrisisCount: number;
-  readonly urgentGameOverWarning?: {
+  readonly urgentCrisis?: {
     readonly title: string;
     readonly turnsRemaining: number;
   };
@@ -59,9 +58,8 @@ interface GameHeaderProps {
   readonly onReset: () => void;
   readonly onMainMenu: () => void;
   readonly onOpenOverview: () => void;
-  readonly onOpenCrises: () => void;
+  readonly onOpenOutcomes: () => void;
   readonly onOpenChronicle: () => void;
-  readonly onOpenDecisions: () => void;
   readonly turnReportAvailable: boolean;
   readonly onOpenTurnReport: () => void;
   readonly onOpenFinalReport: () => void;
@@ -78,9 +76,8 @@ type GameHeaderActions = Pick<
   | "onLoad"
   | "onReset"
   | "onMainMenu"
-  | "onOpenCrises"
+  | "onOpenOutcomes"
   | "onOpenChronicle"
-  | "onOpenDecisions"
   | "turnReportAvailable"
   | "onOpenTurnReport"
 >;
@@ -175,24 +172,22 @@ function ResourceStrip({
 
 function PanelActions({
   activeCrisisCount,
-  urgentGameOverWarning,
+  urgentCrisis,
   terminal,
   resolvingTurn,
-  onOpenCrises,
+  onOpenOutcomes,
   onOpenChronicle,
-  onOpenDecisions,
   onAddStance,
   turnReportAvailable,
   onOpenTurnReport,
 }: Pick<
   GameHeaderProps,
   | "activeCrisisCount"
-  | "urgentGameOverWarning"
+  | "urgentCrisis"
   | "terminal"
   | "resolvingTurn"
-  | "onOpenCrises"
+  | "onOpenOutcomes"
   | "onOpenChronicle"
-  | "onOpenDecisions"
   | "onAddStance"
   | "turnReportAvailable"
   | "onOpenTurnReport"
@@ -208,18 +203,18 @@ function PanelActions({
         size="lg"
         className="h-full rounded-none"
         data-game-header-button
-        onClick={onOpenCrises}
+        onClick={onOpenOutcomes}
         aria-label={
-          urgentGameOverWarning
-            ? `Open crises, ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining`
-            : `Open crises, ${activeCrisisCount} active`
+          urgentCrisis
+            ? `Open outcomes, ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining`
+            : `Open outcomes, ${activeCrisisCount} active`
         }
       >
         <ShieldAlert data-icon="inline-start" />
-        <span>Crises</span>
-        {urgentGameOverWarning ? (
+        <span>Outcomes</span>
+        {urgentCrisis ? (
           <Badge variant="destructive">
-            {crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)}
+            {formatCrisisTurns(urgentCrisis.turnsRemaining)}
           </Badge>
         ) : activeCrisisCount > 0 ? (
           <Badge variant="destructive">{activeCrisisCount}</Badge>
@@ -232,21 +227,10 @@ function PanelActions({
         className="h-full rounded-none"
         data-game-header-button
         onClick={onOpenChronicle}
+        aria-label="Open Chronicle"
       >
         <BookOpenText data-icon="inline-start" />
         <span className="hidden lg:inline">Chronicle</span>
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="h-full rounded-none"
-        data-game-header-button
-        onClick={onOpenDecisions}
-        aria-label="Open decisions history"
-      >
-        <ScrollText data-icon="inline-start" />
-        <span className="hidden lg:inline">Decisions</span>
       </Button>
       <Button
         type="button"
@@ -322,9 +306,8 @@ function GameActionsMenu({
   onLoad,
   onReset,
   onMainMenu,
-  onOpenCrises,
+  onOpenOutcomes,
   onOpenChronicle,
-  onOpenDecisions,
   onAddStance,
   terminal,
   resolvingTurn,
@@ -362,14 +345,11 @@ function GameActionsMenu({
           <>
             <DropdownMenuGroup className="md:hidden">
               <DropdownMenuLabel>Institution</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onOpenCrises}>
-                <ShieldAlert /> Crises
+              <DropdownMenuItem onSelect={onOpenOutcomes}>
+                <ShieldAlert /> Outcomes
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenChronicle}>
                 <BookOpenText /> Chronicle
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenDecisions}>
-                <ScrollText /> Decisions
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={onAddStance}
@@ -434,7 +414,7 @@ export function GameHeader(props: GameHeaderProps) {
     onResourceHover,
     onResourceSelect,
     activeCrisisCount,
-    urgentGameOverWarning,
+    urgentCrisis,
     terminal,
     normalEnding,
     canLoad,
@@ -447,9 +427,8 @@ export function GameHeader(props: GameHeaderProps) {
     onReset,
     onMainMenu,
     onOpenOverview,
-    onOpenCrises,
+    onOpenOutcomes,
     onOpenChronicle,
-    onOpenDecisions,
     turnReportAvailable,
     onOpenTurnReport,
     onOpenFinalReport,
@@ -462,9 +441,8 @@ export function GameHeader(props: GameHeaderProps) {
     onLoad,
     onReset,
     onMainMenu,
-    onOpenCrises,
+    onOpenOutcomes,
     onOpenChronicle,
-    onOpenDecisions,
     onAddStance,
     terminal,
     resolvingTurn,
@@ -505,30 +483,27 @@ export function GameHeader(props: GameHeaderProps) {
         />
         <PanelActions
           activeCrisisCount={activeCrisisCount}
-          urgentGameOverWarning={urgentGameOverWarning}
+          urgentCrisis={urgentCrisis}
           terminal={terminal}
           resolvingTurn={resolvingTurn}
-          onOpenCrises={onOpenCrises}
+          onOpenOutcomes={onOpenOutcomes}
           onOpenChronicle={onOpenChronicle}
-          onOpenDecisions={onOpenDecisions}
           onAddStance={onAddStance}
           turnReportAvailable={turnReportAvailable}
           onOpenTurnReport={onOpenTurnReport}
         />
-        {urgentGameOverWarning && !terminal && (
+        {urgentCrisis && !terminal && (
           <Button
             type="button"
             variant="outline"
             size="lg"
             className="h-full rounded-none md:hidden"
             data-game-header-button
-            onClick={onOpenCrises}
-            aria-label={`Open crises: ${urgentGameOverWarning.title} has ${crisisTurnsLabel(urgentGameOverWarning.turnsRemaining)} remaining before Game Over`}
+            onClick={onOpenOutcomes}
+            aria-label={`Open outcomes: ${urgentCrisis.title} has ${formatCrisisTurns(urgentCrisis.turnsRemaining)} remaining before Game Over`}
           >
             <ShieldAlert data-icon="inline-start" />
-            <Badge variant="destructive">
-              {urgentGameOverWarning.turnsRemaining}
-            </Badge>
+            <Badge variant="destructive">{urgentCrisis.turnsRemaining}</Badge>
           </Button>
         )}
         <div className="ml-auto flex h-full items-stretch">
@@ -541,7 +516,7 @@ export function GameHeader(props: GameHeaderProps) {
           className="-mr-3 flex h-full shrink-0 flex-col gap-0 rounded-none px-3 sm:-mr-4 sm:flex-row sm:gap-2 sm:px-5 xl:mr-0"
           data-game-advance
           onClick={terminal ? onOpenFinalReport : onAdvance}
-          disabled={resolvingTurn && (!terminal || normalEnding)}
+          disabled={resolvingTurn}
         >
           <span className="font-mono text-[0.52rem] tracking-[0.12em] uppercase sm:hidden">
             {terminal

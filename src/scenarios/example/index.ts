@@ -67,13 +67,6 @@ export const exampleScenario = {
         description:
           "The fellowship reviews two decades of institutional leadership.",
       },
-      {
-        id: "sustainable-expansion",
-        title: "Sustainable expansion achieved",
-        description:
-          "Mission reach, financial stability, and congregational cohesion support a durable expansion.",
-        allOf: expansionGroups[0].allOf,
-      },
     ],
     endings: [
       {
@@ -81,7 +74,7 @@ export const exampleScenario = {
         title: "Expansion",
         priority: 30,
         prerequisiteGroups: expansionGroups,
-        narrative:
+        description:
           "The fellowship extends its mission while preserving the finances and connections that sustain it. New communities join an institution capable of supporting their shared work.",
       },
       {
@@ -108,7 +101,7 @@ export const exampleScenario = {
             ],
           },
         ],
-        narrative:
+        description:
           "Renewed worship and lasting congregational connections give the fellowship fresh vitality. Its institutional legacy lives in communities that continue to gather and serve.",
       },
       {
@@ -135,14 +128,14 @@ export const exampleScenario = {
             ],
           },
         ],
-        narrative:
+        description:
           "The fellowship remains connected and financially viable. Its ministries continue, carrying inherited commitments into a new period of leadership.",
       },
     ],
     fallbackEnding: {
       id: "unresolved-crisis",
       title: "Unresolved Crisis",
-      narrative:
+      description:
         "The review closes with the fellowship still standing, but without a settled institutional direction. Its unresolved tensions and commitments pass to those who follow.",
     },
     reportNodeIds: [
@@ -156,7 +149,6 @@ export const exampleScenario = {
     ],
   },
   start: { turn: 0, year: 1980 },
-  conditions: ["has-seminary", "has-general-assembly"],
   events: [
     {
       kind: "event",
@@ -167,7 +159,6 @@ export const exampleScenario = {
       influences: [{ source: "centralization", coefficient: 1 }],
       threshold: 0.5,
       cooldownTurns: 3,
-      requires: ["has-general-assembly"],
       consequences: [
         { kind: "resource", target: "authority", amount: -2 },
         {
@@ -201,7 +192,6 @@ export const exampleScenario = {
       influences: [{ source: "governance-tension", coefficient: 1 }],
       threshold: 0.58,
       cooldownTurns: 3,
-      requires: ["has-general-assembly"],
       choices: [
         {
           id: "convene-mediation",
@@ -713,7 +703,7 @@ export const exampleScenario = {
           ],
         },
       ],
-      terminalAfterTurns: 4,
+      turnsToGameOver: 4,
       stages: [
         {
           id: "assembly-inquiry",
@@ -772,11 +762,8 @@ export const exampleScenario = {
           },
         ],
       },
-      report: {
-        title: "The Assembly withdraws your mandate",
-        narrative:
-          "After years of exhausted authority and public distrust, the General Assembly recognizes new leadership. Your commission to guide the fellowship has ended.",
-      },
+      description:
+        "After years of exhausted authority and public distrust, the General Assembly recognizes new leadership. Your commission to guide the fellowship has ended.",
     },
     {
       id: "denominational-fracture",
@@ -800,7 +787,7 @@ export const exampleScenario = {
           ],
         },
       ],
-      terminalAfterTurns: 5,
+      turnsToGameOver: 5,
       stages: [
         {
           id: "public-dissent",
@@ -866,11 +853,8 @@ export const exampleScenario = {
           },
         ],
       },
-      report: {
-        title: "The fellowship divides",
-        narrative:
-          "The separation convention creates rival regional fellowships. The connectional body you led no longer exists as a single institution.",
-      },
+      description:
+        "The separation convention creates rival regional fellowships. The connectional body you led no longer exists as a single institution.",
     },
     {
       id: "institutional-insolvency",
@@ -906,7 +890,7 @@ export const exampleScenario = {
           ],
         },
       ],
-      terminalAfterTurns: 3,
+      turnsToGameOver: 3,
       stages: [
         {
           id: "emergency-restrictions",
@@ -949,11 +933,8 @@ export const exampleScenario = {
           },
         ],
       },
-      report: {
-        title: "The institution enters external administration",
-        narrative:
-          "With obligations unmet and reserves exhausted, trustees surrender control to an external administrator. Your leadership can no longer direct the fellowship's work.",
-      },
+      description:
+        "With obligations unmet and reserves exhausted, trustees surrender control to an external administrator. Your leadership can no longer direct the fellowship's work.",
     },
   ],
   factionMetrics: [
@@ -1102,7 +1083,6 @@ export const exampleScenario = {
       domain: percentDomain,
       initial: { value: 0.6, isActive: true, isForced: true },
       control: { kind: "continuous", step: 0.05 },
-      requires: ["has-seminary"],
       cost: {
         resourceId: "authority",
         base: 0.5,

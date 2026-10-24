@@ -1,155 +1,35 @@
 import assert from "node:assert/strict";
 import {
   advanceTurn,
+  getEndingsInSelectionOrder,
   evaluateEnding,
   executeCommand,
   initializeScenario,
   loadScenario,
-  prerequisiteMet,
+  isPrerequisiteMet,
   validateScenario,
   type CompletionDefinition,
-  type EndingDefinition,
-  type PrerequisiteGroupDefinition,
   type ScenarioDefinition,
 } from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
 import { resolveEnding } from "../../src/simulation/engine/resolveEnding";
-import { projectGameOverWarnings } from "../../src/ui/game/projectGameOvers";
+import {
+  projectCrisis,
+  projectCrisisDetail,
+} from "../../src/ui/game/projectOutcome";
 import { projectPrerequisite } from "../../src/ui/game/projectPrerequisite";
-import { projectEndingReport } from "../../src/ui/panels/projectReport";
+import { projectFinalReport } from "../../src/ui/panels/projectReport";
 import {
   beginAutomaticEvents,
   closeEventPresentation,
 } from "../../src/ui/game/eventDialogFlow";
-
-const date = (
-  atTurn = 1,
-): CompletionDefinition["prerequisiteGroups"][number] => ({
-  id: "review",
-  title: "Review",
-  description: "The institutional review.",
-  allOf: [{ kind: "turn", atTurn }],
-});
-const group = (id = "healthy", value = 0.6): PrerequisiteGroupDefinition => ({
-  id,
-  title: id,
-  allOf: [
-    { kind: "node-value", nodeId: "health", comparison: "at-least", value },
-  ],
-});
-const ending = (
-  id: string,
-  priority: number,
-  prerequisiteGroups = [group()],
-): EndingDefinition => ({
-  id,
-  title: id,
-  narrative: `${id} institutional narrative.`,
-  priority,
-  prerequisiteGroups,
-});
-
-export function endingScenario(): ScenarioDefinition {
-  return {
-    schemaVersion: 3,
-    id: "ending-test",
-    title: "Ending test",
-    description: "Institutional ending tests.",
-    start: { turn: 0, year: 1980 },
-    historicalActors: [
-      {
-        id: "delegates",
-        name: "Delegates",
-        role: "Assembly",
-        description: "Represent the institution.",
-      },
-    ],
-    completion: {
-      prerequisiteGroups: [date()],
-      endings: [ending("revival", 10)],
-      fallbackEnding: {
-        id: "unresolved",
-        title: "Unresolved",
-        narrative: "The institution retains unresolved tensions.",
-      },
-      reportNodeIds: ["health", "reserve"],
-    },
-    nodes: [
-      {
-        id: "policy",
-        type: "stance",
-        name: "Policy",
-        description: "A policy.",
-        domain: { min: 0, max: 1, clamp: true },
-        initial: { value: 0.5, isActive: true, isForced: false },
-        control: { kind: "continuous" },
-      },
-      {
-        id: "health",
-        type: "indicator",
-        name: "Health",
-        description: "Institutional health.",
-        domain: { min: 0, max: 1, clamp: true },
-        initial: { value: 0.6, isActive: true, isForced: true },
-        baseline: 0.6,
-      },
-      {
-        id: "reserve",
-        type: "resource",
-        name: "Reserve",
-        description: "Reserves.",
-        domain: { min: 0, max: 10, clamp: true },
-        initial: { value: 2, isActive: true, isForced: true },
-      },
-      {
-        id: "crisis",
-        type: "situation",
-        name: "Crisis",
-        description: "Institutional tension.",
-        domain: { min: 0, max: 1, clamp: true },
-        initial: { value: 0.2, isActive: false, isForced: false },
-        baseline: 0.2,
-        startThreshold: 0.7,
-        stopThreshold: 0.3,
-      },
-    ],
-    effects: [],
-  };
-}
-
-export function assemblyScenario(
-  scenario: ScenarioDefinition = endingScenario(),
-): ScenarioDefinition {
-  return {
-    ...scenario,
-    events: [],
-    dilemmas: [
-      {
-        id: "assembly",
-        kind: "dilemma",
-        title: "Assembly",
-        description: "Choose succession.",
-        influences: [],
-        threshold: 0,
-        cooldownTurns: 1,
-        choices: [
-          {
-            id: "accept",
-            label: "Accept",
-            description: "Authorize succession.",
-            consequences: [{ kind: "resource", target: "reserve", amount: 4 }],
-          },
-          {
-            id: "decline",
-            label: "Decline",
-            description: "Continue deliberation.",
-            consequences: [],
-          },
-        ],
-      },
-    ],
-  };
-}
+import {
+  date,
+  group,
+  ending,
+  endingScenario,
+  assemblyScenario,
+} from "./fixtures";
 
 export function runEndingTests() {
   const scenario = endingScenario();
@@ -173,6 +53,14 @@ export function runEndingTests() {
   assert.strictEqual(resolveEnding(scenario, first), first);
   assert.strictEqual(advanceTurn(scenario, first).state, first);
   assert.equal(first.history.filter(({ kind }) => kind === "ending").length, 1);
+  assert.equal(
+    first.history.at(-1)?.title,
+    scenario.completion.endings[0].title,
+  );
+  assert.equal(
+    first.history.at(-1)?.detail,
+    scenario.completion.endings[0].description,
+  );
   for (const command of [
     { type: "set-stance", stanceId: "policy", value: 0.9 },
     { type: "enact-stance", stanceId: "policy", value: 0.9 },
@@ -180,7 +68,7 @@ export function runEndingTests() {
     { type: "resolve-dilemma", dilemmaId: "assembly", choiceId: "accept" },
   ] as const) {
     const result = executeCommand(scenario, first, command);
-    assert.equal(result.accepted, false);
+    assert.equal(result.isAccepted, false);
     assert.strictEqual(result.state, first);
   }
   const later = {
@@ -225,9 +113,42 @@ export function runEndingTests() {
     },
   };
   const multi = advanceTurn(multiple, initializeScenario(multiple)).state;
+  const authoredEndings = JSON.stringify(multiple.completion.endings);
+  assert.deepEqual(
+    getEndingsInSelectionOrder(multiple).map(({ id }) => id),
+    ["unqualified", "alpha", "zulu", "lower"],
+  );
+  const ordered = getEndingsInSelectionOrder(multiple);
+  assert.notStrictEqual(ordered, multiple.completion.endings);
+  assert.notStrictEqual(getEndingsInSelectionOrder(multiple), ordered);
+  assert.strictEqual(ordered[0], multiple.completion.endings[0]);
+  assert.deepEqual(getEndingsInSelectionOrder(loaded.scenario), [
+    loaded.scenario.completion.endings[0],
+  ]);
+  const empty = {
+    ...scenario,
+    completion: { ...scenario.completion, endings: [] },
+  };
+  assert.deepEqual(getEndingsInSelectionOrder(empty), []);
+  assert.equal(
+    evaluateEnding(empty, { ...initial, turn: 1 })?.usedFallback,
+    true,
+  );
+  assert.equal(evaluateEnding(scenario, first), null);
+  const pending = { ...initial, turn: 1, pendingDilemmaIds: ["assembly"] };
+  assert.equal(evaluateEnding(scenario, pending), null);
+  assert.strictEqual(resolveEnding(scenario, pending), pending);
+  evaluateEnding(multiple, { ...initial, turn: 1 });
+  assert.equal(JSON.stringify(multiple.completion.endings), authoredEndings);
   assert.equal(multi.outcome?.kind, "ending");
   if (multi.outcome?.kind !== "ending") throw new Error("Expected ending");
   assert.equal(multi.outcome.endingId, "alpha");
+  const multiReport = projectFinalReport(multiple, multi);
+  assert.ok(multiReport?.kind === "ending");
+  assert.deepEqual(
+    multiReport.reason.completion.map(({ id }) => id),
+    ["objective", "review"],
+  );
   assert.deepEqual(multi.outcome.matchedTriggerIds, ["objective", "review"]);
   assert.deepEqual(multi.outcome.matchedPrerequisiteGroupIds, [
     "alternative",
@@ -244,6 +165,10 @@ export function runEndingTests() {
   assert.deepEqual(
     advanceTurn(reversed, initializeScenario(reversed)).state.outcome,
     multi.outcome,
+  );
+  assert.deepEqual(
+    getEndingsInSelectionOrder(reversed),
+    getEndingsInSelectionOrder(multiple),
   );
   const unmatched = {
     ...scenario,
@@ -373,9 +298,12 @@ export function runEndingTests() {
     reviewed.outcome?.kind === "ending" && reviewed.outcome.endingId,
     "council-reviewed",
   );
-  assert.deepEqual(projectEndingReport(combined, reviewed)?.triggers, [
-    milestone,
-  ]);
+  const reviewedReport = projectFinalReport(combined, reviewed);
+  assert.ok(reviewedReport?.kind === "ending");
+  assert.deepEqual(
+    reviewedReport.reason.completion.map(({ id }) => id),
+    [milestone.id],
+  );
   const dateStatus = projectPrerequisite(
     milestone.allOf[0],
     combined,
@@ -386,7 +314,7 @@ export function runEndingTests() {
     combined,
     reviewed,
   );
-  assert.equal(dateStatus.met, true);
+  assert.equal(dateStatus.isMet, true);
   assert.equal(dateStatus.nodeId, undefined);
   assert.equal(eventStatus.title, "Council");
   assert.equal(eventStatus.nodeId, undefined);
@@ -412,7 +340,7 @@ export function runEndingTests() {
         ],
       },
     ],
-    terminalAfterTurns: 2,
+    turnsToGameOver: 2,
     stages: [
       {
         id: "warning",
@@ -421,10 +349,7 @@ export function runEndingTests() {
         description: "An authored warning.",
       },
     ],
-    report: {
-      title: "Terminal",
-      narrative: "The institution can no longer continue.",
-    },
+    description: "The institution can no longer continue.",
   } as const;
   const afterEventScenario = {
     ...eventScenario,
@@ -434,7 +359,9 @@ export function runEndingTests() {
     afterEventScenario,
     initializeScenario(afterEventScenario),
   ).state;
-  assert.equal(afterEvent.gameOverProgress.exhausted.consecutiveTurns, 0);
+  assert.equal(afterEvent.events.council.triggerCount, 1);
+  assert.equal(afterEvent.nodes.reserve.value, 6);
+  assert.equal(afterEvent.gameOverProgress.exhausted.consecutiveTurns, 1);
   assert.equal(afterEvent.outcome?.kind, "ending");
 
   const dilemmaScenario = assemblyScenario({
@@ -518,9 +445,9 @@ export function runEndingTests() {
     null,
   );
   const succession = dilemmaScenario.completion.prerequisiteGroups[0].allOf[0];
-  assert.equal(prerequisiteMet(succession, accepted), true);
+  assert.equal(isPrerequisiteMet(succession, accepted), true);
   assert.equal(
-    prerequisiteMet(succession, {
+    isPrerequisiteMet(succession, {
       ...accepted,
       dilemmas: {
         ...accepted.dilemmas,
@@ -559,26 +486,22 @@ export function runEndingTests() {
   ).state;
   assert.equal(declined.outcome, null);
   assert.equal(advanceTurn(anyChoice, declined).state.outcome?.kind, "ending");
-  const deferred = {
+  const immediate = {
     ...dilemmaScenario,
     completion: { ...dilemmaScenario.completion, prerequisiteGroups: [date()] },
   };
-  const deferredState = advanceTurn(
-    deferred,
-    initializeScenario(deferred),
+  const immediateState = advanceTurn(
+    immediate,
+    initializeScenario(immediate),
   ).state;
-  assert.equal(deferredState.outcome, null);
-  assert.strictEqual(advanceTurn(deferred, deferredState).state, deferredState);
-  const deferredChoice = executeCommand(deferred, deferredState, {
-    type: "resolve-dilemma",
-    dilemmaId: "assembly",
-    choiceId: "accept",
-  }).state;
-  assert.equal(deferredChoice.outcome, null);
   assert.equal(
-    advanceTurn(deferred, deferredChoice).state.outcome?.kind,
+    immediateState.outcome?.kind,
     "ending",
+    "Normal completion takes precedence over a newly selected Dilemma",
   );
+  assert.deepEqual(immediateState.pendingDilemmaIds, []);
+  assert.equal(immediateState.dilemmas.assembly.triggerCount, 0);
+  assert.equal(immediateState.dilemmas.assembly.lastTriggerTurn, null);
   assert.equal(
     advanceTurn(
       dilemmaScenario,
@@ -633,7 +556,7 @@ export function runEndingTests() {
         id: "suppression",
         title: "Suppression",
         prerequisiteGroups: [group()],
-        terminalAfterTurns: 2,
+        turnsToGameOver: 2,
         stages: [
           {
             id: "warning",
@@ -642,7 +565,7 @@ export function runEndingTests() {
             description: "External pressure.",
           },
         ],
-        report: { title: "Suppressed", narrative: "Leadership is removed." },
+        description: "Leadership is removed.",
       },
     ],
   };
@@ -656,16 +579,18 @@ export function runEndingTests() {
   assert.equal(evaluateEnding(terminal, gameOver), null);
   assert.equal(gameOver.events.council.triggerCount, 1);
 
-  const report = projectEndingReport(multiple, multi)!;
-  assert.equal(report.ending.title, "alpha");
+  const report = projectFinalReport(multiple, multi)!;
+  assert.equal(report.title, "alpha");
   assert.equal(report.year, 1981);
-  assert.equal(report.actors[0].id, "delegates");
   assert.deepEqual(report.changes, [], "Unchanged readings are omitted");
-  assert.equal(projectEndingReport(terminal, gameOver), undefined);
-  const presentation = beginAutomaticEvents(["first", "second"], "ending")!;
+  assert.equal(projectFinalReport(terminal, gameOver)?.kind, "game-over");
+  const presentation = beginAutomaticEvents(
+    ["first", "second"],
+    "final-report",
+  )!;
   const next = closeEventPresentation(presentation);
   assert.equal(next.returnTo, undefined);
-  assert.equal(closeEventPresentation(next.next!).returnTo, "ending");
+  assert.equal(closeEventPresentation(next.next!).returnTo, "final-report");
 
   const sharedCrisis: ScenarioDefinition = {
     ...combined,
@@ -678,14 +603,56 @@ export function runEndingTests() {
   ).state;
   assert.equal(beforeCrisis.gameOverProgress.suppression.consecutiveTurns, 0);
   const sharedWarning = advanceTurn(sharedCrisis, beforeCrisis).state;
-  const crisis = projectGameOverWarnings(sharedCrisis, sharedWarning)[0];
+  const crisis = projectCrisis(sharedCrisis, sharedWarning)[0];
   assert.equal(crisis.consecutiveTurns, 1);
-  assert.deepEqual(crisis.matchedPrerequisiteNodeIds, ["reserve"]);
-  assert.ok(crisis.matchedGroups[0].prerequisites.every(({ met }) => met));
+  const crisisDetail = projectCrisisDetail(
+    sharedCrisis,
+    sharedWarning,
+    crisis.id,
+  )!;
+  assert.deepEqual(
+    crisisDetail.matchedGroups[0].prerequisites.flatMap(({ nodeId }) =>
+      nodeId ? [nodeId] : [],
+    ),
+    ["reserve"],
+  );
+  assert.ok(
+    crisisDetail.matchedGroups[0].prerequisites.every(({ isMet }) => isMet),
+  );
   assert.equal(
     advanceTurn(sharedCrisis, sharedWarning).state.outcome?.kind,
     "game-over",
   );
+
+  for (const fields of [
+    { description: undefined },
+    { description: 3 },
+    { report: { title: "Obsolete", narrative: "Obsolete" } },
+    { narrative: "Obsolete" },
+  ]) {
+    const diagnostics = validateScenario({
+      ...scenario,
+      completion: {
+        ...scenario.completion,
+        endings: [{ ...scenario.completion.endings[0], ...fields }],
+        fallbackEnding: { ...scenario.completion.fallbackEnding, ...fields },
+      },
+      gameOvers: [{ ...terminal.gameOvers![0], ...fields }],
+    });
+    for (const path of [
+      "$.completion.endings[0]",
+      "$.completion.fallbackEnding",
+      "$.gameOvers[0]",
+    ]) {
+      const field = Object.keys(fields)[0];
+      assert.ok(
+        diagnostics.some((diagnostic) =>
+          diagnostic.startsWith(`${path}.${field}:`),
+        ),
+        `${path} rejects invalid ${field} content`,
+      );
+    }
+  }
 
   for (const predicate of [
     { kind: "turn", atTurn: -1 },
@@ -801,7 +768,7 @@ export function runEndingTests() {
   const bundledInitial = initializeScenario(exampleScenario);
   for (const { turn, values, expected } of [
     {
-      turn: 1,
+      turn: 20,
       values: {
         "mission-reach": 0.7,
         "financial-stability": 0.6,

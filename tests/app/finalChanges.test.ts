@@ -5,13 +5,17 @@ import {
   executeCommand,
   advanceTurn,
   type ScenarioDefinition,
+  type SimulationState,
 } from "../../src/simulation";
 import { exampleScenario } from "../../src/scenarios/example";
-import { endingScenario } from "../simulation/endings.test";
+import { endingScenario } from "../simulation/fixtures";
 import {
-  projectEndingChanges,
-  projectEndingReport,
+  projectFinalChanges,
+  projectFinalReport,
   projectChanges,
+  projectTurnReport,
+  serializeTurnReport,
+  restoreTurnReport,
 } from "../../src/ui/panels/projectReport";
 import { formatSignedValue } from "../../src/ui/formatValue";
 
@@ -26,7 +30,7 @@ export function runEndingChangesTests() {
     ),
   };
   const initial = initializeScenario(scenario);
-  assert.deepEqual(projectEndingChanges(scenario, initial), []);
+  assert.deepEqual(projectFinalChanges(scenario, initial), []);
   const changed = {
     ...initial,
     nodes: {
@@ -37,26 +41,69 @@ export function runEndingChangesTests() {
       crisis: { ...initial.nodes.crisis, value: 0.3, isActive: true },
     },
   };
-  const changes = projectEndingChanges(scenario, changed);
+  const changes = projectFinalChanges(scenario, changed);
   assert.deepEqual(
-    changes.map((c) => c.node.id),
+    changes.map((c) => c.nodeId),
     ["policy", "health", "reserve", "crisis"],
   );
-  assert.equal(changes[0].node.graphVisible, false);
+  assert.equal(changes[0].name, scenario.nodes[0].name);
   assert.deepEqual(
-    changes.map((c) => formatSignedValue(c.delta, c.node.domain, true)),
+    changes.map((c) => formatSignedValue(c.amount, c.domain, true)),
     ["+30.0%p", "-15.0%p", "+3.0", "+10.0%p"],
   );
-  assert.equal(changes[3].previousActive, false);
   assert.equal(changes[3].isActive, true);
+  assert.ok(
+    changes.slice(0, 3).every((change) => change.isActive === undefined),
+  );
   const combined = projectChanges(scenario, initial, changed).find(
-    (change) => change.node.id === "crisis",
+    (change) => change.nodeId === "crisis",
   )!;
   assert.equal(combined.previousValue, 0.2);
   assert.equal(combined.value, 0.3);
-  assert.equal(combined.previousActive, false);
   assert.equal(combined.isActive, true);
-  assert.ok(Math.abs(combined.delta - 0.1) < 1e-9);
+  assert.ok(Math.abs(combined.amount - 0.1) < 1e-9);
+  const deactivated = {
+    ...changed,
+    nodes: {
+      ...changed.nodes,
+      crisis: { ...changed.nodes.crisis, isActive: false },
+    },
+  };
+  assert.equal(
+    projectChanges(scenario, changed, deactivated)[0].isActive,
+    false,
+  );
+  const inactiveValueChange = {
+    ...deactivated,
+    nodes: {
+      ...deactivated.nodes,
+      crisis: { ...deactivated.nodes.crisis, value: 0.4 },
+    },
+  };
+  assert.equal(
+    projectChanges(scenario, deactivated, inactiveValueChange)[0].isActive,
+    undefined,
+  );
+  for (const [before, after] of [
+    [initial, changed],
+    [changed, deactivated],
+    [deactivated, inactiveValueChange],
+  ] as readonly [SimulationState, SimulationState][]) {
+    const report = projectTurnReport(scenario, before, after);
+    const saved = serializeTurnReport(report);
+    const restoredReport = restoreTurnReport(scenario, saved);
+    assert.deepEqual(restoredReport.changes, report.changes);
+    assert.deepEqual(restoredReport.highlights, report.highlights);
+    for (const change of report.changes.filter(
+      (c) => c.isActive === undefined,
+    )) {
+      const savedChange = saved.changes.find(
+        (c) => c.nodeId === change.nodeId,
+      )!;
+      assert.equal(Object.hasOwn(savedChange, "isActive"), false);
+      assert.equal(Object.hasOwn(savedChange, "wasActive"), false);
+    }
+  }
   for (const delta of [0, -0.000001, 0.000001]) {
     assert.equal(
       formatSignedValue(delta, scenario.nodes[0].domain, true),
@@ -78,10 +125,10 @@ export function runEndingChangesTests() {
     stanceId: "policy",
     value: 0.8,
   });
-  assert.equal(action.accepted, true);
+  assert.equal(action.isAccepted, true);
   assert.equal(action.state.nodeValueHistory[0].policy.value, 0.8);
   assert.equal(
-    projectEndingChanges(scenario, action.state)[0].previousValue,
+    projectFinalChanges(scenario, action.state)[0].previousValue,
     0.5,
   );
   const reversed = executeCommand(scenario, action.state, {
@@ -89,9 +136,9 @@ export function runEndingChangesTests() {
     stanceId: "policy",
     value: 0.5,
   });
-  assert.equal(reversed.accepted, true);
+  assert.equal(reversed.isAccepted, true);
   assert.deepEqual(
-    projectEndingChanges(scenario, reversed.state),
+    projectFinalChanges(scenario, reversed.state),
     [],
     "Reversed changes have no net difference",
   );
@@ -102,11 +149,11 @@ export function runEndingChangesTests() {
   );
   assert.ok(restored.ok);
   assert.deepEqual(
-    projectEndingChanges(scenario, restored.state),
-    projectEndingChanges(scenario, completed),
+    projectFinalChanges(scenario, restored.state),
+    projectFinalChanges(scenario, completed),
   );
   assert.equal(
-    projectEndingReport(scenario, restored.state)?.changes[0].previousValue,
+    projectFinalReport(scenario, restored.state)?.changes[0].previousValue,
     0.5,
   );
   const fallbackScenario = {
@@ -121,12 +168,11 @@ export function runEndingChangesTests() {
       value: 0.8,
     }).state,
   ).state;
+  const fallbackReport = projectFinalReport(fallbackScenario, fallback);
+  assert.ok(fallbackReport?.kind === "ending");
+  assert.equal(fallbackReport.reason.usedFallback, true);
   assert.equal(
-    projectEndingReport(fallbackScenario, fallback)?.usedFallback,
-    true,
-  );
-  assert.equal(
-    projectEndingReport(fallbackScenario, fallback)?.changes[0].previousValue,
+    projectFinalReport(fallbackScenario, fallback)?.changes[0].previousValue,
     0.5,
   );
 
@@ -146,8 +192,8 @@ export function runEndingChangesTests() {
       reserve: { ...clampedStart.nodes.reserve, value: 7 },
     },
   };
-  assert.equal(projectEndingChanges(clamped, spent)[0].previousValue, 10);
-  assert.equal(projectEndingChanges(clamped, spent)[0].delta, -3);
+  assert.equal(projectFinalChanges(clamped, spent)[0].previousValue, 10);
+  assert.equal(projectFinalChanges(clamped, spent)[0].amount, -3);
 
   const factionStart = initializeScenario(exampleScenario);
   const group = exampleScenario.factionGroups[0];
@@ -169,22 +215,33 @@ export function runEndingChangesTests() {
       ),
     },
   };
-  const factions = projectEndingChanges(exampleScenario, factionChanged);
+  const factions = projectFinalChanges(exampleScenario, factionChanged);
   assert.deepEqual(
-    factions.map((c) => c.node.id),
+    factions.map((c) => c.nodeId),
     exampleScenario.nodes.filter((n) => ids.includes(n.id)).map((n) => n.id),
   );
-  assert.ok(factions.every((c) => c.node.name === group.name));
+  assert.ok(factions.every((c) => c.name === group.name));
   assert.deepEqual(
-    new Set(factions.map((c) => c.metricId)),
+    new Set(factions.map((c) => c.metric?.id)),
     new Set(exampleScenario.factionMetrics.map((m) => m.id)),
   );
+  const factionReport = projectTurnReport(
+    exampleScenario,
+    factionStart,
+    factionChanged,
+  );
+  const restoredFactionReport = restoreTurnReport(
+    exampleScenario,
+    serializeTurnReport(factionReport),
+  );
+  assert.deepEqual(restoredFactionReport.changes, factionReport.changes);
+  assert.deepEqual(restoredFactionReport.highlights, factionReport.highlights);
   const terminal = {
     ...changed,
     outcome: { kind: "game-over" as const, turn: 1, causes: [] },
   };
   assert.deepEqual(
-    projectEndingChanges(scenario, terminal),
+    projectFinalChanges(scenario, terminal),
     changes,
     "Game Over uses the same comparisons",
   );

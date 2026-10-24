@@ -1,8 +1,7 @@
 # Architecture
 
-This document is authoritative for the intended software structure, module
-responsibilities, and dependency boundaries. Game behavior belongs to
-`GAME_DESIGN.md`; the content contract belongs to `DATA_FORMAT.md`.
+This document is authoritative for the intended software structure, module responsibilities, and dependency boundaries.
+Game behavior belongs to `GAME_DESIGN.md`; the content contract belongs to `DATA_FORMAT.md`.
 
 ## Architectural shape
 
@@ -47,8 +46,7 @@ flowchart TB
   classDef component fill:#f8fafc,stroke:#334155,color:#0f172a,stroke-width:2px
 ```
 
-The project is a client-side application with a deterministic, framework-free
-simulation core.
+The project is a client-side application with a deterministic, framework-free simulation core.
 
 ## Modules
 
@@ -63,6 +61,8 @@ simulation core.
 | UI projections                 | `src/ui`                                                                                       | Derive presentation-ready data from definitions and runtime state                                      |
 | React UI                       | `src/App.tsx` and UI components                                                                | Render state and dispatch semantic commands                                                            |
 | Persistence adapter            | `src/app/persistence.ts`, `src/app/savedGames.ts`                                              | Validate snapshots and coordinate versioned browser save collections without changing engine semantics |
+
+`projectOutcome.ts` owns crisis lifecycle, completion and Ending projections, summaries, and condition detail analysis, reusing prerequisite and contribution helpers; `outcomeViews.ts` defines shared view types. `projectReport.ts` combines condition details, recorded outcomes, participants, active crises, and starting-state comparisons for final reports. Presentation does not select outcomes. The public query `getEndingsInSelectionOrder` returns conditional Endings in priority/ID order (descending priority, ascending ID), excluding fallback; selection and UI projections preserve that order.
 
 Folder names may evolve, but the responsibilities and dependency direction are
 the constraint.
@@ -112,23 +112,18 @@ flowchart TB
 
 Rules:
 
-- The domain and engine MUST NOT import React, React Flow, browser APIs, UI
-  types, persistence adapters, or application session code.
+- The domain and engine MUST NOT import React, React Flow, browser APIs, UI types, persistence adapters, or application session code.
 - Scenario content MUST NOT import UI or mutate runtime state.
-- UI code MUST dispatch commands through the engine boundary; it MUST NOT
-  implement game transitions.
-- React Flow nodes, edges, positions, and interaction state are disposable view
-  data, never canonical simulation state.
-- Lower layers MUST NOT call upward through callbacks to application or UI
-  modules.
-- Cross-layer imports should use the simulation public API unless code is
-  internal to the simulation package.
+- UI code MUST dispatch commands through the engine boundary; it MUST NOT implement game transitions.
+- React Flow nodes, edges, positions, and interaction state are disposable view data, never canonical simulation state.
+- Lower layers MUST NOT call upward through callbacks to application or UI modules.
+- Cross-layer imports should use the simulation public API unless code is internal to the simulation package.
 
 ## Static definitions and runtime state
 
-Static Scenario definitions are immutable authored content. Runtime state is an
-immutable snapshot that changes during play. They may reference the same stable
-IDs but MUST remain distinct representations.
+Static Scenario definitions are immutable authored content.
+Runtime state is an immutable snapshot that changes during play.
+They may reference the same stable IDs but MUST remain distinct representations.
 
 The engine receives both explicitly:
 
@@ -139,15 +134,13 @@ advanceTurn(scenario, state, runtime dependencies) -> turn result
 ```
 
 An engine transition returns a new snapshot and leaves its inputs unchanged.
-Derived UI objects and calculation traces do not become fields in the canonical
-Scenario definition.
+Derived UI objects and calculation traces do not become fields in the canonical Scenario definition.
 
 ## Scenario loading
 
 Scenario is the only top-level playable configuration. A loading boundary must:
 
-1. obtain a JSON-compatible Scenario definition, whether imported at build time
-   or parsed at runtime;
+1. obtain a JSON-compatible Scenario definition, whether imported at build time or parsed at runtime;
 2. validate shape, identifiers, references, domains, and type-specific rules;
 3. reject invalid content with actionable diagnostics;
 4. return a trusted definition to initialization.
@@ -159,18 +152,14 @@ untrusted content -> validateScenario -> structured clone and normalize
                    -> freeze trusted Scenario -> initialize turn-zero state
 ```
 
-The current compiled TypeScript Scenario may continue as a source while there
-is only local bundled content. Adding runtime files or remote content should add
-a parser at this boundary, not change the engine to accept unvalidated data.
-Normalization may fill representation-level defaults defined by
-`DATA_FORMAT.md`; it MUST NOT invent game behavior.
+The current compiled TypeScript Scenario may continue as a source while there is only local bundled content.
+Adding runtime files or remote content should add a parser at this boundary, not change the engine to accept unvalidated data.
+Normalization may fill representation-level defaults defined by `DATA_FORMAT.md`; it MUST NOT invent game behavior.
 
 ## State ownership and commands
 
-Exactly one application/session owner holds the active runtime snapshot. In the
-browser MVP this is a React hook. Components receive state or narrow view
-models and dispatch intent through commands such as setting a Stance or
-resolving a Dilemma.
+Exactly one application/session owner holds the active runtime snapshot.
+In the browser MVP this is a React hook. Components receive state or narrow view models and dispatch intent through commands such as setting a Stance or resolving a Dilemma.
 
 The session layer owns:
 
@@ -181,8 +170,7 @@ The session layer owns:
 - transient user feedback;
 - save/load coordination.
 
-It does not calculate Effects, apply costs, resolve incidents, or otherwise
-duplicate mechanics.
+It does not calculate Effects, apply costs, resolve incidents, or otherwise duplicate mechanics.
 
 ## Simulation flow
 
@@ -210,53 +198,42 @@ advanceTurn(scenario, state, optional randomValue)
     -> increment turn/year
     -> evaluatePersistentState from one prior snapshot
     -> decay Grudges after they contribute
-    -> evaluateGameOvers on the post-persistent, post-decay snapshot
-         terminal -> record outcome; incident selectors return no candidates
-         nonterminal -> advance episodes; apply any stage/recovery consequences
-    -> select Events and queue at most one Dilemma from the post-Game-Over state
+    -> select Events from the post-decay snapshot
     -> apply captured Event consequences in Event ID order
-    -> record post-Event node history
-    -> resolve an Ending if eligible (skipped for terminal or pending states)
+    -> evaluateGameOvers on the post-Event snapshot
+         terminal -> record outcome
+         nonterminal -> advance episodes; apply any stage/recovery consequences
+    -> record final node history
+    -> resolve an Ending if eligible (skipped for terminal states)
+    -> queue at most one Dilemma from the final turn state (skipped for terminal states)
     -> return next snapshot, trace, and messages
 ```
 
-The engine uses the synchronous prior-snapshot model and other partial ordering
-rules in `GAME_DESIGN.md`. The unresolved complete phase order must remain
-localized in the turn orchestrator so it can be settled without changing UI or
-content ownership.
+The engine uses the synchronous prior-snapshot model and other partial ordering rules in `GAME_DESIGN.md`.
+The unresolved complete phase order must remain localized in the turn orchestrator so it can be settled without changing UI or content ownership.
 
-A Resource combines a stored balance with recurring Effect and Grudge flows,
-plus direct transactions.
+A Resource combines a stored balance with recurring Effect and Grudge flows, plus direct transactions.
 
-`initializeScenario` seeds turn-zero `netFlow`, and `advanceTurn` delegates
-ongoing evaluation to `evaluatePersistentState`. Runtime `value` stores the
-balance; `netFlow` stores persistent Effect and Grudge contributions.
+`initializeScenario` seeds turn-zero `netFlow`, and `advanceTurn` delegates ongoing evaluation to `evaluatePersistentState`.
+Runtime `value` stores the balance; `netFlow` stores persistent Effect and Grudge contributions.
 
-Player commands are validated in `playerActions.ts`; `executeCommand` commits
-accepted Stance costs using `debitCost`. Event and Dilemma resolution delegate
-Resource consequences to `applyConsequences`. These modules implement the rules
-in `GAME_DESIGN.md`. UI projections read `value` and `netFlow`, and persistence
-validates both fields in saves.
+Player commands are validated in `playerActions.ts`; `executeCommand` commits accepted Stance costs using `debitCost`. Event and Dilemma resolution delegate Resource consequences to `applyConsequences`.
+These modules implement the rules in `GAME_DESIGN.md`.
+UI projections read `value` and `netFlow`, and persistence validates both fields in saves.
 
-Any future gradual Stance implementation or minister-like influence must be
-modeled and calculated by the simulation engine through its public API. The
-UI, session, and persistence layers MUST NOT duplicate those rules; define
-their exact responsibilities once the mechanics and data contract are
-specified.
+Any future gradual Stance implementation or minister-like influence must be modeled and calculated by the simulation engine through its public API.
+The UI, session, and persistence layers MUST NOT duplicate those rules; define their exact responsibilities once the mechanics and data contract are specified.
 
-`selectEvents` and `queueDilemmas` evaluate candidates from the same post-Game-Over snapshot. `queueDilemmas` records at most one selected Dilemma.
-Captured Event consequences are then applied in ID order. `resolveEnding` runs after Event resolution and skips terminal or pending-Dilemma states. Resolving a Dilemma applies its choice but does not recalculate persistent values or resolve an Ending.
+`selectEvents` evaluates the post-decay snapshot. After Event consequences, Game Over handling, and normal completion, `queueDilemmas` evaluates the final turn state and skips terminal outcomes.
+Resolving a Dilemma applies its choice but does not recalculate persistent values or resolve an Ending; terminal outcomes reject choices.
 
-`conditionsMet` checks static Scenario tags; `matchingPrerequisiteGroups`
-evaluates runtime groups against a snapshot. These helpers do not choose
-timing: `evaluateGameOvers` checks before incident selection, and
-`resolveEnding` checks completion after Event handling.
+`findPrerequisiteGroupsMet` evaluates runtime groups without choosing their evaluation phase.
+The public API also exposes it for UI requirement status.
 
 ### Engine functions
 
-This is an implementation reference for `src/simulation/engine`, including
-private helpers. It describes current code rather than adding game semantics;
-`GAME_DESIGN.md` remains authoritative.
+This is an implementation reference for `src/simulation/engine`, including private helpers.
+It describes current code rather than adding game semantics; `GAME_DESIGN.md` remains authoritative.
 
 | Function                                                              | Visibility      | Responsibility                                                                                                                                                                                            |
 | --------------------------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -264,21 +241,20 @@ private helpers. It describes current code rather than adding game semantics;
 | `initializeScenario`                                                  | Public          | Build turn-zero state, clamp initial Resources, seed Effect histories and Resource flow, and record initial node history.                                                                                 |
 | `advanceTurn`                                                         | Public          | Guard terminal/pending states, increment time, orchestrate the turn, and return the next snapshot and persistent trace.                                                                                   |
 | `evaluatePersistentState`                                             | Engine-internal | Clamp configured Resource balances; sample Effects from one snapshot; update eligible nodes, sum constraints, and Situation activation; return a trace. Newly active Situations source Effects next turn. |
-| `evaluateGameOvers`                                                   | Engine-internal | Read the post-persistent, post-decay snapshot; record terminal causes or apply nonterminal stage/recovery consequences.                                                                                   |
-| `selectEvents` / `queueDilemmas`                                      | Engine-internal | Capture eligible incidents from the same post-Game-Over snapshot; queue at most one Dilemma.                                                                                                              |
+| `evaluateGameOvers`                                                   | Engine-internal | Read the post-Event snapshot; record terminal causes or apply nonterminal stage/recovery consequences.                                                                                                    |
+| `selectEvents` / `queueDilemmas`                                      | Engine-internal | Select Events from the post-decay snapshot; queue at most one Dilemma from the final nonterminal turn state.                                                                                              |
 | `resolveEvents` / `resolveDilemma`                                    | Engine-internal | Apply selected Event consequences or a Dilemma choice without rerunning persistent evaluation.                                                                                                            |
 | `resolveEnding`                                                       | Engine-internal | Check completion and record the highest-priority eligible Ending or fallback, unless terminal or awaiting a Dilemma.                                                                                      |
 | `assessStanceChange` / `assessStanceEnactment` / `assessStanceRepeal` | Public          | Check Stance actions against one Scenario and runtime snapshot.                                                                                                                                           |
 | `executeCommand`                                                      | Public          | Reassess and commit an accepted Stance or Dilemma command as an immutable state update.                                                                                                                   |
-| `applyConsequences`                                                   | Engine-internal | Apply Resource, Grudge, or activation consequences for one occurrence.                                                                                                                                    |
+| `applyConsequences`                                                   | Engine-internal | Apply Resource, Grudge, or activation consequences for one incident.                                                                                                                                      |
 
-`src/simulation/index.ts` re-exports the public engine operations and domain
-contracts, including loading, Stance assessment, and Effect preview helpers.
+`src/simulation/index.ts` re-exports the public engine operations and domain contracts, including loading, Stance assessment, and Effect preview helpers.
 
 ## React and React Flow
 
-React renders the current application snapshot and dispatches commands. Hooks
-may memoize projections but must not become an alternate simulation store.
+React renders the current application snapshot and dispatches commands.
+Hooks may memoize projections but must not become an alternate simulation store.
 
 local dossier-navigation state controls overlapping dialogs and is never persisted.
 
@@ -290,15 +266,14 @@ The graph adapter maps visible simulation nodes and Effects to React Flow data:
 - shared UI ownership indexes project one card per group, map both Effect endpoints, and expose metrics in graph and dossier selectors;
 - layout and styling remain presentation concerns;
 - hidden nodes and edges continue participating in simulation;
-- dragging or selecting a graph element does not mutate game state unless
-  translated into an explicit supported command.
+- dragging or selecting a graph element does not mutate game state unless translated into an explicit supported command.
 
-Scenario-specific assumptions such as a fixed year, one Resource, or one
-particular Scenario do not belong in reusable UI components.
+Scenario-specific assumptions such as a fixed year, one Resource, or one particular Scenario do not belong in reusable UI components.
 
 ## Scenario catalog and persistence boundary
 
-The application presents playable content through a Scenario catalog. Each catalog entry contains untrusted Scenario content plus a positive integer `contentVersion`. The loading boundary validates the content before the launcher displays it. The catalog version belongs to application compatibility.
+The application presents playable content through a Scenario catalog. Each catalog entry contains untrusted Scenario content plus a positive integer `contentVersion`.
+The loading boundary validates the content before the launcher displays it.
 
 Browser persistence belongs behind the application/session layer and stores:
 

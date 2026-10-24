@@ -97,7 +97,7 @@ export function runResourceTests() {
       type: "set-stance",
       stanceId: "policy",
       value: 1,
-    }).accepted,
+    }).isAccepted,
     "Affordability should use the current balance",
   );
 
@@ -107,7 +107,7 @@ export function runResourceTests() {
     value: 1,
   });
   assert(
-    spent.accepted &&
+    spent.isAccepted &&
       spent.state.nodes.reserve.value === 5 &&
       spent.state.nodes.reserve.netFlow === 3,
     "A Stance cost should debit the current balance and preserve flow",
@@ -164,7 +164,7 @@ export function runResourceTests() {
       type: "set-stance",
       stanceId: "policy",
       value: 1,
-    }).accepted,
+    }).isAccepted,
     "A free Stance action should remain available during debt",
   );
 

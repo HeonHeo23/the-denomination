@@ -149,7 +149,7 @@ export function runEventTests() {
     0.2,
   ).state;
   assert.ok(snapshotTurn.nodes.authority.value! < 0);
-  assert.equal(snapshotTurn.pendingDilemmaIds.length, 1);
+  assert.equal(snapshotTurn.pendingDilemmaIds.length, 0);
 
   assert.ok(
     validateScenario({
@@ -222,7 +222,7 @@ export function runEventTests() {
             ],
           },
         ],
-        terminalAfterTurns: 2,
+        turnsToGameOver: 2,
         stages: [
           {
             id: "warning",
@@ -231,7 +231,7 @@ export function runEventTests() {
             description: "Warning.",
           },
         ],
-        report: { title: "End", narrative: "The game ended." },
+        description: "The game ended.",
       },
     ],
   };
@@ -246,5 +246,5 @@ export function runEventTests() {
   };
   const ending = advanceTurn(endingScenario, readyToFire, 0.2).state;
   assert.equal(ending.outcome?.kind, "game-over");
-  assert.equal(ending.events["ending-event"].triggerCount, 0);
+  assert.equal(ending.events["ending-event"].triggerCount, 1);
 }

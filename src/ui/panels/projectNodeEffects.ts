@@ -1,8 +1,8 @@
-import { getNodeDisplayInfo } from "../projections/projectFactionGroups";
+import { getNodeDisplayName } from "../projections/projectFactionGroups";
 import type {
+  FactionMetricDefinition,
   ScenarioDefinition,
   SimulationState,
-  FactionMetric,
 } from "../../simulation";
 import { previewStanceEffects } from "../../simulation";
 import { formatContributionPercent, formatSignedValue } from "../formatValue";
@@ -15,17 +15,17 @@ export interface NodeEffectView {
   readonly relatedNodeId?: string;
   readonly relatedName: string;
   readonly label?: string;
-  readonly sourceMetric?: FactionMetric;
-  readonly sourceMetricId?: string;
-  readonly targetMetric?: FactionMetric;
-  readonly targetMetricId?: string;
+  readonly sourceMetric?: FactionMetricDefinition;
+  readonly targetMetric?: FactionMetricDefinition;
   readonly contribution: number;
   readonly contributionLabel: string;
   readonly contributionTone: EffectContributionTone;
-  readonly previewContribution?: number;
-  readonly previewContributionLabel?: string;
-  readonly previewContributionTone?: EffectContributionTone;
-  readonly previewKind?: "settled" | "estimate";
+  readonly preview?: {
+    readonly contribution: number;
+    readonly label: string;
+    readonly tone: EffectContributionTone;
+    readonly kind: "settled" | "estimate";
+  };
   readonly inertiaTurns?: number;
 }
 
@@ -34,10 +34,8 @@ export interface NodeEffectsView {
   readonly outgoing: readonly NodeEffectView[];
 }
 
-function contributionTone(value: number): EffectContributionTone {
-  if (value > 0) return "positive";
-  if (value < 0) return "negative";
-  return "neutral";
+export function contributionTone(value: number): EffectContributionTone {
+  return value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
 }
 
 /**
@@ -69,8 +67,8 @@ export function projectNodeEffects(
     const sourceInfo =
       effect.source === "_default_"
         ? undefined
-        : getNodeDisplayInfo(scenario, effect.source);
-    const targetInfo = getNodeDisplayInfo(scenario, effect.target);
+        : getNodeDisplayName(scenario, effect.source);
+    const targetInfo = getNodeDisplayName(scenario, effect.target);
     const previewingOwnEffect =
       previewStanceValue !== undefined && effect.source === nodeId;
     const contribution = state.effects[effect.id]?.lastContribution ?? 0;
@@ -89,20 +87,18 @@ export function projectNodeEffects(
         label: effect.label,
         sourceMetric: sourceInfo?.metric,
         targetMetric: targetInfo.metric,
-        sourceMetricId: sourceInfo?.metricId,
-        targetMetricId: targetInfo.metricId,
         contribution,
         contributionLabel: formatContributionPercent(contribution),
         contributionTone: contributionTone(contribution),
         ...(preview === undefined
           ? {}
           : {
-              previewContribution: preview.contribution,
-              previewContributionLabel: formatContributionPercent(
-                preview.contribution,
-              ),
-              previewContributionTone: contributionTone(preview.contribution),
-              previewKind: preview.kind,
+              preview: {
+                contribution: preview.contribution,
+                label: formatContributionPercent(preview.contribution),
+                tone: contributionTone(preview.contribution),
+                kind: preview.kind,
+              },
             }),
         inertiaTurns: effect.inertiaTurns ?? 1,
       };
@@ -139,7 +135,7 @@ export function projectNodeEffects(
 
   const target = scenario.nodes.find(({ id }) => id === nodeId);
   if (target) {
-    const targetInfo = getNodeDisplayInfo(scenario, nodeId);
+    const targetInfo = getNodeDisplayName(scenario, nodeId);
     for (const grudge of state.grudges) {
       if (grudge.target !== nodeId) continue;
       incoming.push({
@@ -148,7 +144,6 @@ export function projectNodeEffects(
         relatedName: "Grudge",
         label: grudge.label,
         targetMetric: targetInfo.metric,
-        targetMetricId: targetInfo.metricId,
         contribution: grudge.magnitude,
         contributionLabel: formatSignedValue(grudge.magnitude, target.domain),
         contributionTone: contributionTone(grudge.magnitude),

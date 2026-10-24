@@ -5,12 +5,12 @@ import type {
 import type { SimulationState } from "../domain/runtime";
 import { indexNodes } from "./shared";
 
-/** Apply reusable authored consequences as one immutable occurrence. */
+/** Apply reusable authored consequences as one immutable result. */
 export function applyConsequences(
   scenario: ScenarioDefinition,
   state: SimulationState,
   consequences: readonly ConsequenceDefinition[],
-  occurrenceId: string,
+  historyEntryId: string,
 ): SimulationState {
   if (consequences.length === 0) return state;
   const definitions = indexNodes(scenario);
@@ -23,7 +23,7 @@ export function applyConsequences(
     const runtime = nodes[consequence.target];
     if (!definition || !runtime) return;
 
-    const historyId = `${occurrenceId}:consequence:${index}`;
+    const newId = `${historyEntryId}:consequence:${index}`;
 
     if (consequence.kind === "resource") {
       const value = runtime.value + consequence.amount;
@@ -32,9 +32,11 @@ export function applyConsequences(
         value,
       };
       history.push({
-        id: historyId,
+        id: newId,
         turn: state.turn,
         kind: "consequence",
+        sourceHistoryId: historyEntryId,
+        consequenceIndex: index,
         title: `${definition.name} changed`,
         detail: `Resource balance changed by ${consequence.amount}.`,
       });
@@ -48,9 +50,11 @@ export function applyConsequences(
         isActive: consequence.active,
       };
       history.push({
-        id: historyId,
+        id: newId,
         turn: state.turn,
         kind: "consequence",
+        sourceHistoryId: historyEntryId,
+        consequenceIndex: index,
         title: `${definition.name} activation set`,
         detail: `${definition.name} is now ${consequence.active ? "active" : "inactive"}.`,
       });
@@ -58,7 +62,7 @@ export function applyConsequences(
     }
 
     grudges.push({
-      id: `${occurrenceId}:grudge:${index}`,
+      id: `${historyEntryId}:grudge:${index}`,
       label: consequence.label,
       target: consequence.target,
       magnitude: consequence.magnitude,
@@ -66,9 +70,11 @@ export function applyConsequences(
       createdTurn: state.turn,
     });
     history.push({
-      id: historyId,
+      id: newId,
       turn: state.turn,
       kind: "consequence",
+      sourceHistoryId: historyEntryId,
+      consequenceIndex: index,
       title: `Grudge created: ${consequence.label}`,
       detail: `A temporary contribution of ${consequence.magnitude} was applied to ${definition.name} (decay ${consequence.decay}).`,
     });

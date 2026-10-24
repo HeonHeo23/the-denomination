@@ -1,7 +1,7 @@
 export type EventPresentation =
   | {
       readonly mode: "automatic";
-      readonly returnTo?: "ending";
+      readonly returnTo?: "final-report";
       readonly ids: readonly string[];
       readonly index: number;
     }
@@ -13,7 +13,7 @@ export type EventPresentation =
 
 export function beginAutomaticEvents(
   ids: readonly string[],
-  returnTo?: "ending",
+  returnTo?: "final-report",
 ): EventPresentation | undefined {
   return ids.length
     ? { mode: "automatic", ids, index: 0, ...(returnTo ? { returnTo } : {}) }
@@ -22,7 +22,7 @@ export function beginAutomaticEvents(
 
 export function closeEventPresentation(presentation: EventPresentation): {
   readonly next?: EventPresentation;
-  readonly returnTo?: "report" | "chronicle" | "ending";
+  readonly returnTo?: "report" | "chronicle" | "final-report";
 } {
   if (presentation.mode === "manual")
     return { returnTo: presentation.returnTo };

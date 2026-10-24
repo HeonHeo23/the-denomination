@@ -49,29 +49,30 @@ export function advanceTurn(
         (grudge) => Math.abs(grudge.magnitude) >= GRUDGE_CLEANUP_THRESHOLD,
       ),
   };
-  const resolved = evaluateGameOvers(scenario, decayed);
-  const selectedEvents = selectEvents(scenario, resolved, randomValue);
-  const queued = queueDilemmas(scenario, resolved, randomValue);
-  const afterEvents = resolveEvents(scenario, queued, selectedEvents);
+  const selectedEvents = selectEvents(scenario, decayed, randomValue);
+  const afterEvents = resolveEvents(scenario, decayed, selectedEvents);
+  const resolved = evaluateGameOvers(scenario, afterEvents);
   const completed = resolveEnding(scenario, {
-    ...afterEvents,
+    ...resolved,
     nodeValueHistory: {
-      ...afterEvents.nodeValueHistory,
+      ...resolved.nodeValueHistory,
       [turn]: Object.fromEntries(
         scenario.nodes.map((node) => [
           node.id,
-          createNodeHistoryState(afterEvents.nodes[node.id]),
+          createNodeHistoryState(resolved.nodes[node.id]),
         ]),
       ),
     },
   });
+  const nextState = queueDilemmas(scenario, completed, randomValue);
   return {
-    state: completed,
-    message: resolved.outcome
-      ? "Game over. The institution can no longer continue under your leadership."
-      : completed.outcome?.kind === "ending"
-        ? "Scenario complete. Review the institution’s final report."
-        : `Advanced to turn ${turn}.`,
+    state: nextState,
+    message:
+      nextState.outcome?.kind === "game-over"
+        ? "Game over. The institution can no longer continue under your leadership."
+        : nextState.outcome?.kind === "ending"
+          ? "Scenario complete. Review the institution’s final report."
+          : `Advanced to turn ${turn}.`,
     trace: evaluated.trace,
   };
 }

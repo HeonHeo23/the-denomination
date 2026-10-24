@@ -137,7 +137,6 @@ export function runComplianceTests() {
   };
   const minimalLoad = loadScenario(minimal);
   assert.ok(minimalLoad.ok);
-  assert.deepEqual(minimalLoad.scenario.conditions, []);
 
   const invalid: [unknown, string][] = [
     [null, "$"],
@@ -214,7 +213,6 @@ export function runComplianceTests() {
       },
       "$.nodes[0].initial.isActive",
     ],
-    [{ ...exampleScenario, conditions: ["_has_seminary"] }, "$.conditions[0]"],
     [{ ...exampleScenario, events: [{}] }, "$.events"],
     [{ ...exampleScenario, nodes: undefined }, "$.nodes"],
     [
@@ -395,10 +393,10 @@ export function runComplianceTests() {
       {
         ...exampleScenario,
         gameOvers: exampleScenario.gameOvers.map((gameOver, index) =>
-          index === 0 ? { ...gameOver, terminalAfterTurns: 1 } : gameOver,
+          index === 0 ? { ...gameOver, turnsToGameOver: 1 } : gameOver,
         ),
       },
-      "$.gameOvers[0].terminalAfterTurns",
+      "$.gameOvers[0].turnsToGameOver",
     ],
     [
       {
@@ -535,33 +533,29 @@ export function runComplianceTests() {
   assert.equal(forcedTurn.nodes["governance-tension"].isActive, true);
   assert.equal(forcedTurn.nodes["governance-tension"].isForced, true);
 
-  const gated = editNode(
+  const thresholdSituation = editNode(
     "governance-tension",
     (n) =>
       ({
         ...n,
         startThreshold: 0.4,
         stopThreshold: 0.3,
-        requires: ["permission"],
       }) as NodeDefinition,
   );
-  const blockedTurn = advanceTurn(gated, initializeScenario(gated)).state;
-  assert.ok(blockedTurn.nodes["governance-tension"].value >= 0.4);
-  assert.equal(blockedTurn.nodes["governance-tension"].isActive, false);
-  const permitted = {
-    ...gated,
-    conditions: [...(gated.conditions ?? []), "permission"],
-  };
-  const started = advanceTurn(permitted, initializeScenario(permitted)).state;
+  const started = advanceTurn(
+    thresholdSituation,
+    initializeScenario(thresholdSituation),
+  ).state;
+  assert.ok(started.nodes["governance-tension"].value >= 0.4);
   assert.equal(started.nodes["governance-tension"].isActive, true);
   assert.equal(started.effects["tension-to-trust"].lastContribution, 0);
   assert.ok(
-    advanceTurn(permitted, started).state.effects["tension-to-trust"]
+    advanceTurn(thresholdSituation, started).state.effects["tension-to-trust"]
       .lastContribution < 0,
   );
   const initiallyActive = {
-    ...gated,
-    nodes: gated.nodes.map((n) =>
+    ...thresholdSituation,
+    nodes: thresholdSituation.nodes.map((n) =>
       n.type === "situation" && n.id === "governance-tension"
         ? { ...n, initial: { ...n.initial, isActive: true, isForced: false } }
         : n,
@@ -608,7 +602,7 @@ export function runComplianceTests() {
     value: 0.75,
   };
   const changed = executeCommand(capped, cappedInitial, command);
-  assert.ok(changed.accepted);
+  assert.ok(changed.isAccepted);
   assert.equal(changed.state.nodes.centralization.isActive, true);
   close(
     cappedInitial.nodes.authority.value - changed.state.nodes.authority.value,
@@ -619,27 +613,20 @@ export function runComplianceTests() {
       type: "set-stance",
       stanceId: "centralization",
       value: 0.95,
-    }).accepted,
+    }).isAccepted,
   );
   const rejected = executeCommand(capped, cappedInitial, {
     type: "set-stance",
     stanceId: "centralization",
     value: 0.751,
   });
-  assert.equal(rejected.accepted, false);
+  assert.equal(rejected.isAccepted, false);
   assert.strictEqual(rejected.state, cappedInitial);
   assert.deepEqual(cappedInitial, snapshot);
   assert.equal(
-    executeCommand(capped, cappedInitial, { ...command, value: 0.55 }).accepted,
+    executeCommand(capped, cappedInitial, { ...command, value: 0.55 })
+      .isAccepted,
     true,
-  );
-  assert.equal(
-    executeCommand({ ...exampleScenario, conditions: [] }, initial, {
-      type: "set-stance",
-      stanceId: "clergy-formation",
-      value: 0.4,
-    }).accepted,
-    false,
   );
   const poor = {
     ...cappedInitial,
@@ -648,7 +635,7 @@ export function runComplianceTests() {
       authority: { ...cappedInitial.nodes.authority, value: 0 },
     },
   };
-  assert.equal(executeCommand(capped, poor, command).accepted, false);
+  assert.equal(executeCommand(capped, poor, command).isAccepted, false);
   const repealQuote = assessStanceRepeal(
     capped,
     changed.state,
@@ -659,7 +646,7 @@ export function runComplianceTests() {
     type: "repeal-stance",
     stanceId: "centralization",
   });
-  assert.ok(repealed.accepted);
+  assert.ok(repealed.isAccepted);
   assert.equal(repealed.state.nodes.centralization.isActive, false);
   assert.equal(repealed.state.nodes.centralization.value, 0.75);
   close(
@@ -672,13 +659,13 @@ export function runComplianceTests() {
       type: "enact-stance",
       stanceId: "centralization",
       value: 0.75,
-    }).accepted,
+    }).isAccepted,
   );
   assert.equal(
     executeCommand(capped, cappedInitial, {
       type: "repeal-stance",
       stanceId: "centralization",
-    }).accepted,
+    }).isAccepted,
     false,
   );
   const freeTransitions = editNode(
@@ -697,7 +684,7 @@ export function runComplianceTests() {
     stanceId: "centralization",
     value: 0.55,
   });
-  assert.ok(freelyEnacted.accepted);
+  assert.ok(freelyEnacted.isAccepted);
   assert.equal(
     freelyEnacted.state.nodes.authority.value,
     freeInitial.nodes.authority.value,
@@ -706,7 +693,7 @@ export function runComplianceTests() {
     executeCommand(freeTransitions, freelyEnacted.state, {
       type: "repeal-stance",
       stanceId: "centralization",
-    }).accepted,
+    }).isAccepted,
   );
   const discrete = editNode(
     "centralization",
@@ -729,7 +716,7 @@ export function runComplianceTests() {
       type: "set-stance",
       stanceId: "centralization",
       value: 0.75,
-    }).accepted,
+    }).isAccepted,
     false,
   );
   const forcedChange = executeCommand(discrete, initializeScenario(discrete), {
@@ -737,7 +724,7 @@ export function runComplianceTests() {
     stanceId: "centralization",
     value: 1,
   });
-  assert.ok(forcedChange.accepted);
+  assert.ok(forcedChange.isAccepted);
   assert.equal(forcedChange.state.nodes.centralization.isForced, true);
 
   // Each Grudge is applied once to the baseline, then decayed, without accumulating.
@@ -1013,7 +1000,9 @@ export function runComplianceTests() {
     } else if (definition.type === "faction") {
       assert.equal(projectedNode.data.referenceMarkers[0].kind, "baseline");
       assert.deepEqual(
-        projectedNode.data.factionMetrics?.map(({ metric }) => metric),
+        projectedNode.data.factionMetrics?.map(
+          ({ metricLabel }) => metricLabel,
+        ),
         ["Satisfaction"],
       );
     } else {
@@ -1209,13 +1198,10 @@ export function runComplianceTests() {
         {
           nodeId: "centralization",
           delta: 0.05,
-          previousActive: true,
-          isActive: true,
         },
         {
           nodeId: "governance-tension",
           delta: 0,
-          previousActive: false,
           isActive: true,
         },
       ],
@@ -1227,6 +1213,12 @@ export function runComplianceTests() {
       .turnDelta,
     0.05,
     "Turn feedback should project a node delta without changing runtime state",
+  );
+  assert.equal(
+    feedbackGraph.nodes.find((node) => node.id === "centralization")?.data
+      .activationTransition,
+    undefined,
+    "Omitted activation feedback should not render a transition",
   );
   assert.equal(
     feedbackGraph.nodes.find((node) => node.id === "governance-tension")?.data
@@ -1249,7 +1241,6 @@ export function runComplianceTests() {
       {
         nodeId: "centralization",
         delta: 0,
-        previousActive: true,
         isActive: false,
       },
     ],

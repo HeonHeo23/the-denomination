@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { validateSavedGame } from "../../src/app/persistence";
 import { ongoingCompletion } from "../simulation/fixtures";
 import { exampleScenario } from "../../src/scenarios/example";
 import {
@@ -12,6 +13,7 @@ import {
   projectDilemmaConsequences,
   projectDilemmaDecisions,
   projectPendingDilemmas,
+  projectHistoricalDilemma,
 } from "../../src/ui/game/projectDilemma";
 
 export function runDilemmaConsequenceProjectionTests() {
@@ -52,7 +54,7 @@ export function runDilemmaConsequenceProjectionTests() {
   const before = structuredClone(consequences);
   const rows = projectDilemmaConsequences(exampleScenario, consequences);
   assert.deepEqual(
-    rows.map(({ metric }) => metric),
+    rows.map(({ metric }) => metric?.label),
     [
       firstMetric.label,
       undefined,
@@ -82,7 +84,8 @@ export function runDilemmaConsequenceProjectionTests() {
     "0.0",
   );
   assert.equal(rows[0].name, group.name);
-  assert.equal(rows[0].metricId, firstMetric.id);
+  assert.equal(rows[0].metric?.id, firstMetric.id);
+  assert.equal(rows[0].metric, firstMetric);
   assert.equal(rows[0].valueLabel, "+20.0%");
   assert.equal(rows[0].kindLabel, "Temporary pressure");
   assert.equal(rows[1].name, resource.name);
@@ -110,7 +113,7 @@ export function runDilemmaConsequenceProjectionTests() {
     factionMetrics: [...exampleScenario.factionMetrics].reverse(),
   };
   assert.equal(
-    projectDilemmaConsequences(reversed, consequences)[0].metric,
+    projectDilemmaConsequences(reversed, consequences)[0].metric?.label,
     secondMetric.label,
   );
 }
@@ -138,7 +141,7 @@ export function runDilemmaDecisionProjectionTests() {
     dilemmaId: definition.id,
     choiceId: firstChoice.id,
   });
-  assert.equal(firstResolved.accepted, true);
+  assert.equal(firstResolved.isAccepted, true);
   const secondTurn = advanceTurn(scenario, firstResolved.state, 0).state;
   const thirdTurn = advanceTurn(scenario, secondTurn, 0).state;
   const secondChoice = definition.choices[1];
@@ -147,7 +150,7 @@ export function runDilemmaDecisionProjectionTests() {
     dilemmaId: definition.id,
     choiceId: secondChoice.id,
   });
-  assert.equal(secondResolved.accepted, true);
+  assert.equal(secondResolved.isAccepted, true);
 
   const restored = JSON.parse(
     JSON.stringify({
@@ -158,6 +161,9 @@ export function runDilemmaDecisionProjectionTests() {
           id: "unrelated",
           turn: thirdTurn.turn,
           kind: "stance",
+          definitionId: scenario.nodes.find(({ type }) => type === "stance")!
+            .id,
+          action: "change",
           title: "Unrelated action",
           detail: "Not a decision.",
         },
@@ -189,6 +195,88 @@ export function runDilemmaDecisionProjectionTests() {
     ],
   );
   assert.equal(decisions[0].title, definition.title);
+  const historical = decisions.map(({ id }) =>
+    projectHistoricalDilemma(scenario, restored, id)!,
+  );
+  assert.deepEqual(
+    historical.map(({ chosenChoiceId }) => chosenChoiceId),
+    [secondChoice.id, firstChoice.id],
+  );
+  assert.deepEqual(historical[0].choices, definition.choices);
+  assert.equal(historical[0].description, definition.description);
+  assert.equal(historical[0].dateLabel, "Year 1983");
+  const saved = JSON.parse(
+    JSON.stringify({
+      version: 4,
+      scenarioId: scenario.id,
+      scenarioContentVersion: 4,
+      playerName: "Reviewer",
+      denominationName: "Review",
+      state: restored,
+    }),
+  );
+  const validated = validateSavedGame(saved, [{ scenario, contentVersion: 4 }]);
+  assert.ok(validated);
+  assert.deepEqual(
+    projectHistoricalDilemma(scenario, validated.state, decisions[0].id),
+    historical[0],
+  );
+  const entry = restored.history.find(({ id }) => id === decisions[0].id)!;
+  const renamed = {
+    ...scenario,
+    dilemmas: [{ ...definition, title: "Changed title" }],
+  };
+  assert.equal(
+    projectHistoricalDilemma(renamed, restored, entry.id)?.title,
+    entry.title,
+  );
+  const missing = projectHistoricalDilemma(
+    { ...scenario, dilemmas: [] },
+    restored,
+    entry.id,
+  )!;
+  assert.deepEqual(missing.choices, []);
+  assert.equal(missing.description, undefined);
+  assert.equal(missing.chosenChoiceId, undefined);
+  assert.equal(missing.savedResponse, entry.detail);
+  const duplicate = {
+    ...scenario,
+    dilemmas: [
+      {
+        ...definition,
+        choices: [secondChoice, { ...secondChoice, id: "duplicate" }],
+      },
+    ],
+  };
+  assert.equal(
+    projectHistoricalDilemma(duplicate, restored, entry.id)?.chosenChoiceId,
+    secondChoice.id,
+  );
+  const unmatched = {
+    ...restored,
+    history: [{ ...entry, detail: "A saved response with no current match" }],
+  };
+  assert.equal(
+    projectHistoricalDilemma(scenario, unmatched, entry.id)?.chosenChoiceId,
+    secondChoice.id,
+  );
+  assert.equal(
+    projectHistoricalDilemma(scenario, unmatched, entry.id)?.savedResponse,
+    unmatched.history[0].detail,
+  );
+  assert.equal(
+    projectHistoricalDilemma(scenario, restored, "unavailable"),
+    undefined,
+  );
+  assert.equal(
+    projectHistoricalDilemma(
+      { ...scenario, start: { turn: 0 } },
+      restored,
+      entry.id,
+    )?.dateLabel,
+    "Turn 3",
+  );
+
   assert.equal(
     projectDilemmaDecisions(
       { ...scenario, start: { turn: scenario.start.turn } },

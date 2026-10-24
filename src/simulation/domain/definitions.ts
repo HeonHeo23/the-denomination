@@ -41,7 +41,6 @@ interface BaseNodeDefinition {
   readonly initial: InitialNodeState;
   readonly baseline?: number;
   readonly graphVisible?: boolean;
-  readonly requires?: readonly string[];
 }
 
 /** Configuration for a continuously adjustable Stance. */
@@ -94,16 +93,16 @@ export interface IndicatorDefinition extends BaseNodeDefinition {
 export type FactionCategory =
   "theological" | "demographic" | "geographic" | "institutional";
 /** Scenario-defined metric identifier; numeric references use node IDs. */
-export type FactionMetric = string;
+export type FactionMetricId = string;
 export interface FactionMetricDefinition {
-  readonly id: FactionMetric;
+  readonly id: FactionMetricId;
   readonly label: string;
 }
 export interface FactionGroupDefinition {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly metrics: Readonly<Record<FactionMetric, NodeId>>;
+  readonly metrics: Readonly<Record<FactionMetricId, NodeId>>;
 }
 /** An ordinary calculated metric owned by a static Faction group. */
 export interface FactionDefinition extends BaseNodeDefinition {
@@ -215,7 +214,7 @@ export interface PrerequisiteGroupDefinition {
   readonly allOf: readonly PrerequisiteDefinition[];
 }
 
-/** Reusable immediate state changes created by authored occurrences. */
+/** Reusable immediate state changes created by authored incidents. */
 export type ConsequenceDefinition =
   | {
       readonly kind: "resource";
@@ -243,21 +242,22 @@ export interface GameOverStageDefinition {
   readonly consequences?: readonly ConsequenceDefinition[];
 }
 
-/** One recoverable, Scenario-authored trajectory toward a terminal outcome. */
-export interface GameOverDefinition {
+/** Fields shared by every authored outcome definition. */
+export interface OutcomeDefinition {
   readonly id: string;
   readonly title: string;
+  readonly description: string;
+}
+
+/** One recoverable, Scenario-authored trajectory toward a terminal outcome. */
+export interface GameOverDefinition extends OutcomeDefinition {
   readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
-  readonly terminalAfterTurns: number;
+  readonly turnsToGameOver: number;
   readonly stages: readonly GameOverStageDefinition[];
   readonly recovery?: {
     readonly title: string;
     readonly description: string;
     readonly consequences?: readonly ConsequenceDefinition[];
-  };
-  readonly report: {
-    readonly title: string;
-    readonly narrative: string;
   };
 }
 
@@ -275,7 +275,6 @@ export interface EventDefinition {
   readonly influences: readonly IncidentInfluence[];
   readonly threshold: number;
   readonly cooldownTurns: number;
-  readonly requires?: readonly string[];
   readonly consequences: readonly ConsequenceDefinition[];
 }
 
@@ -287,7 +286,6 @@ export interface DilemmaDefinition {
   readonly influences: readonly IncidentInfluence[];
   readonly threshold: number;
   readonly cooldownTurns: number;
-  readonly requires?: readonly string[];
   readonly choices: readonly {
     readonly id: string;
     readonly label: string;
@@ -307,15 +305,9 @@ export interface HistoricalActorDefinition {
   readonly description: string;
 }
 
-export interface EndingNarrativeDefinition {
-  readonly id: string;
-  readonly title: string;
-  readonly narrative: string;
-}
-
-export interface EndingDefinition extends EndingNarrativeDefinition {
-  readonly priority: number;
+export interface EndingDefinition extends OutcomeDefinition {
   readonly prerequisiteGroups: readonly PrerequisiteGroupDefinition[];
+  readonly priority: number;
 }
 
 export interface CompletionDefinition {
@@ -323,7 +315,7 @@ export interface CompletionDefinition {
     readonly description: string;
   })[];
   readonly endings: readonly EndingDefinition[];
-  readonly fallbackEnding: EndingNarrativeDefinition;
+  readonly fallbackEnding: OutcomeDefinition;
   readonly reportNodeIds: readonly NodeId[];
 }
 
@@ -336,7 +328,6 @@ export interface ScenarioDefinition {
   readonly historicalActors: readonly HistoricalActorDefinition[];
   readonly completion: CompletionDefinition;
   readonly start: { readonly turn: number; readonly year?: number };
-  readonly conditions?: readonly string[];
   readonly events?: readonly EventDefinition[];
   readonly dilemmas?: readonly DilemmaDefinition[];
   readonly gameOvers?: readonly GameOverDefinition[];

@@ -1,4 +1,4 @@
-import { FactionMetricName } from "@/ui/FactionMetric";
+import { NodeName } from "@/ui/FactionMetric";
 import {
   BookOpenText,
   CircleCheck,
@@ -25,8 +25,8 @@ import { ItemGroup } from "@/components/ui/item";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatSignedValue } from "@/ui/formatValue";
 import { isEtherealTurn } from "@/ui/institutionEra";
-import { crisisTurnsLabel } from "@/ui/game/crisisPresentation";
-import { DossierDialogFrame } from "./DossierDialogFrame";
+import { formatCrisisTurns } from "@/ui/game/projectOutcome";
+import DossierDialogFrame from "./DossierDialogFrame";
 import { DossierItemButton } from "./DossierItemButton";
 import type { TurnReport } from "./projectReport";
 import { ChangesSection } from "./ChangesSection";
@@ -41,7 +41,7 @@ interface TurnReportDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
-export function TurnReportDialog({
+export default function TurnReportDialog({
   report,
   open,
   onNodeSelect,
@@ -157,7 +157,7 @@ export function TurnReportDialog({
                       trailing={
                         <Badge variant="outline">
                           {transition.kind === "stage"
-                            ? `${crisisTurnsLabel(transition.turnsRemaining)} to Game Over`
+                            ? `${formatCrisisTurns(transition.turnsRemaining)} to Game Over`
                             : "Recovered"}
                         </Badge>
                       }
@@ -168,7 +168,7 @@ export function TurnReportDialog({
                       variant="outline"
                       size="sm"
                       key={grudge.id}
-                      aria-label={`Open ${grudge.targetName}${grudge.targetMetric ? ` (${grudge.targetMetric})` : ""} dossier`}
+                      aria-label={`Open ${grudge.targetName}${grudge.targetMetric ? ` (${grudge.targetMetric.label})` : ""} dossier`}
                       onSelect={() => onNodeSelect(grudge.targetId)}
                       leading={
                         <Flame aria-hidden="true" className="size-4 shrink-0" />
@@ -177,10 +177,9 @@ export function TurnReportDialog({
                       description={
                         <span className="inline-flex items-center gap-1.5">
                           <span>Affecting</span>
-                          <FactionMetricName
+                          <NodeName
                             name={grudge.targetName}
                             metric={grudge.targetMetric}
-                            metricId={grudge.targetMetricId}
                           />
                         </span>
                       }

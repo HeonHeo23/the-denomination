@@ -82,7 +82,7 @@ function FactionMetricToggle({
           aria-label={metric.label}
           title={metric.label}
         >
-          <FactionMetricIcon metric={metric.label} metricId={metric.id} />
+          <FactionMetricIcon metric={metric} />
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -110,7 +110,7 @@ export function SimulationGraph({
   const endedNodeIdsThisTurn = useMemo(
     () =>
       turnFeedback?.changes
-        .filter(({ previousActive, isActive }) => previousActive && !isActive)
+        .filter(({ isActive }) => isActive === false)
         .map(({ nodeId }) => nodeId),
     [turnFeedback],
   );

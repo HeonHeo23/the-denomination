@@ -21,7 +21,6 @@ const makeDilemma = (id: string, amount: number): DilemmaDefinition => ({
   influences: [{ source: "centralization", coefficient: 1 }],
   threshold: 0.5,
   cooldownTurns: 2,
-  requires: ["has-general-assembly"],
   choices: [
     {
       id: "accept",
@@ -43,7 +42,6 @@ export function runDilemmaTests() {
   assert.equal(
     exampleScenario.dilemmas.filter(
       (definition) =>
-        !("requires" in definition && definition.requires?.length) &&
         definition.influences.length === 1 &&
         definition.influences[0].source === "_random_",
     ).length,
@@ -53,7 +51,6 @@ export function runDilemmaTests() {
   const ungatedRandom = {
     ...exampleScenario,
     completion: ongoingCompletion,
-    conditions: [],
     gameOvers: [],
     dilemmas: [
       exampleScenario.dilemmas.find(
@@ -76,7 +73,7 @@ export function runDilemmaTests() {
     initializeScenario(governanceOnly),
     { type: "set-stance", stanceId: "centralization", value: 1 },
   );
-  assert.equal(raisedCentralization.accepted, true);
+  assert.equal(raisedCentralization.isAccepted, true);
   let exampleTurn = raisedCentralization.state;
   for (
     let index = 0;
@@ -115,20 +112,20 @@ export function runDilemmaTests() {
     dilemmaId: "first-decision",
     choiceId: "missing",
   });
-  assert.equal(rejected.accepted, false);
+  assert.equal(rejected.isAccepted, false);
   assert.strictEqual(rejected.state, first);
   const unqueued = executeCommand(scenario, first, {
     type: "resolve-dilemma",
     dilemmaId: "second-decision",
     choiceId: "accept",
   });
-  assert.equal(unqueued.accepted, false);
+  assert.equal(unqueued.isAccepted, false);
   const firstResolved = executeCommand(scenario, first, {
     type: "resolve-dilemma",
     dilemmaId: "first-decision",
     choiceId: "accept",
   });
-  assert.equal(firstResolved.accepted, true);
+  assert.equal(firstResolved.isAccepted, true);
   assert.deepEqual(firstResolved.state.pendingDilemmaIds, []);
   assert.equal(
     firstResolved.state.nodes.authority.value,
@@ -139,7 +136,7 @@ export function runDilemmaTests() {
       type: "resolve-dilemma",
       dilemmaId: "first-decision",
       choiceId: "accept",
-    }).accepted,
+    }).isAccepted,
     false,
   );
 
@@ -178,7 +175,7 @@ export function runDilemmaTests() {
     dilemmaId: "second-decision",
     choiceId: "accept",
   });
-  assert.equal(secondResolved.accepted, true);
+  assert.equal(secondResolved.isAccepted, true);
   const turnThree = advanceTurn(scenario, secondResolved.state).state;
   assert.deepEqual(turnThree.pendingDilemmaIds, []);
   const turnFour = advanceTurn(scenario, turnThree).state;
@@ -212,12 +209,6 @@ export function runDilemmaTests() {
   assert.throws(() => advanceTurnRaw(scenario, initial), /random value/);
   assert.throws(() => advanceTurnRaw(scenario, initial, 1), RangeError);
 
-  const missingTag = { ...scenario, conditions: [] };
-  assert.deepEqual(
-    advanceTurn(missingTag, initializeScenario(missingTag)).state
-      .pendingDilemmaIds,
-    [],
-  );
   const lowScore = {
     ...scenario,
     dilemmas: [{ ...makeDilemma("low-score", 1), threshold: 0.9 }],
@@ -289,7 +280,7 @@ export function runDilemmaTests() {
             ],
           },
         ],
-        terminalAfterTurns: 2,
+        turnsToGameOver: 2,
         stages: [
           {
             id: "warning",
@@ -298,7 +289,7 @@ export function runDilemmaTests() {
             description: "Warning.",
           },
         ],
-        report: { title: "Loss", narrative: "The game ended." },
+        description: "The game ended.",
       },
     ],
   };
@@ -322,5 +313,7 @@ export function runDilemmaTests() {
     [],
     "Terminal Game Over prevents Dilemmas from queueing",
   );
+  assert.equal(terminal.dilemmas["second-decision"].triggerCount, 0);
+  assert.equal(terminal.dilemmas["second-decision"].lastResolvedTurn, null);
   assert.strictEqual(advanceTurn(terminalScenario, terminal).state, terminal);
 }
